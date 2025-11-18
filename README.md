@@ -1,2 +1,2 @@
 # CoachAssist
-AI-powered sports analytics platform that helps coaches and players analyze performance through video, stats, and AI insights
+Football coaching assistance platform providing coaches and analysts with game analysis tools to for data-driven decision making.
