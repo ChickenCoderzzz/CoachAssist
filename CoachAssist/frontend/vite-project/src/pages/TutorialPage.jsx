@@ -19,19 +19,22 @@ export default function TutorialPage() {
           maxWidth: "900px",
         }}
       >
-        <p>This is the tutorial page. Your teammate can fill this in later with:</p>
+        <p>
+          Welcome to the CoachAssist tutorial. This section provides an overview
+          of the core features you'll use throughout the platform:
+        </p>
 
         <ul>
-          <li>How to create a team</li>
-          <li>How to add games and film</li>
-          <li>How to navigate the dashboard</li>
-          <li>How to manage your account</li>
-          <li>How to use CoachAssist tools</li>
+          <li>Creating and managing teams</li>
+          <li>Adding games, film, and related data</li>
+          <li>Navigating the dashboard and analytics tools</li>
+          <li>Updating your account and profile settings</li>
+          <li>Using CoachAssist features to organize and review game insights</li>
         </ul>
 
         <p>
-          This page is intentionally simple so your teammate can expand it with real
-          content later.
+          Additional guided steps, examples, and walkthroughs can be added here
+          as the platform evolves.
         </p>
       </div>
     </div>
