@@ -3,23 +3,60 @@ import { useState } from "react";
 import logo from "../assets/logo.png";
 import bg from "../assets/field_bg.png";
 import DarkCard from "../components/DarkCard";
+import { useAuth } from "../context/AuthContext";
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const { signup } = useAuth();
 
-  //  State for success message + loading
-  const [success, setSuccess] = useState("");
+  //  State for form fields
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    full_name: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  //  Mock signup logic (just for navigation testing)
-  const handleSignup = () => {
-    setLoading(true);
-    setSuccess("Account created successfully! Redirecting to login...");
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
 
-    // Simulate processing delay, then redirect
-    setTimeout(() => {
+  const handleSignup = async () => {
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (!formData.username || !formData.email || !formData.full_name || !formData.password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+
+    const result = await signup({
+      username: formData.username,
+      email: formData.email,
+      full_name: formData.full_name,
+      password: formData.password,
+    });
+
+    if (result.success) {
+      // Redirect to login after successful signup
       navigate("/login");
-    }, 1500);
+    } else {
+      setError(result.message || "Signup failed");
+    }
+    setLoading(false);
   };
 
   return (
@@ -34,21 +71,58 @@ export default function SignupPage() {
         alignItems: "center",
       }}
     >
-      <DarkCard width="420px" padding="50px 40px">
+      <DarkCard width="420px" padding="40px 40px">
 
         {/* Logo */}
         <img
           src={logo}
           alt="CoachAssist Logo"
-          style={{ width: "170px", marginBottom: "30px" }}
+          style={{ width: "150px", marginBottom: "20px" }}
         />
 
-        <h2 style={{ color: "white", marginBottom: "25px" }}>Create Account</h2>
+        <h2 style={{ color: "white", marginBottom: "20px" }}>Create Account</h2>
+
+        {/* Full Name */}
+        <input
+          type="text"
+          name="full_name"
+          placeholder="Full Name"
+          value={formData.full_name}
+          onChange={handleChange}
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginBottom: "15px",
+            borderRadius: "6px",
+            border: "1px solid #777",
+            background: "rgba(255, 255, 255, 0.9)",
+          }}
+        />
+
+        {/* Email */}
+        <input
+          type="email"
+          name="email"
+          placeholder="Email Address"
+          value={formData.email}
+          onChange={handleChange}
+          style={{
+            width: "100%",
+            padding: "12px",
+            marginBottom: "15px",
+            borderRadius: "6px",
+            border: "1px solid #777",
+            background: "rgba(255, 255, 255, 0.9)",
+          }}
+        />
 
         {/* Username */}
         <input
           type="text"
+          name="username"
           placeholder="Username"
+          value={formData.username}
+          onChange={handleChange}
           style={{
             width: "100%",
             padding: "12px",
@@ -62,7 +136,10 @@ export default function SignupPage() {
         {/* Password */}
         <input
           type="password"
+          name="password"
           placeholder="Password"
+          value={formData.password}
+          onChange={handleChange}
           style={{
             width: "100%",
             padding: "12px",
@@ -76,7 +153,10 @@ export default function SignupPage() {
         {/* Confirm Password */}
         <input
           type="password"
+          name="confirmPassword"
           placeholder="Confirm Password"
+          value={formData.confirmPassword}
+          onChange={handleChange}
           style={{
             width: "100%",
             padding: "12px",
@@ -87,16 +167,16 @@ export default function SignupPage() {
           }}
         />
 
-        {/*  Success Message */}
-        {success && (
+        {/*  Error Message */}
+        {error && (
           <p
             style={{
-              color: "#8fd18e",
+              color: "#ff6b6b",
               marginBottom: "15px",
               fontWeight: "bold",
             }}
           >
-            {success}
+            {error}
           </p>
         )}
 

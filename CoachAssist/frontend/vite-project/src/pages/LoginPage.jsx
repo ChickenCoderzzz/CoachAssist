@@ -1,10 +1,46 @@
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import logo from "../assets/logo.png";
 import bg from "../assets/field_bg.png";
 import DarkCard from "../components/DarkCard";
+import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
+
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+  });
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleLogin = async () => {
+    setError("");
+    if (!formData.username || !formData.password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    const result = await login(formData.username, formData.password);
+
+    if (result.success) {
+      navigate("/dashboard");
+    } else {
+      setError(result.message || "Invalid credentials");
+    }
+    setLoading(false);
+  };
 
   return (
     <div
@@ -30,7 +66,10 @@ export default function LoginPage() {
 
         <input
           type="text"
+          name="username"
           placeholder="Username"
+          value={formData.username}
+          onChange={handleChange}
           style={{
             width: "100%",
             padding: "12px",
@@ -43,7 +82,10 @@ export default function LoginPage() {
 
         <input
           type="password"
+          name="password"
           placeholder="Password"
+          value={formData.password}
+          onChange={handleChange}
           style={{
             width: "100%",
             padding: "12px",
@@ -54,20 +96,34 @@ export default function LoginPage() {
           }}
         />
 
+        {error && (
+          <p
+            style={{
+              color: "#ff6b6b",
+              marginBottom: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            {error}
+          </p>
+        )}
+
         <button
           style={{
             width: "100%",
             padding: "12px",
             fontSize: "1rem",
             borderRadius: "6px",
-            background: "#4b8b3b",
+            background: loading ? "#2d5e28" : "#4b8b3b",
             color: "white",
             border: "none",
             cursor: "pointer",
+            opacity: loading ? 0.7 : 1,
           }}
-          onClick={() => navigate("/dashboard")}
+          disabled={loading}
+          onClick={handleLogin}
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
 
         <p style={{ marginTop: "20px", color: "white" }}>
