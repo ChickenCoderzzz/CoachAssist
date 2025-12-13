@@ -52,27 +52,42 @@ def signup(data: SignupSchema):
 #Login
 @router.post("/login")
 def login(data: LoginSchema):
-    db = get_db()
-    cur = db.cursor()
+    print(f"Login attempt for: {data.username}")
+    try:
+        db = get_db()
+        cur = db.cursor()
 
-    # Match username or email
-    cur.execute(
-        """
-        SELECT username, password_hash
-        FROM users
-        WHERE username=%s OR email=%s
-        """,
-        (data.username, data.username)   # allow login by username or email
-    )
+        # Match username or email
+        cur.execute(
+            """
+            SELECT username, password_hash
+            FROM users
+            WHERE username=%s OR email=%s
+            """,
+            (data.username, data.username)   # allow login by username or email
+        )
 
-    user = cur.fetchone()
+        user = cur.fetchone()
+        print(f"User found in DB? {user is not None}")
 
-    if not user or not verify_password(data.password, user[1]):
-        raise HTTPException(401, "Invalid login credentials")
+        if not user:
+            print("User not found")
+            raise HTTPException(401, "Invalid login credentials")
 
-    token = create_token(user[0])
+        password_valid = verify_password(data.password, user[1])
+        print(f"Password valid? {password_valid}")
 
-    return {"token": token, "username": user[0]}
+        if not password_valid:
+            print("Password invalid")
+            raise HTTPException(401, "Invalid login credentials")
+
+        token = create_token(user[0])
+        print("Token created successfully")
+
+        return {"token": token, "username": user[0]}
+    except Exception as e:
+        print(f"Login Logic Error: {e}")
+        raise e
 
 #Get profile
 @router.get("/profile")
