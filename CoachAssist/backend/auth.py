@@ -108,12 +108,7 @@ def get_profile(username=Depends(require_user)):
     if not user:
         raise HTTPException(404, "User not found")
 
-    return {
-        "username": user[0],
-        "email": user[1],
-        "full_name": user[2],
-        "created_at": user[3]
-    }
+    return user
 
 #Update profile
 @router.patch("/profile")
@@ -136,10 +131,21 @@ def update_profile(data: ProfileUpdateSchema, username=Depends(require_user)):
         username = data.username  # update session reference
 
     db.commit()
+
+    # After updating, fetch the updated profile
+    cur.execute(
+        "SELECT username, email, full_name, created_at FROM users WHERE username=%s",
+        (username,)
+    )
+    updated_user = cur.fetchone()
+
     cur.close()
     db.close()
 
-    return {"message": "Profile updated"}
+    if not updated_user:
+        raise HTTPException(404, "User not found after update")
+
+    return updated_user
 
 #Delete profile
 @router.delete("/profile")

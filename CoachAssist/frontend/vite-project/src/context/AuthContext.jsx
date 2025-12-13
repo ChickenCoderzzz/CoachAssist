@@ -8,15 +8,36 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // On mount, check if token exists and restore user session if possible
-        // For now, we just restore the username from local storage if checking token validity is complex
-        // Ideally, we would fetch /auth/profile here to validata token
         const storedUser = localStorage.getItem("username");
         if (token && storedUser) {
-            setUser({ username: storedUser });
+            // Try to get full profile from backend using the token
+            fetchProfile(token).finally(() => setLoading(false));
+        } else {
+            setLoading(false);
         }
-        setLoading(false);
     }, [token]);
+
+    const fetchProfile = async (currentToken) => {
+        if (!currentToken) return;
+        try {
+            const res = await fetch(`/auth/profile`, {
+                method: "GET",
+                headers: { token: currentToken },
+            });
+            if (!res.ok) {
+                // invalid token or other error
+                setUser(null);
+                return;
+            }
+            const data = await res.json();
+            // data includes username, email, full_name
+            setUser({ username: data.username, email: data.email, full_name: data.full_name });
+            localStorage.setItem("username", data.username);
+        } catch (e) {
+            console.error("Error fetching profile:", e);
+            setUser(null);
+        }
+    };
 
     const login = async (username, password) => {
         try {
@@ -41,10 +62,9 @@ export const AuthProvider = ({ children }) => {
 
             const data = await response.json();
             setToken(data.token);
-            setUser({ username: data.username });
-
             localStorage.setItem("token", data.token);
-            localStorage.setItem("username", data.username);
+            // After setting token, fetch the full profile to populate user
+            await fetchProfile(data.token);
 
             return { success: true };
         } catch (error) {
@@ -87,8 +107,17 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("username");
     };
 
+    const refreshProfile = () => fetchProfile(token);
+    
+    const updateUser = (newUser) => {
+        setUser(newUser);
+        if (newUser && newUser.username) {
+            localStorage.setItem("username", newUser.username);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, token, login, signup, logout, loading }}>
+        <AuthContext.Provider value={{ user, token, login, signup, logout, loading, refreshProfile, updateUser }}>
             {!loading && children}
         </AuthContext.Provider>
     );

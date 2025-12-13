@@ -2,9 +2,11 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import DarkCard from "../components/DarkCard";
 import logo from "../assets/logo.png";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   return (
     <div
@@ -24,13 +26,13 @@ export default function ProfilePage() {
         <h2 style={{ color: "white", marginBottom: "20px" }}>Profile</h2>
 
         <p style={{ color: "white" }}>
-          <strong>Email:</strong> john_smith@gmail.com
+          <strong>Email:</strong> {user?.email || "Not set"}
         </p>
         <p style={{ color: "white" }}>
-          <strong>Username:</strong> john_smith21
+          <strong>Username:</strong> {user?.username || "Not set"}
         </p>
         <p style={{ color: "white" }}>
-          <strong>Full Name:</strong> John Smith
+          <strong>Full Name:</strong> {user?.full_name || "Not set"}
         </p>
 
         <button
@@ -60,7 +62,10 @@ export default function ProfilePage() {
             fontSize: "1.1rem",
             cursor: "pointer",
           }}
-          onClick={() => navigate("/")}
+          onClick={() => {
+            logout();
+            navigate("/");
+          }}
         >
           Log Out
         </button>
