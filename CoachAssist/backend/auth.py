@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
 from database import get_db
-from schema import SignupSchema, LoginSchema, ProfileUpdateSchema
+from schema import SignupSchema, LoginSchema, ProfileUpdateSchema, ForgotPasswordSchema
 from utils import hash_password, verify_password, create_token, decode_token
 
 router = APIRouter(prefix="/auth")
@@ -161,3 +161,40 @@ def delete_profile(username=Depends(require_user)):
     db.close()
 
     return {"message": "Account deleted"}
+
+#forgot password
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordSchema):
+    db = get_db()
+    cur = db.cursor()
+
+    # Verify user identity
+    cur.execute(
+        """
+        SELECT id
+        FROM users
+        WHERE username=%s AND email=%s AND full_name=%s
+        """,
+        (data.username, data.email, data.full_name)
+    )
+
+    user = cur.fetchone()
+
+    if not user:
+        cur.close()
+        db.close()
+        raise HTTPException(404, "User information does not match our records")
+
+    # Update password
+    hashed = hash_password(data.new_password)
+    cur.execute(
+        "UPDATE users SET password_hash=%s WHERE id=%s",
+        (hashed, user["id"])
+    )
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Password reset successful"}
+

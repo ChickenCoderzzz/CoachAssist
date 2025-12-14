@@ -125,7 +125,20 @@ export default function LoginPage() {
         >
           {loading ? "Logging in..." : "Login"}
         </button>
-
+                  <p style={{ fontSize: "1rem",marginTop: "22px", color: "white" }}>
+          {" "}
+          <span
+            style={{
+              fontSize: "1rem",
+              color: "#8fd18e",
+              cursor: "pointer",
+              fontWeight: "bold",
+            }}
+            onClick={() => navigate("/forgotpassword")}
+          >
+            Forgot password?
+          </span>
+        </p>
         <p style={{ marginTop: "20px", color: "white" }}>
           Don’t have an account?{" "}
           <span

@@ -18,3 +18,10 @@ class ProfileUpdateSchema(BaseModel):
     email: EmailStr | None= None
     password: str | None= None
     full_name: str | None= None
+
+#Data for the forgot password
+class ForgotPasswordSchema(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: str
+    new_password: str
