@@ -73,18 +73,19 @@ def login(data: LoginSchema):
         if not user:
             print("User not found")
             raise HTTPException(401, "Invalid login credentials")
-
-        password_valid = verify_password(data.password, user[1])
+        
+        hashed_pw = user["password_hash"]
+        password_valid = verify_password(data.password, hashed_pw)
         print(f"Password valid? {password_valid}")
 
         if not password_valid:
             print("Password invalid")
             raise HTTPException(401, "Invalid login credentials")
 
-        token = create_token(user[0])
+        token = create_token(user["username"])
         print("Token created successfully")
 
-        return {"token": token, "username": user[0]}
+        return {"token": token, "username": user["username"]}
     except Exception as e:
         print(f"Login Logic Error: {e}")
         raise e
