@@ -10,6 +10,8 @@ def get_db():
 
     if database_url:
         conn = psycopg2.connect(database_url, cursor_factory=psycopg2.extras.RealDictCursor)
+        conn.autocommit = True
+        return conn
     else:
         conn = psycopg2.connect(
             host=os.getenv("PGHOST"),
