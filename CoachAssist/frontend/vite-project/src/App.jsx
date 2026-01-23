@@ -3,6 +3,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import LandingPage from "./pages/LandingPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
+import VerifyEmail from "./pages/VerifyEmail.jsx"; // NEW
 import Dashboard from "./pages/Dashboard.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import EditProfilePage from "./pages/EditProfilePage.jsx";
@@ -15,7 +16,13 @@ function App() {
   const location = useLocation();
 
   // Paths where navbar should NOT appear:
-  const hideNavbarPaths = ["/", "/login", "/signup", "/forgotpassword"];
+  const hideNavbarPaths = [
+    "/",
+    "/login",
+    "/signup",
+    "/verify-email",      
+    "/forgotpassword",
+  ];
 
   const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
@@ -27,6 +34,10 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+
+        {/* NEW: Email Verification */}
+        <Route path="/verify-email" element={<VerifyEmail />} />
+
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/edit-profile" element={<EditProfilePage />} />
@@ -38,6 +49,5 @@ function App() {
 }
 
 export default App;
-
 
 

@@ -15,6 +15,7 @@ export default function LoginPage() {
   });
 
   const [error, setError] = useState("");
+  const [needsVerification, setNeedsVerification] = useState(false); // NEW
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -26,6 +27,8 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     setError("");
+    setNeedsVerification(false);
+
     if (!formData.username || !formData.password) {
       setError("Please fill in all fields");
       return;
@@ -37,8 +40,15 @@ export default function LoginPage() {
     if (result.success) {
       navigate("/dashboard");
     } else {
-      setError(result.message || "Invalid credentials");
+      // NEW: detect unverified email case
+      if (result.message?.toLowerCase().includes("verify")) {
+        setNeedsVerification(true);
+        setError("Please verify your email before logging in.");
+      } else {
+        setError(result.message || "Invalid credentials");
+      }
     }
+
     setLoading(false);
   };
 
@@ -102,10 +112,30 @@ export default function LoginPage() {
               color: "#ff6b6b",
               marginBottom: "15px",
               fontWeight: "bold",
+              textAlign: "center",
             }}
           >
             {error}
           </p>
+        )}
+
+        {/* NEW: Verify Email CTA */}
+        {needsVerification && (
+          <button
+            style={{
+              width: "100%",
+              padding: "10px",
+              marginBottom: "15px",
+              borderRadius: "6px",
+              background: "#357abd",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+            }}
+            onClick={() => navigate("/verify-email")}
+          >
+            Verify Email
+          </button>
         )}
 
         <button
@@ -125,8 +155,8 @@ export default function LoginPage() {
         >
           {loading ? "Logging in..." : "Login"}
         </button>
-                  <p style={{ fontSize: "1rem",marginTop: "22px", color: "white" }}>
-          {" "}
+
+        <p style={{ fontSize: "1rem", marginTop: "22px", color: "white" }}>
           <span
             style={{
               fontSize: "1rem",
@@ -139,6 +169,7 @@ export default function LoginPage() {
             Forgot password?
           </span>
         </p>
+
         <p style={{ marginTop: "20px", color: "white" }}>
           Don’t have an account?{" "}
           <span

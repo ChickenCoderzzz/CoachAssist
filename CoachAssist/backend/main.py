@@ -1,3 +1,7 @@
+import auth
+print("### AUTH MODULE LOADED FROM ###")
+print(auth.__file__)
+
 from fastapi import FastAPI
 from auth import router as auth_router
 

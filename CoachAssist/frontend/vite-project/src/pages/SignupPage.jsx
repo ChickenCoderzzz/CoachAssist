@@ -9,7 +9,6 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  //  State for form fields
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -20,6 +19,7 @@ export default function SignupPage() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleChange = (e) => {
     setFormData({
@@ -36,7 +36,12 @@ export default function SignupPage() {
       return;
     }
 
-    if (!formData.username || !formData.email || !formData.full_name || !formData.password) {
+    if (
+      !formData.username ||
+      !formData.email ||
+      !formData.full_name ||
+      !formData.password
+    ) {
       setError("Please fill in all fields");
       return;
     }
@@ -51,11 +56,13 @@ export default function SignupPage() {
     });
 
     if (result.success) {
-      // Redirect to login after successful signup
-      navigate("/login");
+      setSuccessMessage(
+        "Account created! Please check your email for a verification code."
+      );
     } else {
       setError(result.message || "Signup failed");
     }
+
     setLoading(false);
   };
 
@@ -72,85 +79,78 @@ export default function SignupPage() {
       }}
     >
       <DarkCard width="420px" padding="40px 40px">
-
-        {/* Logo */}
         <img
           src={logo}
           alt="CoachAssist Logo"
           style={{ width: "150px", marginBottom: "20px" }}
         />
 
-        <h2 style={{ color: "white", marginBottom: "20px" }}>Create Account</h2>
+        <h2 style={{ color: "white", marginBottom: "20px" }}>
+          Create Account
+        </h2>
 
-        {/* Full Name */}
+        {/* Success Message + Verify Email Button */}
+        {successMessage && (
+          <div style={{ marginBottom: "20px", textAlign: "center" }}>
+            <p style={{ color: "#8fd18e", fontWeight: "bold" }}>
+              {successMessage}
+            </p>
+
+            <button
+              style={{
+                marginTop: "10px",
+                padding: "12px",
+                width: "100%",
+                borderRadius: "6px",
+                background: "#357abd",
+                color: "white",
+                border: "none",
+                cursor: "pointer",
+              }}
+              onClick={() => navigate("/verify-email")}
+            >
+              Verify Email
+            </button>
+          </div>
+        )}
+
+        {/* Form Inputs */}
         <input
           type="text"
           name="full_name"
           placeholder="Full Name"
           value={formData.full_name}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          style={inputStyle}
         />
 
-        {/* Email */}
         <input
           type="email"
           name="email"
           placeholder="Email Address"
           value={formData.email}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          style={inputStyle}
         />
 
-        {/* Username */}
         <input
           type="text"
           name="username"
           placeholder="Username"
           value={formData.username}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          style={inputStyle}
         />
 
-        {/* Password */}
         <input
           type="password"
           name="password"
           placeholder="Password"
           value={formData.password}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          style={inputStyle}
         />
 
-        {/* Confirm Password */}
         <input
           type="password"
           name="confirmPassword"
@@ -158,16 +158,12 @@ export default function SignupPage() {
           value={formData.confirmPassword}
           onChange={handleChange}
           style={{
-            width: "100%",
-            padding: "12px",
+            ...inputStyle,
             marginBottom: "20px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
           }}
         />
 
-        {/*  Error Message */}
+        {/* Error Message */}
         {error && (
           <p
             style={{
@@ -180,26 +176,27 @@ export default function SignupPage() {
           </p>
         )}
 
-        {/* Create Account Button */}
-        <button
-          style={{
-            width: "100%",
-            padding: "12px",
-            fontSize: "1rem",
-            borderRadius: "6px",
-            background: loading ? "#2d5e28" : "#4b8b3b",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-            opacity: loading ? 0.7 : 1,
-          }}
-          disabled={loading}
-          onClick={handleSignup}
-        >
-          {loading ? "Creating Account..." : "Create Account"}
-        </button>
+        {/* Create Account Button (ONLY before success) */}
+        {!successMessage && (
+          <button
+            style={{
+              width: "100%",
+              padding: "12px",
+              fontSize: "1rem",
+              borderRadius: "6px",
+              background: loading ? "#2d5e28" : "#4b8b3b",
+              color: "white",
+              border: "none",
+              cursor: "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+            disabled={loading}
+            onClick={handleSignup}
+          >
+            {loading ? "Creating Account..." : "Create Account"}
+          </button>
+        )}
 
-        {/* Login link */}
         <p style={{ marginTop: "20px", color: "white" }}>
           Already have an account?{" "}
           <span
@@ -213,8 +210,17 @@ export default function SignupPage() {
             Login
           </span>
         </p>
-
       </DarkCard>
     </div>
   );
 }
+
+/* Shared input style */
+const inputStyle = {
+  width: "100%",
+  padding: "12px",
+  marginBottom: "15px",
+  borderRadius: "6px",
+  border: "1px solid #777",
+  background: "rgba(255, 255, 255, 0.9)",
+};

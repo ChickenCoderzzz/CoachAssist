@@ -3,6 +3,8 @@ from jose import jwt, JWTError
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
+import smtplib
+from email.message import EmailMessage
 
 #Load .env file
 load_dotenv()
@@ -34,3 +36,33 @@ def decode_token(token: str):
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         return None
+    
+def send_verification_email(to_email: str, code: str):
+    print("=== EMAIL SEND START ===")
+    print("SMTP_HOST:", os.getenv("SMTP_HOST"))
+    print("SMTP_USER:", os.getenv("SMTP_USER"))
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "CoachAssist Email Verification"
+        msg["From"] = os.getenv("EMAIL_FROM")
+        msg["To"] = to_email
+
+        msg.set_content(f"Your verification code is: {code}")
+
+        with smtplib.SMTP_SSL(
+            os.getenv("SMTP_HOST"),
+            int(os.getenv("SMTP_PORT"))
+        ) as server:
+            server.set_debuglevel(1)  # <-- THIS LINE
+            server.login(
+                os.getenv("SMTP_USER"),
+                os.getenv("SMTP_PASSWORD")
+            )
+            server.send_message(msg)
+
+        print("=== EMAIL SENT SUCCESSFULLY ===")
+
+    except Exception as e:
+        print("!!! EMAIL FAILED !!!")
+        print(e)

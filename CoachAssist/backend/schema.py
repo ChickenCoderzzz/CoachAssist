@@ -25,3 +25,6 @@ class ForgotPasswordSchema(BaseModel):
     email: EmailStr
     full_name: str
     new_password: str
+
+class VerifyEmailSchema(BaseModel):
+    code: str
