@@ -177,48 +177,49 @@ export default function AnalyzeGamePage() {
                     </div>
                 </div>
 
-                {/* Game State Table Area */}
+                {/* Game State Table Area (Flex Grid) */}
                 <div className="game-state-table-container">
-                    <div className="table-header">{tableHeaderTitle}</div>
+                    <div className="table-title-header">{tableHeaderTitle}</div>
 
+                    {/* Header Row */}
+                    <div className="table-header-row">
+                        <div className="cell col-obs">Observation</div>
+                        <div className="cell col-time">Time</div>
+                        {/* Spacer to align with scrollbar in body */}
+                        <div className="scrollbar-spacer"></div>
+                    </div>
+
+                    {/* Scrollable Body */}
                     <div className="table-scroll-area">
-                        <table className="game-state-table">
-                            <thead>
-                                <tr>
-                                    <th style={{ position: "sticky", top: 0, backgroundColor: "#fff", zIndex: 1, borderBottom: "3px solid black" }}>Observation</th>
-                                    <th style={{ position: "sticky", top: 0, backgroundColor: "#fff", zIndex: 1, borderBottom: "3px solid black" }}>Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {currentTableData.map((row) => (
-                                    <tr key={row.id}>
-                                        <td style={{ height: "30px", padding: 0 }}>
-                                            <input
-                                                className="table-input"
-                                                value={row.text}
-                                                onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
-                                                placeholder=""
-                                            />
-                                        </td>
-                                        <td style={{ padding: 0 }}>
-                                            <input
-                                                className="table-input center"
-                                                value={row.time}
-                                                onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
-                                                placeholder="00:00"
-                                            />
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                        {currentTableData.map((row) => (
+                            <div className="table-row" key={row.id}>
+                                <div className="cell col-obs">
+                                    <input
+                                        className="table-input"
+                                        value={row.text}
+                                        onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
+                                        placeholder=""
+                                    />
+                                </div>
+                                <div className="cell col-time">
+                                    <input
+                                        className="table-input center"
+                                        value={row.time}
+                                        onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
+                                        placeholder="00:00"
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                     {/* Fixed Footer for Add Row Button */}
                     <div className="table-footer-row">
-                        <button className="add-row-btn" onClick={handleAddRow}>
-                            Add Row +
-                        </button>
+                        <div className="add-btn-cell">
+                            <button className="add-row-btn" onClick={handleAddRow}>
+                                Add Row +
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
