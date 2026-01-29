@@ -3,12 +3,13 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import LandingPage from "./pages/LandingPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
-import VerifyEmail from "./pages/VerifyEmail.jsx"; // NEW
+import VerifyEmail from "./pages/VerifyEmail.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import EditProfilePage from "./pages/EditProfilePage.jsx";
 import TutorialPage from "./pages/TutorialPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
+import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
 
 import Navbar from "./components/Navbar.jsx";
 
@@ -20,7 +21,7 @@ function App() {
     "/",
     "/login",
     "/signup",
-    "/verify-email",      
+    "/verify-email",
     "/forgotpassword",
   ];
 
@@ -43,6 +44,7 @@ function App() {
         <Route path="/edit-profile" element={<EditProfilePage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
+        <Route path="/analyze-game" element={<AnalyzeGamePage />} />
       </Routes>
     </>
   );
