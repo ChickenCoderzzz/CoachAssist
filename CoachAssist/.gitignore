@@ -21,3 +21,24 @@ build/
 
 # FastAPI / Uvicorn
 *.log
+
+# Vite / Frontend cache
+.vite/
+.eslintcache
+.stylelintcache
+
+# Local Databases (SQL/CoachAssist)
+*.sqlite3
+*.db
+instance/
+
+# OS-Specific (More Mac protection)
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
