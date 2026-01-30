@@ -1,45 +1,106 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import DarkCard from "../components/DarkCard";
+import bg from "../assets/field_bg.png";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    full_name: "",
-    email: "",
-    username: "",
-    new_password: "",
-  });
+  const [step, setStep] = useState("request"); // request | verify
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  // STEP 1 — request reset code
+  const handleSendResetCode = async () => {
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const res = await fetch("/auth/forgot-password/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to send reset code.");
+      }
+
+      setMessage("If an account exists, a reset code has been sent.");
+      setStep("verify");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // STEP 1.5 — resend reset code
+  const handleResendCode = async () => {
+    if (!email) {
+      setError("Please enter your email again.");
+      return;
+    }
+
+    setResending(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const res = await fetch("/auth/forgot-password/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to resend reset code.");
+      }
+
+      setMessage("Reset code resent to your email.");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  // STEP 2 — verify + reset
   const handleResetPassword = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const res = await fetch("/auth/forgot-password", {
+      const res = await fetch("/auth/forgot-password/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email,
+          code,
+          new_password: newPassword,
+        }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Password reset failed");
+        throw new Error(data.detail || "Password reset failed.");
       }
 
-      // optional success handling
-      alert("Password reset successful. Please log in.");
-      navigate("/login");
+      setMessage("Password reset successful. Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1500);
     } catch (e) {
-      console.error(e);
       setError(e.message);
     } finally {
       setLoading(false);
@@ -49,9 +110,14 @@ export default function ForgotPasswordPage() {
   return (
     <div
       style={{
-        paddingTop: "110px",
+        minHeight: "100vh",
+        backgroundImage: `url(${bg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         display: "flex",
         justifyContent: "center",
+        alignItems: "center",
+        paddingTop: "110px",
       }}
     >
       <DarkCard width="420px" padding="40px">
@@ -59,55 +125,82 @@ export default function ForgotPasswordPage() {
           Forgot Password
         </h2>
 
-        <input
-          type="text"
-          name="full_name"
-          placeholder="Full Name"
-          value={formData.full_name}
-          onChange={handleChange}
-          style={inputStyle}
-        />
+        {step === "request" && (
+          <>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={inputStyle}
+            />
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          style={inputStyle}
-        />
+            {error && <p style={errorStyle}>{error}</p>}
+            {message && <p style={successStyle}>{message}</p>}
 
-        <input
-          type="text"
-          name="username"
-          placeholder="Username"
-          value={formData.username}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        <input
-          type="password"
-          name="new_password"
-          placeholder="New Password"
-          value={formData.new_password}
-          onChange={handleChange}
-          style={inputStyle}
-        />
-
-        {error && (
-          <p style={{ color: "#ff6b6b", marginBottom: "10px" }}>
-            {error}
-          </p>
+            <button
+              style={buttonStyle}
+              onClick={handleSendResetCode}
+              disabled={loading}
+            >
+              {loading ? "Sending..." : "Send Reset Code"}
+            </button>
+          </>
         )}
 
-        <button
-          style={buttonStyle}
-          onClick={handleResetPassword}
-          disabled={loading}
-        >
-          {loading ? "Resetting..." : "Reset Password"}
-        </button>
+        {step === "verify" && (
+          <>
+            <input
+              type="email"
+              value={email}
+              disabled
+              style={{ ...inputStyle, opacity: 0.7 }}
+            />
+
+            <input
+              type="text"
+              placeholder="Reset Code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              style={inputStyle}
+            />
+
+            <input
+              type="password"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              style={inputStyle}
+            />
+
+            {error && <p style={errorStyle}>{error}</p>}
+            {message && <p style={successStyle}>{message}</p>}
+
+            <button
+              style={buttonStyle}
+              onClick={handleResetPassword}
+              disabled={loading}
+            >
+              {loading ? "Resetting..." : "Reset Password"}
+            </button>
+
+            {/* RESEND RESET CODE */}
+            <button
+              style={resendButtonStyle}
+              onClick={handleResendCode}
+              disabled={resending}
+            >
+              {resending ? "Resending..." : "Resend Reset Code"}
+            </button>
+          </>
+        )}
+
+        <p style={{ marginTop: "20px", color: "white" }}>
+          Remembered your password?{" "}
+          <Link to="/login" style={{ color: "#8fd18e" }}>
+            Login
+          </Link>
+        </p>
       </DarkCard>
     </div>
   );
@@ -118,6 +211,7 @@ const inputStyle = {
   padding: "12px",
   marginBottom: "15px",
   borderRadius: "6px",
+  border: "none",
 };
 
 const buttonStyle = {
@@ -127,6 +221,25 @@ const buttonStyle = {
   borderRadius: "6px",
   border: "none",
   cursor: "pointer",
-  marginTop: "10px",
   fontSize: "1.1rem",
+};
+
+const resendButtonStyle = {
+  width: "100%",
+  padding: "10px",
+  background: "#b0b0b0",
+  borderRadius: "6px",
+  border: "none",
+  cursor: "pointer",
+  marginTop: "10px",
+};
+
+const errorStyle = {
+  color: "#ff6b6b",
+  marginBottom: "10px",
+};
+
+const successStyle = {
+  color: "#8fd18e",
+  marginBottom: "10px",
 };

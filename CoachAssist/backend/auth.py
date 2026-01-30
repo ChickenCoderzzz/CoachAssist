@@ -1,134 +1,236 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
-from database import get_db
-from schema import SignupSchema, LoginSchema, ProfileUpdateSchema, ForgotPasswordSchema, VerifyEmailSchema
-from utils import hash_password, verify_password, create_token, decode_token, send_verification_email
 from datetime import datetime, timedelta
 import random
 
+from database import get_db
+from schema import (
+    SignupSchema,
+    LoginSchema,
+    VerifyEmailSchema,
+    ResendVerificationSchema,
+    ForgotPasswordRequestSchema,
+    ForgotPasswordVerifySchema,
+    VerifyProfilePasswordChangeSchema
+)
+from utils import (
+    hash_password,
+    verify_password,
+    create_token,
+    decode_token,
+    send_verification_email,
+    send_password_reset_email
+)
+
 router = APIRouter(prefix="/auth")
 
-# Middleware to ensure the user is authenticated
-def require_user(token: str = Header(None)):
-    if not token:
-        raise HTTPException(401, "Authorization token missing")
 
+# =========================
+# HELPERS
+# =========================
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+def generate_code() -> str:
+    return f"{random.randint(100000, 999999)}"
+
+
+# =========================
+# AUTH DEPENDENCY (Bearer)
+# =========================
+def require_user(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(401, "Authorization header missing")
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Invalid authorization format")
+
+    token = authorization.split(" ")[1]
     payload = decode_token(token)
+
     if not payload:
         raise HTTPException(401, "Invalid or expired token")
 
-    return payload["sub"]  # username
+    return payload["sub"]
 
 
-#Signup
+# =========================
+# SIGNUP (PENDING)
+# =========================
 @router.post("/signup")
 def signup(data: SignupSchema):
     db = get_db()
     cur = db.cursor()
 
-    # Check if user exists
+    email = normalize_email(data.email)
+
     cur.execute(
         "SELECT id FROM users WHERE username=%s OR email=%s",
-        (data.username, data.email)
+        (data.username, email)
     )
-
     if cur.fetchone():
         raise HTTPException(400, "Username or email already in use")
 
-    hashed = hash_password(data.password)
+    cur.execute("DELETE FROM pending_users WHERE email=%s", (email,))
 
-    # Generate email verification code
-    verification_code = f"{random.randint(100000, 999999)}"
-    verification_expires = datetime.utcnow() + timedelta(minutes=15)
+    code = generate_code()
+    expires = datetime.utcnow() + timedelta(minutes=15)
 
-    # Insert new user (email not verified yet)
     cur.execute(
         """
-        INSERT INTO users (
-            username,
-            email,
-            password_hash,
-            full_name,
-            email_verified,
-            email_verification_code,
-            email_verification_expires
-        )
-        VALUES (%s, %s, %s, %s, FALSE, %s, %s)
+        INSERT INTO pending_users
+        (full_name, email, username, password_hash, verification_code, verification_expires)
+        VALUES (%s, %s, %s, %s, %s, %s)
         """,
         (
-            data.username,
-            data.email,
-            hashed,
             data.full_name,
-            verification_code,
-            verification_expires
+            email,
+            data.username,
+            hash_password(data.password),
+            code,
+            expires
         )
     )
 
-    # Send verification email
-    send_verification_email(data.email, verification_code)
+    send_verification_email(email, code)
 
     db.commit()
     cur.close()
     db.close()
 
-    return {"message": "Account created! Check your email to verify your account."}
+    return {"message": "Check your email for a verification code."}
 
-#Login
-@router.post("/login")
-def login(data: LoginSchema):
-    print(f"Login attempt for: {data.username}")
 
+# =========================
+# VERIFY EMAIL → CREATE USER
+# =========================
+@router.post("/verify-email")
+def verify_email(data: VerifyEmailSchema):
     db = get_db()
     cur = db.cursor()
 
-    # Match username OR email
+    cur.execute(
+        "SELECT * FROM pending_users WHERE verification_code=%s",
+        (data.code,)
+    )
+    pending = cur.fetchone()
+
+    if not pending:
+        raise HTTPException(400, "Invalid verification code")
+
+    if pending["verification_expires"] < datetime.utcnow():
+        raise HTTPException(400, "Verification code expired")
+
     cur.execute(
         """
-        SELECT username, password_hash, email_verified
+        INSERT INTO users (full_name, email, username, password_hash, email_verified)
+        VALUES (%s, %s, %s, %s, TRUE)
+        """,
+        (
+            pending["full_name"],
+            pending["email"],
+            pending["username"],
+            pending["password_hash"]
+        )
+    )
+
+    cur.execute("DELETE FROM pending_users WHERE id=%s", (pending["id"],))
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Email verified. You may now log in."}
+
+
+# =========================
+# RESEND SIGNUP VERIFICATION
+# =========================
+@router.post("/resend-verification")
+def resend_verification(data: ResendVerificationSchema):
+    db = get_db()
+    cur = db.cursor()
+
+    email = normalize_email(data.email)
+
+    cur.execute("SELECT id FROM pending_users WHERE email=%s", (email,))
+    pending = cur.fetchone()
+
+    if not pending:
+        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+        if cur.fetchone():
+            raise HTTPException(400, "Email already verified. Please log in.")
+        raise HTTPException(400, "Email not found. Please sign up.")
+
+    code = generate_code()
+    expires = datetime.utcnow() + timedelta(minutes=15)
+
+    cur.execute(
+        """
+        UPDATE pending_users
+        SET verification_code=%s,
+            verification_expires=%s
+        WHERE id=%s
+        """,
+        (code, expires, pending["id"])
+    )
+
+    send_verification_email(email, code)
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Verification code resent."}
+
+
+# =========================
+# LOGIN
+# =========================
+@router.post("/login")
+def login(data: LoginSchema):
+    db = get_db()
+    cur = db.cursor()
+
+    identifier = normalize_email(data.username)
+
+    cur.execute(
+        """
+        SELECT username, password_hash
         FROM users
         WHERE username=%s OR email=%s
         """,
-        (data.username, data.username)
+        (data.username, identifier)
     )
-
     user = cur.fetchone()
-    print(f"User found in DB? {user is not None}")
 
-    if not user:
-        print("User not found")
+    if not user or not verify_password(data.password, user["password_hash"]):
         raise HTTPException(401, "Invalid login credentials")
-
-    # Check password
-    hashed_pw = user["password_hash"]
-    password_valid = verify_password(data.password, hashed_pw)
-    print(f"Password valid? {password_valid}")
-
-    if not password_valid:
-        print("Password invalid")
-        raise HTTPException(401, "Invalid login credentials")
-
-    if not user["email_verified"]:
-        raise HTTPException(
-            status_code=403,
-            detail="Please verify your email before logging in."
-        )
 
     token = create_token(user["username"])
-    print("Token created successfully")
 
-    return {"token": token, "username": user["username"]}
+    cur.close()
+    db.close()
 
-#Get profile
+    return {"token": token}
+
+
+# =========================
+# PROFILE (FIXES "Not set")
+# =========================
 @router.get("/profile")
 def get_profile(username=Depends(require_user)):
     db = get_db()
     cur = db.cursor()
 
     cur.execute(
-        "SELECT username, email, full_name, created_at FROM users WHERE username=%s",
+        """
+        SELECT username, email, full_name
+        FROM users
+        WHERE username=%s
+        """,
         (username,)
     )
-
     user = cur.fetchone()
 
     cur.close()
@@ -139,85 +241,77 @@ def get_profile(username=Depends(require_user)):
 
     return user
 
-#Update profile
-@router.patch("/profile")
-def update_profile(data: ProfileUpdateSchema, username=Depends(require_user)):
+
+# =========================
+# FORGOT PASSWORD (LOGGED OUT)
+# =========================
+@router.post("/forgot-password/request")
+def forgot_password_request(data: ForgotPasswordRequestSchema):
     db = get_db()
     cur = db.cursor()
 
-    if data.email:
-        cur.execute("UPDATE users SET email=%s WHERE username=%s", (data.email, username))
+    email = normalize_email(data.email)
 
-    if data.password:
-        hashed = hash_password(data.password)
-        cur.execute("UPDATE users SET password_hash=%s WHERE username=%s", (hashed, username))
-
-    if data.full_name:
-        cur.execute("UPDATE users SET full_name=%s WHERE username=%s", (data.full_name, username))
-
-    if data.username:
-        cur.execute("UPDATE users SET username=%s WHERE username=%s", (data.username, username))
-        username = data.username  # update session reference
-
-    db.commit()
-
-    # After updating, fetch the updated profile
-    cur.execute(
-        "SELECT username, email, full_name, created_at FROM users WHERE username=%s",
-        (username,)
-    )
-    updated_user = cur.fetchone()
-
-    cur.close()
-    db.close()
-
-    if not updated_user:
-        raise HTTPException(404, "User not found after update")
-
-    return updated_user
-
-#Delete profile
-@router.delete("/profile")
-def delete_profile(username=Depends(require_user)):
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("DELETE FROM users WHERE username=%s", (username,))
-
-    db.commit()
-    cur.close()
-    db.close()
-
-    return {"message": "Account deleted"}
-
-#forgot password
-@router.post("/forgot-password")
-def forgot_password(data: ForgotPasswordSchema):
-    db = get_db()
-    cur = db.cursor()
-
-    # Verify user identity
-    cur.execute(
-        """
-        SELECT id
-        FROM users
-        WHERE username=%s AND email=%s AND full_name=%s
-        """,
-        (data.username, data.email, data.full_name)
-    )
-
+    cur.execute("SELECT id FROM users WHERE email=%s", (email,))
     user = cur.fetchone()
 
     if not user:
-        cur.close()
-        db.close()
-        raise HTTPException(404, "User information does not match our records")
+        return {"message": "If an account exists, a reset code has been sent."}
 
-    # Update password
-    hashed = hash_password(data.new_password)
+    code = generate_code()
+    expires = datetime.utcnow() + timedelta(minutes=15)
+
     cur.execute(
-        "UPDATE users SET password_hash=%s WHERE id=%s",
-        (hashed, user["id"])
+        """
+        UPDATE users
+        SET password_reset_code=%s,
+            password_reset_expires=%s
+        WHERE id=%s
+        """,
+        (code, expires, user["id"])
+    )
+
+    send_password_reset_email(email, code)
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Password reset code sent."}
+
+
+@router.post("/forgot-password/verify")
+def forgot_password_verify(data: ForgotPasswordVerifySchema):
+    db = get_db()
+    cur = db.cursor()
+
+    email = normalize_email(data.email)
+
+    cur.execute(
+        """
+        SELECT id, password_reset_expires
+        FROM users
+        WHERE email=%s AND password_reset_code=%s
+        """,
+        (email, data.code)
+    )
+    user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(400, "Invalid reset code")
+
+    if user["password_reset_expires"] < datetime.utcnow():
+        raise HTTPException(400, "Reset code expired")
+
+    cur.execute(
+        """
+        UPDATE users
+        SET password_hash=%s,
+            password_reset_code=NULL,
+            password_reset_expires=NULL
+        WHERE id=%s
+        """,
+        (hash_password(data.new_password), user["id"])
     )
 
     db.commit()
@@ -226,87 +320,103 @@ def forgot_password(data: ForgotPasswordSchema):
 
     return {"message": "Password reset successful"}
 
-#Verify email by sending code
-@router.post("/verify-email")
-def verify_email(data: VerifyEmailSchema):
-    code = data.code
+
+# =========================
+# CHANGE PASSWORD (LOGGED IN)
+# =========================
+@router.post("/profile/request-password-change")
+def request_password_change(username=Depends(require_user)):
     db = get_db()
     cur = db.cursor()
 
-    cur.execute(
-        """
-        SELECT id, email_verification_expires
-        FROM users
-        WHERE email_verification_code = %s
-        """,
-        (code,)
-    )
-
+    cur.execute("SELECT id, email FROM users WHERE username=%s", (username,))
     user = cur.fetchone()
 
     if not user:
-        raise HTTPException(400, "Invalid verification code")
+        raise HTTPException(404, "User not found")
 
-    if user["email_verification_expires"] < datetime.utcnow():
-        raise HTTPException(400, "Verification code expired")
-
-    cur.execute(
-        """
-        UPDATE users
-        SET email_verified = TRUE,
-            email_verification_code = NULL,
-            email_verification_expires = NULL
-        WHERE id = %s
-        """,
-        (user["id"],)
-    )
-
-    db.commit()
-    cur.close()
-    db.close()
-
-    return {"message": "Email successfully verified"}
-
-#Resend verification code
-@router.post("/resend-verification")
-def resend_verification(email: str):
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute(
-        """
-        SELECT id, email_verified
-        FROM users
-        WHERE email = %s
-        """,
-        (email,)
-    )
-
-    user = cur.fetchone()
-
-    if not user:
-        raise HTTPException(400, "No account found with this email")
-
-    if user["email_verified"]:
-        raise HTTPException(400, "Email already verified")
-
-    new_code = f"{random.randint(100000, 999999)}"
+    code = generate_code()
     expires = datetime.utcnow() + timedelta(minutes=15)
 
     cur.execute(
         """
         UPDATE users
-        SET email_verification_code = %s,
-            email_verification_expires = %s
-        WHERE id = %s
+        SET password_reset_code=%s,
+            password_reset_expires=%s
+        WHERE id=%s
         """,
-        (new_code, expires, user["id"])
+        (code, expires, user["id"])
     )
 
-    send_verification_email(email, new_code)
+    send_password_reset_email(user["email"], code)
 
     db.commit()
     cur.close()
     db.close()
 
-    return {"message": "Verification code resent"}
+    return {"message": "Verification code sent."}
+
+
+@router.post("/profile/verify-password-change")
+def verify_password_change(
+    data: VerifyProfilePasswordChangeSchema,
+    username=Depends(require_user)
+):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute(
+        """
+        SELECT id, password_reset_expires
+        FROM users
+        WHERE username=%s AND password_reset_code=%s
+        """,
+        (username, data.code)
+    )
+    user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(400, "Invalid verification code")
+
+    if user["password_reset_expires"] < datetime.utcnow():
+        raise HTTPException(400, "Verification code expired")
+
+    cur.execute(
+        """
+        UPDATE users
+        SET password_hash=%s,
+            password_reset_code=NULL,
+            password_reset_expires=NULL
+        WHERE id=%s
+        """,
+        (hash_password(data.new_password), user["id"])
+    )
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Password updated successfully"}
+
+
+# =========================
+# DELETE ACCOUNT (FIXES 404)
+# =========================
+@router.post("/delete-account")
+def delete_account(username=Depends(require_user)):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT id FROM users WHERE username=%s", (username,))
+    user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    cur.execute("DELETE FROM users WHERE id=%s", (user["id"],))
+
+    db.commit()
+    cur.close()
+    db.close()
+
+    return {"message": "Account deleted successfully"}

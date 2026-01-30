@@ -23,7 +23,9 @@ export default function ProfilePage() {
           style={{ width: "140px", marginBottom: "20px" }}
         />
 
-        <h2 style={{ color: "white", marginBottom: "20px" }}>Profile</h2>
+        <h2 style={{ color: "white", marginBottom: "20px" }}>
+          Profile
+        </h2>
 
         <p style={{ color: "white" }}>
           <strong>Email:</strong> {user?.email || "Not set"}
@@ -35,6 +37,7 @@ export default function ProfilePage() {
           <strong>Full Name:</strong> {user?.full_name || "Not set"}
         </p>
 
+        {/* CHANGE PASSWORD */}
         <button
           style={{
             marginTop: "25px",
@@ -48,9 +51,10 @@ export default function ProfilePage() {
           }}
           onClick={() => navigate("/edit-profile")}
         >
-          Edit
+          Change Password
         </button>
 
+        {/* DELETE ACCOUNT */}
         <button
           style={{
             marginTop: "15px",
@@ -62,9 +66,26 @@ export default function ProfilePage() {
             fontSize: "1.1rem",
             cursor: "pointer",
           }}
+          onClick={() => navigate("/delete-account")}
+        >
+          Delete Account
+        </button>
+
+        {/* LOG OUT */}
+        <button
+          style={{
+            marginTop: "15px",
+            width: "100%",
+            padding: "12px",
+            background: "#f0c36d",
+            border: "none",
+            borderRadius: "6px",
+            fontSize: "1.1rem",
+            cursor: "pointer",
+          }}
           onClick={() => {
             logout();
-            navigate("/");
+            navigate("/login");
           }}
         >
           Log Out
@@ -73,4 +94,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
