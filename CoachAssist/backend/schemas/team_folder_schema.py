@@ -1,6 +1,7 @@
 from pydantic import BaseModel
+from typing import Optional
 
 class TeamCreateSchema(BaseModel):
     name: str
-    description: str | None = None
-    image_url: str | None = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
