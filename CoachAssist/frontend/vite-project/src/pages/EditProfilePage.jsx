@@ -1,48 +1,42 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import DarkCard from "../components/DarkCard";
+import logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { user, token, updateUser } = useAuth();
+  const { token } = useAuth();
 
-  const [formData, setFormData] = useState({
-    username: user?.username || "",
-    password: "",
-    full_name: user?.full_name || "",
-  });
-
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = async () => {
+  const handleSendCode = async () => {
+    setMessage("");
     setLoading(true);
-    const payload = {};
-    if (formData.username && formData.username !== user.username) payload.username = formData.username;
-    if (formData.password) payload.password = formData.password;
-    if (formData.full_name && formData.full_name !== user.full_name) payload.full_name = formData.full_name;
 
     try {
-      const res = await fetch(`/auth/profile`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", token },
-        body: JSON.stringify(payload),
+      const res = await fetch("/auth/profile/request-password-change", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`, // ✅ FIX #1
+        },
       });
+
+      const data = await res.json();
+
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `Failed to update profile (${res.status})`);
+        setMessage(data.detail || "Failed to send verification code.");
+        return;
       }
-      const updatedUser = await res.json();
-      updateUser(updatedUser);
-      navigate("/profile");
-    } catch (e) {
-      console.error("Failed to save profile:", e);
+
+      // ✅ SUCCESS → navigate to verify page
+      navigate("/verify-password-change"); // ✅ FIX #2
+    } catch (err) {
+      setMessage("Server error. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -54,65 +48,59 @@ export default function EditProfilePage() {
       }}
     >
       <DarkCard width="420px" padding="40px">
-        <h2 style={{ color: "white", marginBottom: "20px" }}>Edit Profile</h2>
-
-        <input
-          type="text"
-          name="username"
-          placeholder="New Username"
-          value={formData.username}
-          onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-          }}
+        <img
+          src={logo}
+          alt="CoachAssist Logo"
+          style={{ width: "140px", marginBottom: "20px" }}
         />
 
-        <input
-          type="password"
-          name="password"
-          placeholder="New Password"
-          value={formData.password}
-          onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-          }}
-        />
+        <h2 style={{ color: "white", marginBottom: "20px" }}>
+          Change Password
+        </h2>
 
-        <input
-          type="text"
-          name="full_name"
-          placeholder="Full Name"
-          value={formData.full_name}
-          onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-          }}
-        />
+        {message && (
+          <p
+            style={{
+              color: message.toLowerCase().includes("sent")
+                ? "#8fd18e"
+                : "#d87a7a",
+              marginBottom: "15px",
+            }}
+          >
+            {message}
+          </p>
+        )}
 
         <button
           style={{
             width: "100%",
             padding: "12px",
             background: "#8fd18e",
-            borderRadius: "6px",
             border: "none",
+            borderRadius: "6px",
+            fontSize: "1.05rem",
             cursor: "pointer",
-            marginTop: "10px",
-            fontSize: "1.1rem",
+            marginBottom: "15px",
           }}
-          onClick={handleSave}
+          onClick={handleSendCode}
           disabled={loading}
         >
-          {loading ? "Saving..." : "Save Changes"}
+          {loading ? "Sending..." : "Send Verification Code"}
+        </button>
+
+        <button
+          style={{
+            width: "100%",
+            padding: "12px",
+            background: "#d87a7a",
+            border: "none",
+            borderRadius: "6px",
+            fontSize: "1.05rem",
+            cursor: "pointer",
+          }}
+          onClick={() => navigate("/profile")}
+        >
+          Back
         </button>
       </DarkCard>
     </div>

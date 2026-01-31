@@ -4,11 +4,14 @@ import LandingPage from "./pages/LandingPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import VerifyEmail from "./pages/VerifyEmail.jsx";
+import VerifyEmail from "./pages/VerifyEmail.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import EditProfilePage from "./pages/EditProfilePage.jsx";
 import TutorialPage from "./pages/TutorialPage.jsx";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
+import DeleteAccountPage from "./pages/DeleteAccountPage.jsx";
+import VerifyPasswordChangePage from "./pages/VerifyPasswordChangePage.jsx";
 import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
 
 import Navbar from "./components/Navbar.jsx";
@@ -16,11 +19,11 @@ import Navbar from "./components/Navbar.jsx";
 function App() {
   const location = useLocation();
 
-  // Paths where navbar should NOT appear:
   const hideNavbarPaths = [
     "/",
     "/login",
     "/signup",
+    "/verify-email",
     "/verify-email",
     "/forgotpassword",
   ];
@@ -35,15 +38,14 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-
-        {/* NEW: Email Verification */}
         <Route path="/verify-email" element={<VerifyEmail />} />
-
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/edit-profile" element={<EditProfilePage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
+        <Route path="/delete-account" element={<DeleteAccountPage />} />
+        <Route path="/verify-password-change" element={<VerifyPasswordChangePage />} />
         <Route path="/analyze-game" element={<AnalyzeGamePage />} />
       </Routes>
     </>
@@ -51,5 +53,3 @@ function App() {
 }
 
 export default App;
-
-
