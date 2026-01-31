@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timedelta
 import random
 
-from database import get_db
-from schema import (
+from backend.database import get_db
+from backend.schemas.auth_schema import (
     SignupSchema,
     LoginSchema,
     VerifyEmailSchema,
@@ -12,7 +13,7 @@ from schema import (
     ForgotPasswordVerifySchema,
     VerifyProfilePasswordChangeSchema
 )
-from utils import (
+from backend.utils import (
     hash_password,
     verify_password,
     create_token,
@@ -23,40 +24,64 @@ from utils import (
 
 router = APIRouter(prefix="/auth")
 
+# ⬇️ IMPORTANT: auto_error=False
+security = HTTPBearer(auto_error=False)
 
-# =========================
-# HELPERS
-# =========================
+# -------------------------
+# Helper functions
+# -------------------------
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
-
 
 def generate_code() -> str:
     return f"{random.randint(100000, 999999)}"
 
+# -------------------------
+# Auth dependency (FINAL)
+# -------------------------
 
-# =========================
-# AUTH DEPENDENCY (Bearer)
-# =========================
-def require_user(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(401, "Authorization header missing")
+def require_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Authorization header missing")
 
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Invalid authorization format")
-
-    token = authorization.split(" ")[1]
+    token = credentials.credentials
     payload = decode_token(token)
 
     if not payload:
-        raise HTTPException(401, "Invalid or expired token")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    return payload["sub"]
+    username = payload.get("sub")
+    if not username:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
 
+    db = get_db()
+    cur = db.cursor()
 
-# =========================
-# SIGNUP (PENDING)
-# =========================
+    cur.execute(
+        """
+        SELECT id, username, email
+        FROM users
+        WHERE username = %s
+        """,
+        (username,)
+    )
+
+    user = cur.fetchone()
+    cur.close()
+    db.close()
+
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user  # ✅ always a dict
+
+# -------------------------
+# Signup / Verification
+# -------------------------
+
 @router.post("/signup")
 def signup(data: SignupSchema):
     db = get_db()
@@ -100,10 +125,6 @@ def signup(data: SignupSchema):
 
     return {"message": "Check your email for a verification code."}
 
-
-# =========================
-# VERIFY EMAIL → CREATE USER
-# =========================
 @router.post("/verify-email")
 def verify_email(data: VerifyEmailSchema):
     db = get_db()
@@ -142,10 +163,6 @@ def verify_email(data: VerifyEmailSchema):
 
     return {"message": "Email verified. You may now log in."}
 
-
-# =========================
-# RESEND SIGNUP VERIFICATION
-# =========================
 @router.post("/resend-verification")
 def resend_verification(data: ResendVerificationSchema):
     db = get_db()
@@ -183,10 +200,10 @@ def resend_verification(data: ResendVerificationSchema):
 
     return {"message": "Verification code resent."}
 
+# -------------------------
+# Login / Profile
+# -------------------------
 
-# =========================
-# LOGIN
-# =========================
 @router.post("/login")
 def login(data: LoginSchema):
     db = get_db()
@@ -214,37 +231,18 @@ def login(data: LoginSchema):
 
     return {"token": token}
 
-
-# =========================
-# PROFILE (FIXES "Not set")
-# =========================
 @router.get("/profile")
-def get_profile(username=Depends(require_user)):
-    db = get_db()
-    cur = db.cursor()
+def get_profile(user=Depends(require_user)):
+    return {
+        "id": user["id"],
+        "username": user["username"],
+        "email": user["email"]
+    }
 
-    cur.execute(
-        """
-        SELECT username, email, full_name
-        FROM users
-        WHERE username=%s
-        """,
-        (username,)
-    )
-    user = cur.fetchone()
+# -------------------------
+# Forgot Password
+# -------------------------
 
-    cur.close()
-    db.close()
-
-    if not user:
-        raise HTTPException(404, "User not found")
-
-    return user
-
-
-# =========================
-# FORGOT PASSWORD (LOGGED OUT)
-# =========================
 @router.post("/forgot-password/request")
 def forgot_password_request(data: ForgotPasswordRequestSchema):
     db = get_db()
@@ -278,7 +276,6 @@ def forgot_password_request(data: ForgotPasswordRequestSchema):
     db.close()
 
     return {"message": "Password reset code sent."}
-
 
 @router.post("/forgot-password/verify")
 def forgot_password_verify(data: ForgotPasswordVerifySchema):
@@ -320,20 +317,14 @@ def forgot_password_verify(data: ForgotPasswordVerifySchema):
 
     return {"message": "Password reset successful"}
 
+# -------------------------
+# Logged-in Password Change
+# -------------------------
 
-# =========================
-# CHANGE PASSWORD (LOGGED IN)
-# =========================
 @router.post("/profile/request-password-change")
-def request_password_change(username=Depends(require_user)):
+def request_password_change(user=Depends(require_user)):
     db = get_db()
     cur = db.cursor()
-
-    cur.execute("SELECT id, email FROM users WHERE username=%s", (username,))
-    user = cur.fetchone()
-
-    if not user:
-        raise HTTPException(404, "User not found")
 
     code = generate_code()
     expires = datetime.utcnow() + timedelta(minutes=15)
@@ -356,29 +347,28 @@ def request_password_change(username=Depends(require_user)):
 
     return {"message": "Verification code sent."}
 
-
 @router.post("/profile/verify-password-change")
 def verify_password_change(
     data: VerifyProfilePasswordChangeSchema,
-    username=Depends(require_user)
+    user=Depends(require_user)
 ):
     db = get_db()
     cur = db.cursor()
 
     cur.execute(
         """
-        SELECT id, password_reset_expires
+        SELECT password_reset_expires
         FROM users
-        WHERE username=%s AND password_reset_code=%s
+        WHERE id=%s AND password_reset_code=%s
         """,
-        (username, data.code)
+        (user["id"], data.code)
     )
-    user = cur.fetchone()
+    record = cur.fetchone()
 
-    if not user:
+    if not record:
         raise HTTPException(400, "Invalid verification code")
 
-    if user["password_reset_expires"] < datetime.utcnow():
+    if record["password_reset_expires"] < datetime.utcnow():
         raise HTTPException(400, "Verification code expired")
 
     cur.execute(
@@ -398,20 +388,14 @@ def verify_password_change(
 
     return {"message": "Password updated successfully"}
 
+# -------------------------
+# Delete Account
+# -------------------------
 
-# =========================
-# DELETE ACCOUNT (FIXES 404)
-# =========================
 @router.post("/delete-account")
-def delete_account(username=Depends(require_user)):
+def delete_account(user=Depends(require_user)):
     db = get_db()
     cur = db.cursor()
-
-    cur.execute("SELECT id FROM users WHERE username=%s", (username,))
-    user = cur.fetchone()
-
-    if not user:
-        raise HTTPException(404, "User not found")
 
     cur.execute("DELETE FROM users WHERE id=%s", (user["id"],))
 
