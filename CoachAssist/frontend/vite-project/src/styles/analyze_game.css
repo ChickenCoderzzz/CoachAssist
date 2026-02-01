@@ -53,13 +53,53 @@
     align-items: stretch;
 }
 
-/* Video Player Placeholder */
+/* Video Player container */
 .video-player-section {
-    display: flex;
-    flex-direction: column;
+    /*display: flex;*/
+    /*flex-direction: column;*/
+    width: 100%;
+    max-width: 800px;
+    position: relative;
+    padding-top: 56.25%; /* 16:9 ratio (9/16*100) */
+    background: #000;
 }
 
+/* Actual <video> element */
+.video-player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* scales video inside container without cropping */
+    background-color: #000;
+}
+
+/* Video + Upload button wrapper */
+.video-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* space between button and video */
+  width: 100%;
+}
+
+/* Upload button wrapper */
+.video-upload-wrapper {
+  display: flex;
+  justify-content: flex-end; 
+  align-items: center;
+  gap: 10px;
+}
+
+.video-upload-wrapper .video-name {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+
+/*placeholder when no videos are uploaded*/
 .video-placeholder {
+    /*
     width: 100%;
     aspect-ratio: 16 / 9;
     background-color: #333;
@@ -69,8 +109,30 @@
     justify-content: center;
     position: relative;
     overflow: hidden;
-}
+    */
 
+position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-size: 1rem;
+}
+/*video upload button*/
+.video-header {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10; /* make sure it’s above the video */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
 .video-placeholder img {
     width: 100%;
     height: 100%;
