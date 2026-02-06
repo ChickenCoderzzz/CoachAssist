@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../styles/teams.css";
 
 export default function Dashboard() {
   const [teams, setTeams] = useState([]);
   const [search, setSearch] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState(null);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+
   const navigate = useNavigate();
 
-  // Fetch all teams on load
+  //Fetch teams
   useEffect(() => {
     fetch("/teams/", {
       headers: {
@@ -15,15 +21,13 @@ export default function Dashboard() {
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log("Fetched teams:", data);
         setTeams(data.teams || []);
       });
   }, []);
 
-  // Create a new team
+  //Create team
   const handleCreateTeam = () => {
-    const name = prompt("Enter team name:");
-    if (!name) return;
+    if (!newName.trim()) return;
 
     fetch("/teams/", {
       method: "POST",
@@ -31,19 +35,23 @@ export default function Dashboard() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({
+        name: newName,
+        description: newDesc,
+      }),
     })
       .then((res) => res.json())
       .then((data) => {
-        console.log("Create team response:", data);
-
         if (data.team) {
           setTeams((prev) => [...prev, data.team]);
+          setNewName("");
+          setNewDesc("");
+          setShowCreate(false);
         }
       });
   };
 
-  // Search teams
+  //Search teams
   const handleSearch = (value) => {
     setSearch(value);
 
@@ -56,47 +64,38 @@ export default function Dashboard() {
       .then((data) => setTeams(data.teams || []));
   };
 
-  // Delete team
-  const handleDeleteTeam = (teamId) => {
-    if (!window.confirm("Delete this team? This cannot be undone.")) return;
-
-    fetch(`/teams/${teamId}`, {
+  //Delete team
+  const confirmDeleteTeam = () => {
+    fetch(`/teams/${teamToDelete.id}`, {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     }).then(() => {
-      setTeams((prev) => prev.filter((team) => team.id !== teamId));
+      setTeams((prev) => prev.filter((t) => t.id !== teamToDelete.id));
+      setTeamToDelete(null);
     });
   };
 
   return (
-    <div
-      style={{
-        paddingTop: "110px",
-        paddingLeft: "40px",
-        paddingRight: "40px",
-      }}
-    >
-      <h1 style={{ marginBottom: "20px" }}>Teams</h1>
+    <div style={{ paddingTop: "110px", paddingBottom: "60px" }}>
+      <h1 style={{ marginLeft: "40px", marginBottom: "20px" }}>Teams</h1>
 
       <div
         style={{
           border: "3px solid black",
           borderRadius: "12px",
-          padding: "25px",
-          maxWidth: "1000px",
+          padding: "30px",
+          width: "100%",
+          maxWidth: "1300px",
+          margin: "0 auto",
         }}
       >
         {/* Controls */}
         <div style={{ marginBottom: "20px" }}>
           <button
-            onClick={handleCreateTeam}
-            style={{
-              marginRight: "15px",
-              padding: "8px 14px",
-              cursor: "pointer",
-            }}
+            className="add-team-btn"
+            onClick={() => setShowCreate(true)}
           >
             Add Team
           </button>
@@ -106,21 +105,12 @@ export default function Dashboard() {
             placeholder="Search for Team"
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            style={{
-              padding: "8px",
-              width: "250px",
-            }}
+            style={{ padding: "8px", width: "250px", marginLeft: "15px" }}
           />
         </div>
 
-        {/* Team folders */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "20px",
-          }}
-        >
+        {/* Team grid */}
+        <div className="team-grid">
           {teams.length === 0 && (
             <p style={{ fontStyle: "italic" }}>
               No teams yet. Create one to get started.
@@ -130,53 +120,94 @@ export default function Dashboard() {
           {teams.map((team) => (
             <div
               key={team.id}
+              className="team-card"
               onClick={() => navigate(`/team/${team.id}`)}
-              style={{
-                position: "relative",
-                width: "150px",
-                height: "150px",
-                border: "2px solid black",
-                borderRadius: "10px",
-                padding: "10px",
-                textAlign: "center",
-                cursor: "pointer",
-              }}
             >
-              {/* Delete button */}
               <button
+                className="team-delete"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteTeam(team.id);
+                  setTeamToDelete(team);
                 }}
-                style={{
-                  position: "absolute",
-                  top: "6px",
-                  right: "8px",
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-                title="Delete Team"
               >
-                Delete
+                X
               </button>
 
-              <img
-                src={team.image_url || "/team.png"}
-                alt={team.name}
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  objectFit: "contain",
-                  marginBottom: "10px",
-                }}
-              />
-              <p style={{ margin: 0 }}>{team.name}</p>
+              <div className="team-icon">
+                <img
+                  src={team.image_url || "/team.png"}
+                  alt={team.name}
+                />
+              </div>
+
+              <div className="team-name">{team.name}</div>
+
+              {team.description && (
+                <div className="team-description">
+                  {team.description}
+                </div>
+              )}
             </div>
           ))}
         </div>
       </div>
+
+      {/* CREATE TEAM MODAL */}
+      {showCreate && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h2>Add Team</h2>
+
+            <label>Team Name</label>
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+
+            <label>Team Description</label>
+            <textarea
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+            />
+
+            <div className="modal-actions">
+              <button className="modal-primary" onClick={handleCreateTeam}>
+                Add Team
+              </button>
+              <button
+                className="modal-secondary"
+                onClick={() => setShowCreate(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE CONFIRMATION MODAL */}
+      {teamToDelete && (
+        <div className="modal-overlay">
+          <div className="confirm-card">
+            <p>
+              Are you sure you want to delete this team?
+              <br />
+              <strong>All data will be lost.</strong>
+            </p>
+
+            <button className="confirm-yes" onClick={confirmDeleteTeam}>
+              Yes I’m Sure
+            </button>
+            <button
+              className="confirm-cancel"
+              onClick={() => setTeamToDelete(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

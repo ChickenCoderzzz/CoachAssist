@@ -4,6 +4,7 @@ import os
 load_dotenv("backend/.env") 
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 import backend.routers.auth as auth
 print("### AUTH MODULE LOADED FROM ###")
