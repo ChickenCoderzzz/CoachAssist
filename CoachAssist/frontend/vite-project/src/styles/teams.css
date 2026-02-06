@@ -1,0 +1,320 @@
+/*SHARED GRID (DASHBOARD + TEAM PAGE)*/
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 190px);
+  gap: 28px;
+  justify-content: center;
+}
+
+/*DASHBOARD / PAGE CONTAINER*/
+.dashboard-container,
+.games-container {
+  margin: 30px auto 0;
+  border: 3px solid black;
+  border-radius: 12px;
+  padding: 30px;
+  width: 100%;
+  max-width: 1300px;
+}
+
+/* Controls row (Add + Search) */
+.dashboard-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.dashboard-controls input {
+  padding: 8px;
+  width: 250px;
+}
+
+/*TEAM CARD*/
+.team-card {
+  position: relative;
+  width: 190px;
+  height: 210px;
+  background: #f4f4f4;
+  border: 2px solid #000;
+  border-radius: 18px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  font-family: Georgia, "Times New Roman", serif;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.team-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+/* Team icon */
+.team-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #b7d7a8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.team-icon img {
+  width: 55px;
+  height: 55px;
+  object-fit: contain;
+}
+
+.team-name {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Team delete (hover only) */
+.team-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 22px;
+  height: 22px;
+  background: #d32f2f;
+  border: 2px solid #000;
+  border-radius: 4px;
+
+  font-size: 14px;
+  font-weight: bold;
+  color: #000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.team-card:hover .team-delete {
+  opacity: 1;
+}
+
+/*Team hover tooltip*/
+.team-description {
+  position: absolute;
+  bottom: -42px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  background: #000;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.team-card:hover .team-description {
+  opacity: 1;
+}
+
+/*GAME CARD (TEAM PAGE)*/
+.game-card {
+  position: relative;
+  width: 190px;
+  height: 170px;
+  background: #f4f4f4;
+  border: 2px solid #000;
+  border-radius: 18px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+  font-family: Georgia, "Times New Roman", serif;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.game-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  z-index: 5;
+}
+
+.game-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.game-opponent {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* Game delete (hover only) */
+.game-delete {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 22px;
+  height: 22px;
+  background: #d32f2f;
+  border: 2px solid #000;
+  border-radius: 4px;
+
+  font-size: 14px;
+  font-weight: bold;
+  color: #000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.game-card:hover .game-delete {
+  opacity: 1;
+}
+
+/* Game hover info (score + description) */
+.game-hover {
+  position: absolute;
+  bottom: -55px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  background: #000;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.game-card:hover .game-hover {
+  opacity: 1;
+}
+
+.game-score {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.game-description {
+  font-size: 12px;
+}
+
+/*BUTTONS*/
+.add-team-btn {
+  background: #b9c9f0;
+  border: 2px solid #000;
+  border-radius: 6px;
+  padding: 8px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.add-team-btn:hover {
+  background: #a9baf0;
+}
+
+/*MODALS (SHARED)*/
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-card {
+  background: #3a3a3a;
+  color: #fff;
+  padding: 24px;
+  width: 420px;
+  border-radius: 12px;
+  border: 2px solid #000;
+}
+
+.modal-card input,
+.modal-card textarea {
+  width: 100%;
+  margin-top: 6px;
+  margin-bottom: 12px;
+  padding: 6px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-primary {
+  background: #b9c9f0;
+  border: 2px solid #000;
+  padding: 6px 16px;
+  font-weight: bold;
+}
+
+.modal-secondary {
+  background: #c96a6a;
+  border: 2px solid #000;
+  padding: 6px 16px;
+  font-weight: bold;
+}
+
+/* Delete confirm modal */
+.confirm-card {
+  background: #3a3a3a;
+  color: #fff;
+  padding: 24px;
+  width: 300px;
+  border-radius: 12px;
+  border: 2px solid #000;
+  text-align: center;
+}
+
+.confirm-yes {
+  background: #9fd18b;
+  border: 2px solid #000;
+  padding: 6px 16px;
+  margin-top: 12px;
+  font-weight: bold;
+}
+
+.confirm-cancel {
+  background: #d38b8b;
+  border: 2px solid #000;
+  padding: 6px 16px;
+  margin-top: 8px;
+  font-weight: bold;
+}
