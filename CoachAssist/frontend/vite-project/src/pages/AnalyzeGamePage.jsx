@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/analyze_game.css";
 import "../styles/teams.css";
@@ -126,13 +126,33 @@ export default function AnalyzeGamePage() {
         }
     };
 
-    // Helper to update specific cell
+    // Video state
+    const [videoSrc, setVideoSrc] = useState(null);
+    const [videoName, setVideoName] = useState("");
+    const videoRef = useRef(null);
+
+    // Video Upload Handler
+    const handleVideoUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            setVideoName(file.name);
+            const url = URL.createObjectURL(file);
+            setVideoSrc(url);
+        }
+    };
+
+    // Cleanup object URL
+    useEffect(() => {
+        return () => {
+            if (videoSrc) URL.revokeObjectURL(videoSrc);
+        };
+    }, [videoSrc]);
+
+    // Handle table input
     const handleInputChange = (id, field, value) => {
-        // Validation for Time field: allow only digits and ':'
-        if (field === 'time') {
-            const isValid = /^[0-9:]*$/.test(value);
-            if (!isValid) return; // Ignore invalid characters
-            if (value.length > 5) return; // Max length check (e.g. 12:34)
+        if (field === "time") {
+            if (!/^[0-9:]*$/.test(value)) return;
+            if (value.length > 5) return;
         }
 
         setAllTableData(prevData => {
@@ -220,7 +240,7 @@ export default function AnalyzeGamePage() {
     return (
         <div className="analyze-game-container">
             {/* Header */}
-            <div className="analyze-header" style={{ flexDirection: 'column', height: 'auto', padding: '20px 40px', gap: '20px' }}>
+            <div className="analyze-header" style={{ flexDirection: 'column', height: 'auto', gap: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         {teamId && (
@@ -237,15 +257,36 @@ export default function AnalyzeGamePage() {
                         </div>
                     </div>
 
-                    {match && (
-                        <button
-                            className="add-team-btn"
-                            onClick={() => setShowEdit(true)}
-                            style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
-                        >
-                            Edit Game Details
-                        </button>
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* Video Upload Logic */}
+                        <div className="video-upload-wrapper">
+                            <input
+                                type="file"
+                                accept="video/*"
+                                id="video-upload"
+                                style={{ display: "none" }}
+                                onChange={handleVideoUpload}
+                            />
+                            <button
+                                className="add-team-btn"
+                                onClick={() => document.getElementById("video-upload").click()}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                Upload Video
+                            </button>
+                            {videoName && <span className="video-name" style={{ marginLeft: '10px', fontSize: '14px' }}>{videoName}</span>}
+                        </div>
+
+                        {match && (
+                            <button
+                                className="add-team-btn"
+                                onClick={() => setShowEdit(true)}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                Edit Game Details
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 <div className="analyze-tabs" style={{ alignSelf: 'flex-start' }}>
@@ -282,45 +323,29 @@ export default function AnalyzeGamePage() {
 
             {/* Main Content */}
             <div className="analyze-content">
-                {/* Video Player Area */}
+                {/* Video Player Section */}
                 <div className="video-player-section">
-                    <div className="video-placeholder">
-                        {/* Visual simulation of a video player */}
-                        <div style={{ width: "100%", height: "100%", backgroundColor: "#555", position: "relative" }}>
-                            <div style={{
-                                width: "100%", height: "100%",
-                                background: "linear-gradient(45deg, #3a3a3a 25%, #444 25%, #444 50%, #3a3a3a 50%, #3a3a3a 75%, #444 75%, #444 100%)",
-                                backgroundSize: "20px 20px"
-                            }}></div>
-
-                            <div className="play-button-overlay">
-                                <div className="play-icon"></div>
-                            </div>
-
-                            {/* Controls Bar */}
-                            <div className="video-controls">
-                                <span className="control-icon">▶</span>
-                                <span className="control-icon">||</span>
-                                <div className="progress-bar">
-                                    <div className="progress-fill"></div>
-                                </div>
-                                <span className="control-icon">🔊</span>
-                                <span className="control-icon">⚙</span>
-                                <span className="control-icon">⛶</span>
-                            </div>
+                    {videoSrc ? (
+                        <video
+                            ref={videoRef}
+                            src={videoSrc}
+                            controls
+                            className="video-player"
+                        />
+                    ) : (
+                        <div className="video-placeholder">
+                            Upload a video to begin analysis
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Game State Table Area (Flex Grid) */}
+                {/* Table */}
                 <div className="game-state-table-container">
                     <div className="table-title-header">{tableHeaderTitle}</div>
 
-                    {/* Header Row */}
                     <div className="table-header-row">
                         <div className="cell col-obs">Observation</div>
                         <div className="cell col-time">Time</div>
-                        {/* Spacer to align with scrollbar in body */}
                         <div className="scrollbar-spacer"></div>
                     </div>
 
@@ -349,13 +374,10 @@ export default function AnalyzeGamePage() {
                         ))}
                     </div>
 
-                    {/* Fixed Footer for Add Row Button */}
                     <div className="table-footer-row">
-                        <div className="add-btn-cell">
-                            <button className="add-row-btn" onClick={handleAddRow}>
-                                Add Row +
-                            </button>
-                        </div>
+                        <button className="add-row-btn" onClick={handleAddRow}>
+                            Add Row +
+                        </button>
                     </div>
                 </div>
             </div>
