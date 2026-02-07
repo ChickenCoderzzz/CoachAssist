@@ -49,7 +49,7 @@ function App() {
         <Route path="/verify-password-change" element={<VerifyPasswordChangePage />} />
         <Route path="/analyze-game" element={<AnalyzeGamePage />} />
         <Route path="/team/:teamId" element={<TeamPage />} />
-        <Route path="/team/:teamId/match/:matchId" element={<WatchPage />} />
+        <Route path="/team/:teamId/match/:matchId" element={<AnalyzeGamePage />} />
       </Routes>
     </>
   );

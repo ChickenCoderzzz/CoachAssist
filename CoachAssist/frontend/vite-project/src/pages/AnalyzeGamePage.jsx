@@ -1,40 +1,84 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../styles/analyze_game.css";
+import "../styles/teams.css";
 
 // Initial data structure
 const INITIAL_DATA = {
-    "Game State": [
-        { id: 1, text: "Their quarterback...", time: "XX:XX" },
-        { id: 2, text: "Our left tackle...", time: "XX:XX" },
-        { id: 3, text: "Their wide receiver...", time: "XX:XX" },
-        { id: 4, text: "General observation 1...", time: "XX:XX" },
-        { id: 5, text: "General observation 2...", time: "XX:XX" },
-        { id: 6, text: "", time: "" },
-    ],
-    "Offensive": [
-        { id: 1, text: "Offensive Line shift...", time: "10:00" },
-        { id: 2, text: "QB pocket presence...", time: "12:30" },
-        { id: 3, text: "WR route running...", time: "14:15" },
-        { id: 4, text: "", time: "" },
-    ],
-    "Defensive": [
-        { id: 1, text: "Missed tackle LB...", time: "05:45" },
-        { id: 2, text: "Safety coverage...", time: "08:20" },
-        { id: 3, text: "D-Line pressure...", time: "11:10" },
-        { id: 4, text: "", time: "" },
-    ],
-    "Special": [
-        { id: 1, text: "Kickoff return coverage...", time: "00:05" },
-        { id: 2, text: "Punt block attempt...", time: "12:00" },
-        { id: 3, text: "Field goal range...", time: "04:30" },
-        { id: 4, text: "", time: "" },
-    ]
+    "Game State": [],
+    "Offensive": [],
+    "Defensive": [],
+    "Special": []
 };
 
 export default function AnalyzeGamePage() {
+    const { teamId, matchId } = useParams();
+    const navigate = useNavigate();
+
     const [activeTab, setActiveTab] = useState("Game State");
     // Main state holding all data
     const [allTableData, setAllTableData] = useState(INITIAL_DATA);
+
+    // Match State
+    const [match, setMatch] = useState(null);
+    const [showEdit, setShowEdit] = useState(false);
+
+    // Edit Form State
+    const [name, setName] = useState("");
+    const [opponent, setOpponent] = useState("");
+    const [gameDate, setGameDate] = useState("");
+    const [teamScore, setTeamScore] = useState("");
+    const [opponentScore, setOpponentScore] = useState("");
+    const [description, setDescription] = useState("");
+
+    // Fetch Match Details
+    useEffect(() => {
+        if (matchId) {
+            fetch(`/teams/matches/${matchId}`, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.match) {
+                        setMatch(data.match);
+                        setName(data.match.name);
+                        setOpponent(data.match.opponent);
+                        setGameDate(data.match.game_date?.split("T")[0]);
+                        setTeamScore(data.match.team_score ?? "");
+                        setOpponentScore(data.match.opponent_score ?? "");
+                        setDescription(data.match.description || "");
+                    }
+                });
+        }
+    }, [matchId]);
+
+    // Update Match Details
+    const handleUpdateMatch = () => {
+        fetch(`/teams/matches/${matchId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+                name,
+                opponent,
+                game_date: gameDate,
+                team_score: teamScore || null,
+                opponent_score: opponentScore || null,
+                description,
+            }),
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.match) {
+                    setMatch(data.match);
+                    setShowEdit(false);
+                }
+            });
+    };
 
     // Helper to update specific cell
     const handleInputChange = (id, field, value) => {
@@ -111,9 +155,35 @@ export default function AnalyzeGamePage() {
     return (
         <div className="analyze-game-container">
             {/* Header */}
-            <div className="analyze-header">
-                <div className="analyze-title">Analyze Game</div>
-                <div className="analyze-tabs">
+            <div className="analyze-header" style={{ flexDirection: 'column', height: 'auto', padding: '20px 40px', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {teamId && (
+                            <button
+                                className="add-team-btn"
+                                onClick={() => navigate(`/team/${teamId}`)}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                ← Back to Games
+                            </button>
+                        )}
+                        <div className="analyze-title" style={{ margin: 0, fontSize: '24px' }}>
+                            {match ? `${match.name} vs ${match.opponent}` : "Analyze Game"}
+                        </div>
+                    </div>
+
+                    {match && (
+                        <button
+                            className="add-team-btn"
+                            onClick={() => setShowEdit(true)}
+                            style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                        >
+                            Edit Game Details
+                        </button>
+                    )}
+                </div>
+
+                <div className="analyze-tabs" style={{ alignSelf: 'flex-start' }}>
                     <button
                         className="tab-button"
                         style={activeTab === "Game State" ? { transform: "translate(2px, 2px)", boxShadow: "none" } : {}}
@@ -236,6 +306,69 @@ export default function AnalyzeGamePage() {
                     Exit without Saving
                 </button>
             </div>
+
+            {/* EDIT GAME MODAL */}
+            {showEdit && (
+                <div className="modal-overlay">
+                    <div className="modal-card">
+                        <h2>Edit Game Details</h2>
+
+                        <label>Game Name</label>
+                        <input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                        />
+
+                        <label>Opponent</label>
+                        <input
+                            value={opponent}
+                            onChange={(e) => setOpponent(e.target.value)}
+                        />
+
+                        <label>Date</label>
+                        <input
+                            type="date"
+                            value={gameDate}
+                            onChange={(e) => setGameDate(e.target.value)}
+                        />
+
+                        <label>Team Score</label>
+                        <input
+                            type="number"
+                            value={teamScore}
+                            onChange={(e) => setTeamScore(e.target.value)}
+                        />
+
+                        <label>Opponent Score</label>
+                        <input
+                            type="number"
+                            value={opponentScore}
+                            onChange={(e) => setOpponentScore(e.target.value)}
+                        />
+
+                        <label>Description</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                        />
+
+                        <div className="modal-actions">
+                            <button
+                                className="modal-primary"
+                                onClick={handleUpdateMatch}
+                            >
+                                Save Changes
+                            </button>
+                            <button
+                                className="modal-secondary"
+                                onClick={() => setShowEdit(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
