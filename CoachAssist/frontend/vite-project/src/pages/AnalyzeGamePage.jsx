@@ -31,13 +31,14 @@ export default function AnalyzeGamePage() {
     const [opponentScore, setOpponentScore] = useState("");
     const [description, setDescription] = useState("");
 
-    // Fetch Match Details
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+    // Fetch Match Details & Game State
     useEffect(() => {
         if (matchId) {
+            // Fetch Match Details
             fetch(`/teams/matches/${matchId}`, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
             })
                 .then((res) => res.json())
                 .then((data) => {
@@ -49,6 +50,18 @@ export default function AnalyzeGamePage() {
                         setTeamScore(data.match.team_score ?? "");
                         setOpponentScore(data.match.opponent_score ?? "");
                         setDescription(data.match.description || "");
+                    }
+                });
+
+            // Fetch Game State
+            fetch(`/games/${matchId}/state`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    // Backend returns nested structure directly
+                    if (data) {
+                        setAllTableData(data);
                     }
                 });
         }
@@ -80,6 +93,39 @@ export default function AnalyzeGamePage() {
             });
     };
 
+    // Helper to format time string
+    const formatTime = (input) => {
+        if (!input) return "";
+
+        // If it already has a colon, try to normalize it
+        if (input.includes(":")) {
+            const parts = input.split(":");
+            if (parts.length === 2) {
+                const m = parseInt(parts[0], 10) || 0;
+                const s = parseInt(parts[1], 10) || 0;
+                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return input;
+        }
+
+        // If it's just numbers, treat as seconds
+        const totalSeconds = parseInt(input, 10);
+        if (!isNaN(totalSeconds)) {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        return input;
+    };
+
+    const handleTimeBlur = (id, value) => {
+        const formatted = formatTime(value);
+        if (formatted !== value) {
+            handleInputChange(id, 'time', formatted);
+        }
+    };
+
     // Helper to update specific cell
     const handleInputChange = (id, field, value) => {
         // Validation for Time field: allow only digits and ':'
@@ -90,7 +136,7 @@ export default function AnalyzeGamePage() {
         }
 
         setAllTableData(prevData => {
-            const currentList = prevData[activeTab];
+            const currentList = prevData[activeTab] || [];
             const updatedList = currentList.map(row => {
                 if (row.id === id) {
                     return { ...row, [field]: value };
@@ -110,7 +156,7 @@ export default function AnalyzeGamePage() {
         const newRow = { id: Date.now(), text: "", time: "" };
 
         setAllTableData(prevData => {
-            const currentList = prevData[activeTab];
+            const currentList = prevData[activeTab] || [];
             return {
                 ...prevData,
                 [activeTab]: [...currentList, newRow]
@@ -141,7 +187,22 @@ export default function AnalyzeGamePage() {
     }
 
     const handleSave = () => {
-        console.log("Save Changes and Exit clicked. Data:", allTableData);
+        fetch(`/games/${matchId}/state`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify(allTableData),
+        })
+            .then((res) => {
+                if (res.ok) {
+                    // Navigate back on success
+                    navigate(`/team/${teamId}`);
+                } else {
+                    alert("Failed to save changes.");
+                }
+            });
     };
 
     const handleExport = () => {
@@ -149,7 +210,11 @@ export default function AnalyzeGamePage() {
     };
 
     const handleExit = () => {
-        console.log("Exit without Saving clicked");
+        setShowExitConfirm(true);
+    };
+
+    const confirmExit = () => {
+        navigate(`/team/${teamId}`);
     };
 
     return (
@@ -276,6 +341,7 @@ export default function AnalyzeGamePage() {
                                         className="table-input center"
                                         value={row.time}
                                         onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
+                                        onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
                                         placeholder="00:00"
                                     />
                                 </div>
@@ -366,6 +432,28 @@ export default function AnalyzeGamePage() {
                                 Cancel
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EXIT CONFIRM MODAL */}
+            {showExitConfirm && (
+                <div className="modal-overlay">
+                    <div className="confirm-card">
+                        <p>
+                            Are you sure you want to exit without saving?
+                            <br />
+                            <strong>Any unsaved changes will be lost.</strong>
+                        </p>
+                        <button className="confirm-yes" onClick={confirmExit}>
+                            Yes, Exit
+                        </button>
+                        <button
+                            className="confirm-cancel"
+                            onClick={() => setShowExitConfirm(false)}
+                        >
+                            Cancel
+                        </button>
                     </div>
                 </div>
             )}
