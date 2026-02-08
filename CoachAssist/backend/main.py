@@ -20,3 +20,9 @@ app.include_router(team_folders_router)
 @app.get("/")
 def home():
     return {"message": "CoachAssist backend running"}
+
+#video player backend
+from backend.routers import auth, videos
+
+app.include_router(auth.router)
+app.include_router(videos.router)

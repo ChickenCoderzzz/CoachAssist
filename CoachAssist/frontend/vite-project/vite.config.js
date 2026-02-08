@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': 'http://127.0.0.1:8000',
+      '/videos': 'http://127.0.0.1:8000'
     },
   },
 })

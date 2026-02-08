@@ -36,18 +36,49 @@ export default function AnalyzeGamePage() {
   const [allTableData, setAllTableData] = useState(INITIAL_DATA);
 
   // Video state
+  const [videoList, setVideoList] = useState([]);
   const [videoSrc, setVideoSrc] = useState(null);
   const [videoName, setVideoName] = useState("");
+  const [loadingVideos, setLoadingVideos] = useState(true);
   const videoRef = useRef(null);
 
-  // Cleanup object URL
-  useEffect(() => {
-    return () => {
-      if (videoSrc) URL.revokeObjectURL(videoSrc);
-    };
-  }, [videoSrc]);
+  // Auth token from localStorage
+  const token = localStorage.getItem("token");
 
-  // Handle table input
+  // Fetch videos from backend
+  const fetchVideos = async () => {
+    if (!token) return;
+
+    try {
+      const res = await fetch("/videos", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) {
+        console.error("Failed to fetch videos", await res.text());
+        return;
+      }
+
+      const videos = await res.json();
+      setVideoList(videos);
+
+      // Load the first video if exists
+      if (videos.length > 0) {
+        setVideoSrc(videos[0].playback_url);
+        setVideoName(videos[0].filename);
+      }
+    } catch (err) {
+      console.error("Error fetching videos:", err);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
+
+  // Table input handler
   const handleInputChange = (id, field, value) => {
     if (field === "time") {
       if (!/^[0-9:]*$/.test(value)) return;
@@ -71,18 +102,52 @@ export default function AnalyzeGamePage() {
     }));
   };
 
-  // Upload video
-  const handleVideoUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // Register a YouTube video
+const handleYouTubeVideo = async () => {
+  const youtubeInput = prompt("Enter the YouTube video URL or ID:");
+  if (!youtubeInput) return;
+    if (!token) {
+      alert("You must be logged in to add a video.");
+      return;
+    }
 
-    const url = URL.createObjectURL(file);
-    setVideoSrc(url);
-    setVideoName(file.name);
-  };
+  try {
+    const res = await fetch("/videos/youtube", {
+      method: "POST",
+      headers: {
+          "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ youtube_id: youtubeInput, filename: "Game Film" })
+    });
+
+if (!res.ok) {
+    let errorDetail = "";
+    const text = await res.text(); // Read body once
+    try {
+        const data = JSON.parse(text); // Try parse as JSON
+        errorDetail = data.detail || JSON.stringify(data);
+    } catch {
+        errorDetail = text; // fallback to raw text
+    }
+    alert(`Failed to register video: ${errorDetail} (Status ${res.status})`);
+    console.error("Failed to register video", errorDetail);
+    return;
+}
+
+    const newVideo = await res.json();
+    setVideoList(prev => [newVideo, ...prev]);
+    setVideoSrc(newVideo.playback_url);
+    setVideoName(newVideo.filename);
+    alert("Video added successfully!");
+  } catch (err) {
+    alert("Error adding YouTube video:\n" + err);
+  }
+};
+
+
 
   const currentTableData = allTableData[activeTab];
-
   const tableHeaderTitle = {
     "Game State": "Game State Table - General",
     Offensive: "Game State Table - Offensive",
@@ -116,42 +181,62 @@ export default function AnalyzeGamePage() {
 
       {/* Main Content */}
       <div className="analyze-content">
-  {/* Video Column (button above video) */}
-  <div className="video-column">
-    {/* Video Upload Button */}
-    <div className="video-upload-wrapper">
-      <input
-        type="file"
-        accept="video/*"
-        id="video-upload"
-        style={{ display: "none" }}
-        onChange={handleVideoUpload}
-      />
-      <button
-        className="action-btn"
-        onClick={() => document.getElementById("video-upload").click()}
-      >
-        Upload Video
-      </button>
-      {videoName && <span className="video-name">{videoName}</span>}
-    </div>
+        {/* Video Column */}
+        <div className="video-column">
+            {/*upload button*/}
+          <div className="video-upload-wrapper">
+            <button className="action-btn" onClick={handleYouTubeVideo}>
+              Add YouTube Video
+            </button>
+            {videoName && <span className="video-name">{videoName}</span>}
+          </div>
 
-    {/* Video Player */}
-    <div className="video-player-section">
-      {videoSrc ? (
-        <video
-          ref={videoRef}
-          src={videoSrc}
-          controls
-          className="video-player"
-        />
-      ) : (
-        <div className="video-placeholder">
-          Upload a video to begin analysis
+          {/*fetch button*/}
+            <div className="video-upload-wrapper">
+            <button className="action-btn" onClick={fetchVideos}>
+            Fetch YouTube Video
+            </button>
+            {videoName && <span className="video-name">{videoName}</span>}
+            </div>
+
+          <div className="video-player-section">
+            {loadingVideos ? (
+              <div>Loading videos...</div>
+            ) : videoSrc ? (
+              <iframe
+                ref={videoRef}
+                src={videoSrc}
+                title={videoName}
+                width="100%"
+                height="360"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            ) : (
+              <div className="video-placeholder">
+                Upload a video to begin analysis
+              </div>
+            )}
+          </div>
+
+          {/* Video list selection */}
+          {videoList.length > 1 && (
+            <div className="video-list">
+              {videoList.map(v => (
+                <button
+                  key={v.id}
+                  className="video-list-item"
+                  onClick={() => {
+                    setVideoSrc(v.playback_url);
+                    setVideoName(v.filename);
+                  }}
+                >
+                  {v.filename}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  </div>
 
         {/* Table */}
         <div className="game-state-table-container">
