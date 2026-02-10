@@ -20,3 +20,6 @@ app.include_router(team_folders_router)
 @app.get("/")
 def home():
     return {"message": "CoachAssist backend running"}
+
+from backend.routers import players
+app.include_router(players.router)

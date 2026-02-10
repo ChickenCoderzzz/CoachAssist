@@ -78,6 +78,9 @@ def require_user(
 
     return user  # ✅ always a dict
 
+def require_username(user=Depends(require_user)) -> str:
+    return user["username"]
+
 # -------------------------
 # Signup / Verification
 # -------------------------

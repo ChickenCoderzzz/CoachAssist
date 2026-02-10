@@ -100,3 +100,5 @@ def send_password_reset_email(to_email: str, code: str):
     except Exception as e:
         print("!!! EMAIL FAILED !!!")
         print(e)
+
+    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
