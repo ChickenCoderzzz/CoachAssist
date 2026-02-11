@@ -43,6 +43,7 @@ class VerifyProfilePasswordChangeSchema(BaseModel):
 class PlayerCreateSchema(BaseModel):
     player_name: str
     jersey_number: Optional[int] = None
+    unit: Optional[str] = None      # ✅ NEW
     position: Optional[str] = None
     notes: Optional[str] = None
 
