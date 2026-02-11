@@ -12,6 +12,8 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import DeleteAccountPage from "./pages/DeleteAccountPage.jsx";
 import VerifyPasswordChangePage from "./pages/VerifyPasswordChangePage.jsx";
 import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
+import TeamPage from "./pages/TeamPage.jsx";
+import WatchPage from "./pages/WatchPage";
 
 import Navbar from "./components/Navbar.jsx";
 
@@ -46,6 +48,8 @@ function App() {
         <Route path="/delete-account" element={<DeleteAccountPage />} />
         <Route path="/verify-password-change" element={<VerifyPasswordChangePage />} />
         <Route path="/analyze-game" element={<AnalyzeGamePage />} />
+        <Route path="/team/:teamId" element={<TeamPage />} />
+        <Route path="/team/:teamId/match/:matchId" element={<AnalyzeGamePage />} />
       </Routes>
     </>
   );

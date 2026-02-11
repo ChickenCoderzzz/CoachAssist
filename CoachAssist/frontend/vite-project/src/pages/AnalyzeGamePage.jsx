@@ -1,52 +1,162 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import "../styles/analyze_game.css";
+import "../styles/teams.css";
 
 // Initial data structure
 const INITIAL_DATA = {
-    "Game State": [
-        { id: 1, text: "Their quarterback...", time: "XX:XX" },
-        { id: 2, text: "Our left tackle...", time: "XX:XX" },
-        { id: 3, text: "Their wide receiver...", time: "XX:XX" },
-        { id: 4, text: "General observation 1...", time: "XX:XX" },
-        { id: 5, text: "General observation 2...", time: "XX:XX" },
-        { id: 6, text: "", time: "" },
-    ],
-    "Offensive": [
-        { id: 1, text: "Offensive Line shift...", time: "10:00" },
-        { id: 2, text: "QB pocket presence...", time: "12:30" },
-        { id: 3, text: "WR route running...", time: "14:15" },
-        { id: 4, text: "", time: "" },
-    ],
-    "Defensive": [
-        { id: 1, text: "Missed tackle LB...", time: "05:45" },
-        { id: 2, text: "Safety coverage...", time: "08:20" },
-        { id: 3, text: "D-Line pressure...", time: "11:10" },
-        { id: 4, text: "", time: "" },
-    ],
-    "Special": [
-        { id: 1, text: "Kickoff return coverage...", time: "00:05" },
-        { id: 2, text: "Punt block attempt...", time: "12:00" },
-        { id: 3, text: "Field goal range...", time: "04:30" },
-        { id: 4, text: "", time: "" },
-    ]
+    "Game State": [],
+    "Offensive": [],
+    "Defensive": [],
+    "Special": []
 };
 
 export default function AnalyzeGamePage() {
+    const { teamId, matchId } = useParams();
+    const navigate = useNavigate();
+
     const [activeTab, setActiveTab] = useState("Game State");
     // Main state holding all data
     const [allTableData, setAllTableData] = useState(INITIAL_DATA);
 
-    // Helper to update specific cell
+    // Match State
+    const [match, setMatch] = useState(null);
+    const [showEdit, setShowEdit] = useState(false);
+
+    // Edit Form State
+    const [name, setName] = useState("");
+    const [opponent, setOpponent] = useState("");
+    const [gameDate, setGameDate] = useState("");
+    const [teamScore, setTeamScore] = useState("");
+    const [opponentScore, setOpponentScore] = useState("");
+    const [description, setDescription] = useState("");
+
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+    // Fetch Match Details & Game State
+    useEffect(() => {
+        if (matchId) {
+            // Fetch Match Details
+            fetch(`/teams/matches/${matchId}`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.match) {
+                        setMatch(data.match);
+                        setName(data.match.name);
+                        setOpponent(data.match.opponent);
+                        setGameDate(data.match.game_date?.split("T")[0]);
+                        setTeamScore(data.match.team_score ?? "");
+                        setOpponentScore(data.match.opponent_score ?? "");
+                        setDescription(data.match.description || "");
+                    }
+                });
+
+            // Fetch Game State
+            fetch(`/games/${matchId}/state`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            })
+                .then((res) => res.json())
+                .then((data) => {
+                    // Backend returns nested structure directly
+                    if (data) {
+                        setAllTableData(data);
+                    }
+                });
+        }
+    }, [matchId]);
+
+    // Update Match Details
+    const handleUpdateMatch = () => {
+        fetch(`/teams/matches/${matchId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+                name,
+                opponent,
+                game_date: gameDate,
+                team_score: teamScore || null,
+                opponent_score: opponentScore || null,
+                description,
+            }),
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.match) {
+                    setMatch(data.match);
+                    setShowEdit(false);
+                }
+            });
+    };
+
+    // Helper to format time string
+    const formatTime = (input) => {
+        if (!input) return "";
+
+        // If it already has a colon, try to normalize it
+        if (input.includes(":")) {
+            const parts = input.split(":");
+            if (parts.length === 2) {
+                const m = parseInt(parts[0], 10) || 0;
+                const s = parseInt(parts[1], 10) || 0;
+                return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
+            return input;
+        }
+
+        // If it's just numbers, treat as seconds
+        const totalSeconds = parseInt(input, 10);
+        if (!isNaN(totalSeconds)) {
+            const m = Math.floor(totalSeconds / 60);
+            const s = totalSeconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        return input;
+    };
+
+    const handleTimeBlur = (id, value) => {
+        const formatted = formatTime(value);
+        if (formatted !== value) {
+            handleInputChange(id, 'time', formatted);
+        }
+    };
+
+    // Video state
+    const [videoSrc, setVideoSrc] = useState(null);
+    const [videoName, setVideoName] = useState("");
+    const videoRef = useRef(null);
+
+    // Video Upload Handler
+    const handleVideoUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            setVideoName(file.name);
+            const url = URL.createObjectURL(file);
+            setVideoSrc(url);
+        }
+    };
+
+    // Cleanup object URL
+    useEffect(() => {
+        return () => {
+            if (videoSrc) URL.revokeObjectURL(videoSrc);
+        };
+    }, [videoSrc]);
+
+    // Handle table input
     const handleInputChange = (id, field, value) => {
-        // Validation for Time field: allow only digits and ':'
-        if (field === 'time') {
-            const isValid = /^[0-9:]*$/.test(value);
-            if (!isValid) return; // Ignore invalid characters
-            if (value.length > 5) return; // Max length check (e.g. 12:34)
+        if (field === "time") {
+            if (!/^[0-9:]*$/.test(value)) return;
+            if (value.length > 5) return;
         }
 
         setAllTableData(prevData => {
-            const currentList = prevData[activeTab];
+            const currentList = prevData[activeTab] || [];
             const updatedList = currentList.map(row => {
                 if (row.id === id) {
                     return { ...row, [field]: value };
@@ -66,7 +176,7 @@ export default function AnalyzeGamePage() {
         const newRow = { id: Date.now(), text: "", time: "" };
 
         setAllTableData(prevData => {
-            const currentList = prevData[activeTab];
+            const currentList = prevData[activeTab] || [];
             return {
                 ...prevData,
                 [activeTab]: [...currentList, newRow]
@@ -97,7 +207,22 @@ export default function AnalyzeGamePage() {
     }
 
     const handleSave = () => {
-        console.log("Save Changes and Exit clicked. Data:", allTableData);
+        fetch(`/games/${matchId}/state`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify(allTableData),
+        })
+            .then((res) => {
+                if (res.ok) {
+                    // Navigate back on success
+                    navigate(`/team/${teamId}`);
+                } else {
+                    alert("Failed to save changes.");
+                }
+            });
     };
 
     const handleExport = () => {
@@ -105,15 +230,66 @@ export default function AnalyzeGamePage() {
     };
 
     const handleExit = () => {
-        console.log("Exit without Saving clicked");
+        setShowExitConfirm(true);
+    };
+
+    const confirmExit = () => {
+        navigate(`/team/${teamId}`);
     };
 
     return (
         <div className="analyze-game-container">
             {/* Header */}
-            <div className="analyze-header">
-                <div className="analyze-title">Analyze Game</div>
-                <div className="analyze-tabs">
+            <div className="analyze-header" style={{ flexDirection: 'column', height: 'auto', gap: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        {teamId && (
+                            <button
+                                className="add-team-btn"
+                                onClick={() => navigate(`/team/${teamId}`)}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                ← Back to Games
+                            </button>
+                        )}
+                        <div className="analyze-title" style={{ margin: 0, fontSize: '24px' }}>
+                            {match ? `${match.name} vs ${match.opponent}` : "Analyze Game"}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {/* Video Upload Logic */}
+                        <div className="video-upload-wrapper">
+                            <input
+                                type="file"
+                                accept="video/*"
+                                id="video-upload"
+                                style={{ display: "none" }}
+                                onChange={handleVideoUpload}
+                            />
+                            <button
+                                className="add-team-btn"
+                                onClick={() => document.getElementById("video-upload").click()}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                Upload Video
+                            </button>
+                            {videoName && <span className="video-name" style={{ marginLeft: '10px', fontSize: '14px' }}>{videoName}</span>}
+                        </div>
+
+                        {match && (
+                            <button
+                                className="add-team-btn"
+                                onClick={() => setShowEdit(true)}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                Edit Game Details
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                <div className="analyze-tabs" style={{ alignSelf: 'flex-start' }}>
                     <button
                         className="tab-button"
                         style={activeTab === "Game State" ? { transform: "translate(2px, 2px)", boxShadow: "none" } : {}}
@@ -147,45 +323,29 @@ export default function AnalyzeGamePage() {
 
             {/* Main Content */}
             <div className="analyze-content">
-                {/* Video Player Area */}
+                {/* Video Player Section */}
                 <div className="video-player-section">
-                    <div className="video-placeholder">
-                        {/* Visual simulation of a video player */}
-                        <div style={{ width: "100%", height: "100%", backgroundColor: "#555", position: "relative" }}>
-                            <div style={{
-                                width: "100%", height: "100%",
-                                background: "linear-gradient(45deg, #3a3a3a 25%, #444 25%, #444 50%, #3a3a3a 50%, #3a3a3a 75%, #444 75%, #444 100%)",
-                                backgroundSize: "20px 20px"
-                            }}></div>
-
-                            <div className="play-button-overlay">
-                                <div className="play-icon"></div>
-                            </div>
-
-                            {/* Controls Bar */}
-                            <div className="video-controls">
-                                <span className="control-icon">▶</span>
-                                <span className="control-icon">||</span>
-                                <div className="progress-bar">
-                                    <div className="progress-fill"></div>
-                                </div>
-                                <span className="control-icon">🔊</span>
-                                <span className="control-icon">⚙</span>
-                                <span className="control-icon">⛶</span>
-                            </div>
+                    {videoSrc ? (
+                        <video
+                            ref={videoRef}
+                            src={videoSrc}
+                            controls
+                            className="video-player"
+                        />
+                    ) : (
+                        <div className="video-placeholder">
+                            Upload a video to begin analysis
                         </div>
-                    </div>
+                    )}
                 </div>
 
-                {/* Game State Table Area (Flex Grid) */}
+                {/* Table */}
                 <div className="game-state-table-container">
                     <div className="table-title-header">{tableHeaderTitle}</div>
 
-                    {/* Header Row */}
                     <div className="table-header-row">
                         <div className="cell col-obs">Observation</div>
                         <div className="cell col-time">Time</div>
-                        {/* Spacer to align with scrollbar in body */}
                         <div className="scrollbar-spacer"></div>
                     </div>
 
@@ -206,6 +366,7 @@ export default function AnalyzeGamePage() {
                                         className="table-input center"
                                         value={row.time}
                                         onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
+                                        onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
                                         placeholder="00:00"
                                     />
                                 </div>
@@ -213,13 +374,10 @@ export default function AnalyzeGamePage() {
                         ))}
                     </div>
 
-                    {/* Fixed Footer for Add Row Button */}
                     <div className="table-footer-row">
-                        <div className="add-btn-cell">
-                            <button className="add-row-btn" onClick={handleAddRow}>
-                                Add Row +
-                            </button>
-                        </div>
+                        <button className="add-row-btn" onClick={handleAddRow}>
+                            Add Row +
+                        </button>
                     </div>
                 </div>
             </div>
@@ -236,6 +394,91 @@ export default function AnalyzeGamePage() {
                     Exit without Saving
                 </button>
             </div>
+
+            {/* EDIT GAME MODAL */}
+            {showEdit && (
+                <div className="modal-overlay">
+                    <div className="modal-card">
+                        <h2>Edit Game Details</h2>
+
+                        <label>Game Name</label>
+                        <input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                        />
+
+                        <label>Opponent</label>
+                        <input
+                            value={opponent}
+                            onChange={(e) => setOpponent(e.target.value)}
+                        />
+
+                        <label>Date</label>
+                        <input
+                            type="date"
+                            value={gameDate}
+                            onChange={(e) => setGameDate(e.target.value)}
+                        />
+
+                        <label>Team Score</label>
+                        <input
+                            type="number"
+                            value={teamScore}
+                            onChange={(e) => setTeamScore(e.target.value)}
+                        />
+
+                        <label>Opponent Score</label>
+                        <input
+                            type="number"
+                            value={opponentScore}
+                            onChange={(e) => setOpponentScore(e.target.value)}
+                        />
+
+                        <label>Description</label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                        />
+
+                        <div className="modal-actions">
+                            <button
+                                className="modal-primary"
+                                onClick={handleUpdateMatch}
+                            >
+                                Save Changes
+                            </button>
+                            <button
+                                className="modal-secondary"
+                                onClick={() => setShowEdit(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* EXIT CONFIRM MODAL */}
+            {showExitConfirm && (
+                <div className="modal-overlay">
+                    <div className="confirm-card">
+                        <p>
+                            Are you sure you want to exit without saving?
+                            <br />
+                            <strong>Any unsaved changes will be lost.</strong>
+                        </p>
+                        <button className="confirm-yes" onClick={confirmExit}>
+                            Yes, Exit
+                        </button>
+                        <button
+                            className="confirm-cancel"
+                            onClick={() => setShowExitConfirm(false)}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
