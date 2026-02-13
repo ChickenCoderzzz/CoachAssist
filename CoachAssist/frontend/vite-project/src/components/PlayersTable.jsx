@@ -21,6 +21,10 @@ export default function PlayersTable() {
   const [position, setPosition] = useState("");
   const [notes, setNotes] = useState("");
 
+  // delete modal state
+  const [playerToDelete, setPlayerToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function loadPlayers() {
     setErr("");
     setLoading(true);
@@ -85,6 +89,43 @@ export default function PlayersTable() {
       setErr(e.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function confirmDeletePlayer() {
+    if (!playerToDelete) return;
+    if (deleting) return;
+
+    setErr("");
+    setDeleting(true);
+    try {
+      const res = await fetch(`/players/${playerToDelete.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+if (!res.ok) {
+  const text = await res.text();
+  let detail = text;
+
+  try {
+    const parsed = JSON.parse(text);
+    detail = parsed.detail || JSON.stringify(parsed);
+  } catch  {
+    // ignore JSON parse error, use raw text
+  }
+
+  throw new Error(detail || "Failed to delete player");
+}
+
+
+      // optimistic remove (fast UI)
+      setPlayers((prev) => prev.filter((p) => p.id !== playerToDelete.id));
+      setPlayerToDelete(null);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -182,6 +223,7 @@ export default function PlayersTable() {
                 <th>Tackles</th>
                 <th>INT</th>
                 <th>Notes</th>
+                <th style={{ width: 70 }}>Delete</th>
               </tr>
             </thead>
             <tbody>
@@ -196,12 +238,52 @@ export default function PlayersTable() {
                   <td>{p.tackles ?? 0}</td>
                   <td>{p.interceptions ?? 0}</td>
                   <td>{p.notes ?? ""}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => setPlayerToDelete(p)}
+                      style={{
+                        border: "2px solid #000",
+                        borderRadius: 8,
+                        padding: "4px 10px",
+                        background: "#ff6b6b",
+                        cursor: "pointer",
+                      }}
+                      title="Delete player"
+                    >
+                      X
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* DELETE CONFIRM MODAL */}
+      {playerToDelete && (
+        <div className="modal-overlay">
+          <div className="confirm-card">
+            <p>
+              Delete <strong>{playerToDelete.player_name}</strong>?
+              <br />
+              <strong>This cannot be undone.</strong>
+            </p>
+
+            <button className="confirm-yes" onClick={confirmDeletePlayer} disabled={deleting}>
+              {deleting ? "Deleting..." : "Yes I’m Sure"}
+            </button>
+            <button
+              className="confirm-cancel"
+              onClick={() => setPlayerToDelete(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -145,10 +145,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ✅ Players Table section (below Teams) */}
-      <div style={{ maxWidth: "1300px", margin: "20px auto 0 auto" }}>
-        <PlayersTable />
-      </div>
 
       {/* CREATE TEAM MODAL */}
       {showCreate && (
