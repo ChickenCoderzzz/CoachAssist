@@ -19,7 +19,7 @@ export default function EditProfilePage() {
       const res = await fetch("/auth/profile/request-password-change", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`, // ✅ FIX #1
+          Authorization: `Bearer ${token}`, 
         },
       });
 
@@ -30,8 +30,7 @@ export default function EditProfilePage() {
         return;
       }
 
-      // ✅ SUCCESS → navigate to verify page
-      navigate("/verify-password-change"); // ✅ FIX #2
+      navigate("/verify-password-change"); 
     } catch (err) {
       setMessage("Server error. Please try again.");
     } finally {

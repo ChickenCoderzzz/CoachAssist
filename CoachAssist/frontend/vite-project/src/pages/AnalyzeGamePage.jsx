@@ -11,6 +11,80 @@ const INITIAL_DATA = {
     "Special": []
 };
 
+// ================= PLAYER TABLE CONSTANTS =================
+
+const POSITION_LABELS = {
+  QB: "Quarterback",
+  RB: "Running Back",
+  FB: "Fullback",
+  WR: "Wide Receiver",
+  TE: "Tight End",
+  LT: "Left Tackle",
+  LG: "Left Guard",
+  C:  "Center",
+  RG: "Right Guard",
+  RT: "Right Tackle",
+  DE: "Defensive End",
+  DT: "Defensive Tackle",
+  NT: "Nose Tackle",
+  OLB: "Outside Linebacker",
+  ILB: "Inside Linebacker",
+  MLB: "Middle Linebacker",
+  CB: "Cornerback",
+  FS: "Free Safety",
+  SS: "Strong Safety",
+  K:  "Kicker",
+  P:  "Punter",
+  KR: "Kick Returner",
+  PR: "Punt Returner",
+  LS: "Long Snapper"
+};
+
+const getFullPositionName = (pos) => {
+  return POSITION_LABELS[pos] || pos;
+};
+
+const UNIVERSAL_STATS = [
+  "snaps_played",
+  "penalties",
+  "turnovers",
+  "touchdowns"
+];
+
+const POSITION_GROUPS = {
+  QB: {
+    Passing: ["pass_attempts","pass_completions","passing_yards","passing_tds","interceptions_thrown"],
+    Rushing: ["rush_attempts","rushing_yards","rushing_tds"]
+  },
+  RB: {
+    Rushing: ["rush_attempts","rushing_yards","rushing_tds"],
+    Receiving: ["targets","receptions","receiving_yards","receiving_tds"]
+  },
+  FB: { Rushing: ["rush_attempts","rushing_yards"], Blocking:["lead_blocks"] },
+  WR: { Receiving:["targets","receptions","receiving_yards","receiving_tds","drops"] },
+  TE: { Receiving:["targets","receptions","receiving_yards","receiving_tds"], Blocking:["run_block_snaps","pass_block_snaps"] },
+  LT: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
+  LG: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
+  C:  { Blocking:["pass_block_snaps","run_block_snaps"], Snapping:["bad_snaps"] },
+  RG: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
+  RT: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
+  DE: { Defense:["tackles","tackles_for_loss","sacks","forced_fumbles"] },
+  DT: { Defense:["tackles","tackles_for_loss","sacks"] },
+  NT: { Defense:["tackles","tackles_for_loss"] },
+  OLB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
+  ILB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
+  MLB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
+  CB: { Coverage:["targets_allowed","completions_allowed","interceptions","passes_defended"] },
+  FS: { Coverage:["interceptions","passes_defended","tackles"] },
+  SS: { Coverage:["interceptions","passes_defended","tackles"] },
+  K:  { Kicking:["field_goals_made","field_goals_attempted","extra_points_made"] },
+  P:  { Punting:["punts","punt_yards","punts_inside_20"] },
+  KR: { Returns:["kick_returns","kick_return_yards","kick_return_tds"] },
+  PR: { Returns:["punt_returns","punt_return_yards","punt_return_tds"] },
+  LS: { Snapping:["total_snaps","bad_snaps"] }
+};
+
+
 export default function AnalyzeGamePage() {
     const { teamId, matchId } = useParams();
     const navigate = useNavigate();
@@ -19,9 +93,18 @@ export default function AnalyzeGamePage() {
     // Main state holding all data
     const [allTableData, setAllTableData] = useState(INITIAL_DATA);
 
+    // ================= PLAYER TABLE STATE =================
+
+    const [players, setPlayers] = useState([]);
+    const [selectedPlayer, setSelectedPlayer] = useState(null);
+    const [playerStats, setPlayerStats] = useState({});
+    const [playerNotes, setPlayerNotes] = useState([]);
+
     // Match State
     const [match, setMatch] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
+
+    const [showPlayerModal, setShowPlayerModal] = useState(false);
 
     // Edit Form State
     const [name, setName] = useState("");
@@ -66,6 +149,24 @@ export default function AnalyzeGamePage() {
                 });
         }
     }, [matchId]);
+
+    // Fetch Players for Offensive / Defensive / Special tabs
+    useEffect(() => {
+      let unit = null;
+
+      if (activeTab === "Offensive") unit = "offense";
+      if (activeTab === "Defensive") unit = "defense";
+      if (activeTab === "Special") unit = "special";
+
+      if (!unit) return;
+
+      fetch(`/teams/${teamId}/players?unit=${unit}`, {
+       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      })
+        .then(res => res.json())
+        .then(data => setPlayers(data || []));
+    }, [activeTab, teamId]);
+
 
     // Update Match Details
     const handleUpdateMatch = () => {
@@ -237,6 +338,114 @@ export default function AnalyzeGamePage() {
         navigate(`/team/${teamId}`);
     };
 
+    // ================= OPEN PLAYER MODAL =================
+    const openPlayerModal = (player) => {
+        setSelectedPlayer(player);
+        setShowPlayerModal(true);
+
+        fetch(`/games/${matchId}/players/${player.id}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+
+                // Build default stat structure
+                let defaults = {};
+
+                // Universal stats
+                UNIVERSAL_STATS.forEach(stat => {
+                    defaults[stat] = 0;
+                });
+
+                // Position-specific stats
+                const groups = POSITION_GROUPS[player.position];
+                if (groups) {
+                    Object.values(groups).forEach(group => {
+                        group.forEach(stat => {
+                            defaults[stat] = 0;
+                        });
+                    });
+                }
+
+                setPlayerStats({
+                    ...defaults,
+                    ...(data.stats || {})
+                });
+
+                setPlayerNotes(data.notes || []);
+            })
+            .catch(err => {
+                console.error("Failed to load player insights:", err);
+            });
+    };
+
+
+
+    // ================= FILTER PLAYERS BY UNIT =================
+
+    const filteredPlayers = players.filter(player => {
+        if (activeTab === "Offensive") return player.unit === "offense";
+        if (activeTab === "Defensive") return player.unit === "defense";
+        if (activeTab === "Special") return player.unit === "special";
+        return false;
+    });
+
+    // ==========================
+    // PLAYER NOTE HANDLERS
+    // ==========================
+
+    const updatePlayerNote = (id, field, value) => {
+        setPlayerNotes(prev =>
+            prev.map(note =>
+                note.id === id
+                    ? { ...note, [field]: value }
+                    : note
+            )
+        );
+    };
+
+    const addPlayerNoteRow = () => {
+        const newRow = {
+            id: Date.now(),
+            category: "General",
+            note: "",
+            time: ""
+        };
+
+        setPlayerNotes(prev => [...prev, newRow]);
+    };
+
+    const deletePlayerNoteRow = (id) => {
+        setPlayerNotes(prev =>
+            prev.filter(row => row.id !== id)
+        );
+    };
+
+
+
+    const savePlayerInsights = () => {
+        fetch(`/games/${matchId}/players/${selectedPlayer.id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`
+            },
+            body: JSON.stringify({
+                stats: playerStats,
+                notes: playerNotes
+            })
+        })
+            .then(res => res.json())
+            .then(() => {
+                setShowPlayerModal(false);
+            })
+            .catch(err => {
+                console.error("Failed to save player insights:", err);
+            });
+    };
+
     return (
         <div className="analyze-game-container">
             {/* Header */}
@@ -339,7 +548,10 @@ export default function AnalyzeGamePage() {
                     )}
                 </div>
 
-                {/* Table */}
+            {/* Table */}
+            {activeTab === "Game State" ? (
+
+                // ORIGINAL GAME STATE TABLE (unchanged)
                 <div className="game-state-table-container">
                     <div className="table-title-header">{tableHeaderTitle}</div>
 
@@ -349,7 +561,6 @@ export default function AnalyzeGamePage() {
                         <div className="scrollbar-spacer"></div>
                     </div>
 
-                    {/* Scrollable Body */}
                     <div className="table-scroll-area">
                         {currentTableData.map((row) => (
                             <div className="table-row" key={row.id}>
@@ -358,7 +569,6 @@ export default function AnalyzeGamePage() {
                                         className="table-input"
                                         value={row.text}
                                         onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
-                                        placeholder=""
                                     />
                                 </div>
                                 <div className="cell col-time">
@@ -367,7 +577,6 @@ export default function AnalyzeGamePage() {
                                         value={row.time}
                                         onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
                                         onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
-                                        placeholder="00:00"
                                     />
                                 </div>
                             </div>
@@ -380,7 +589,54 @@ export default function AnalyzeGamePage() {
                         </button>
                     </div>
                 </div>
-            </div>
+
+            ) : (
+
+                // PLAYER TABLE REPLACES GAME STATE TABLE
+                <div className="game-state-table-container player-table">
+                  <div
+                      className={`table-title-header ${
+                          activeTab === "Offensive"
+                              ? "offense"
+                              : activeTab === "Defensive"
+                              ? "defense"
+                              : activeTab === "Special"
+                              ? "special"
+                              : ""
+                      }`}
+                  >
+                      Player Table - {activeTab}
+                  </div>
+
+                  <div className="player-table-header">
+                      <div>#</div>
+                      <div>Name</div>
+                      <div>Position</div>
+                      <div>Action</div>
+                  </div>
+
+                  <div className="player-table-body">
+                      {filteredPlayers.map((player) => (
+                          <div className="player-table-row" key={player.id}>
+                              <div>{player.jersey_number}</div>
+                              <div>{player.player_name}</div>
+                              <div>{getFullPositionName(player.position)}</div>
+                              <div>
+                                  <button
+                                      className="player-view-btn"
+                                      onClick={() => openPlayerModal(player)}
+                                  >
+                                      View
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+
+            )}
+    
+          </div>
 
             {/* Footer Buttons */}
             <div className="footer-buttons">
@@ -479,6 +735,181 @@ export default function AnalyzeGamePage() {
                     </div>
                 </div>
             )}
+
+            {/* PLAYER INSIGHTS MODAL */}
+            {showPlayerModal && (
+                <div className="player-modal-overlay">
+                    <div className="player-modal">
+
+                        {/* Header */}
+                        <div className="player-modal-header">
+                            #{selectedPlayer?.jersey_number} {selectedPlayer?.player_name}
+                            {" - "}
+                            {POSITION_LABELS[selectedPlayer?.position] || selectedPlayer?.position}
+                        </div>
+
+                        {/* Body */}
+                        <div className="player-modal-body">
+
+                            {/* LEFT SIDE - NOTES */}
+                            <div className="player-notes-wrapper">
+
+                                <div className="player-observations-title">
+                                    Player Observations
+                                </div>
+
+                                <div className="player-notes-container">
+
+                                    {/* Table Header */}
+                                    <div className="notes-header">
+                                        <div>Observation</div>
+                                        <div>Time</div>
+                                        <div></div>
+                                    </div>
+
+                                    {/* Table Body */}
+                                    <div className="notes-body">
+                                        {playerNotes.map((row) => (
+                                            <div className="notes-row" key={row.id}>
+
+                                                {/* Observation */}
+                                                <div className="note-cell">
+                                                    <input
+                                                        value={row.note}
+                                                        onChange={(e) =>
+                                                            updatePlayerNote(row.id, "note", e.target.value)
+                                                        }
+                                                    />
+                                                    {row.note && (
+                                                        <span className="note-tooltip">
+                                                            {row.note}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Time */}
+                                                <input
+                                                    value={row.time}
+                                                    onChange={(e) =>
+                                                        updatePlayerNote(row.id, "time", e.target.value)
+                                                    }
+                                                />
+
+                                                {/* Delete */}
+                                                <div className="delete-cell">
+                                                    <button
+                                                        className="delete-btn"
+                                                        onClick={() => deletePlayerNoteRow(row.id)}
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Add Row */}
+                                    <button
+                                        className="add-row-btn"
+                                        onClick={addPlayerNoteRow}
+                                    >
+                                        Add Row +
+                                    </button>
+
+                                </div>
+                            </div>
+
+                            {/* RIGHT SIDE - STATS */}
+                            <div className="player-stats-container">
+
+                                {/* GENERAL */}
+                                <div className="player-stats-section">
+                                    <div className="player-stats-title">General</div>
+
+                                    <div className="stats-grid">
+                                        {UNIVERSAL_STATS.map(stat => (
+                                            <div key={stat} className="stat-field">
+                                                <label>
+                                                    {stat
+                                                        .replace(/_/g, " ")
+                                                        .replace(/\b\w/g, c => c.toUpperCase())}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={playerStats[stat] || 0}
+                                                    onChange={(e) =>
+                                                        setPlayerStats({
+                                                            ...playerStats,
+                                                            [stat]: parseInt(e.target.value) || 0
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* POSITION GROUPS */}
+                                {POSITION_GROUPS[selectedPlayer?.position] &&
+                                    Object.entries(
+                                        POSITION_GROUPS[selectedPlayer.position]
+                                    ).map(([groupName, stats]) => (
+                                        <div key={groupName} className="player-stats-section">
+                                            <div className="player-stats-title">
+                                                {groupName}
+                                            </div>
+
+                                            <div className="stats-grid">
+                                                {stats.map(stat => (
+                                                    <div key={stat} className="stat-field">
+                                                        <label>
+                                                            {stat
+                                                                .replace(/_/g, " ")
+                                                                .replace(/\b\w/g, c => c.toUpperCase())}
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            value={playerStats[stat] || 0}
+                                                            onChange={(e) =>
+                                                                setPlayerStats({
+                                                                    ...playerStats,
+                                                                    [stat]: parseInt(e.target.value) || 0
+                                                                })
+                                                            }
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))
+                                }
+
+                            </div>
+
+                        </div>
+
+                        {/* Footer */}
+                        <div className="player-modal-footer">
+                            <button
+                                className="action-btn save"
+                                onClick={savePlayerInsights}
+                            >
+                                Save
+                            </button>
+
+                            <button
+                                className="action-btn exit"
+                                onClick={() => setShowPlayerModal(false)}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

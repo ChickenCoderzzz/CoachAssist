@@ -1,0 +1,207 @@
+/* ===============================
+   PAGE LAYOUT
+================================ */
+.edit-roster-page {
+  padding: 110px 60px 40px; /* below navbar */
+}
+
+/* ===============================
+   UNIT BUTTONS
+================================ */
+.unit-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.unit-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 2px solid black;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.unit-btn.offense {
+  background: #9b5548;
+  color: white;
+}
+
+.unit-btn.defense {
+  background: #4f63b6;
+  color: white;
+}
+
+.unit-btn.special {
+  background: #6a4ea3;
+  color: white;
+}
+
+.unit-btn.back {
+  background: #eee;
+}
+
+/* ===============================
+   WRAPPER (TABLE + BUTTON)
+================================ */
+.roster-wrapper {
+  width: 520px; /* controls table + button width */
+}
+
+/* ===============================
+   TABLE
+================================ */
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.roster-table th,
+.roster-table td {
+  border: 2px solid black;
+  padding: 10px;
+  text-align: center;
+}
+
+.roster-table thead {
+  color: white;
+}
+
+.roster-table.offense thead {
+  background: #9b5548;
+}
+
+.roster-table.defense thead {
+  background: #4f63b6;
+}
+
+.roster-table.special thead {
+  background: #6a4ea3;
+}
+
+/* ===============================
+   COLUMN WIDTHS
+================================ */
+.num-col {
+  width: 70px;
+}
+
+.name-col {
+  width: 230px; /* wider for names */
+}
+
+.role-col {
+  width: 90px;
+}
+
+.action-col {
+  width: 70px; /* tighter actions */
+}
+
+/* ===============================
+   ACTION BUTTONS
+================================ */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.actions button {
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* ===============================
+   POSITION TOOLTIP
+================================ */
+.position-cell {
+  cursor: help;
+}
+
+/* ===============================
+   ADD PLAYER BUTTON
+================================ */
+.add-player-wide {
+  width: 100%;
+  padding: 12px;
+  background: #e2c675;
+  border: 2px solid black;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ===============================
+   MODAL OVERLAY
+================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* ===============================
+   MODAL CARD
+================================ */
+.modal-card {
+  background: #2f2f2f;
+  color: white;
+  padding: 28px;
+  width: 360px;
+  border-radius: 16px;
+  text-align: center;
+}
+
+/* ===============================
+   MODAL INPUTS (FIXED WIDTH)
+================================ */
+.modal-input {
+  width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* ===============================
+   MODAL ACTIONS
+================================ */
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-actions button {
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.modal-actions .primary {
+  background: #a9bfff;
+}
+
+.modal-actions .secondary {
+  background: #c08c8c;
+}
+
+.modal-actions .danger {
+  background: #ff6b6b;
+}
+
+/* ===============================
+   TEXT UTILITIES
+================================ */
+.center-text {
+  text-align: center;
+}

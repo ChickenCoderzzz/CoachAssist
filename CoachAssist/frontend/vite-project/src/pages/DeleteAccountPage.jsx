@@ -18,7 +18,7 @@ export default function DeleteAccountPage() {
       const res = await fetch("/auth/delete-account", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`, // ✅ FIXED
+          Authorization: `Bearer ${token}`, 
         },
       });
 
@@ -28,7 +28,6 @@ export default function DeleteAccountPage() {
         throw new Error(data.detail || "Failed to delete account");
       }
 
-      // ✅ Clean logout after delete
       logout();
       navigate("/login");
     } catch (err) {

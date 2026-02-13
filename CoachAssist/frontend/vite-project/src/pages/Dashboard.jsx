@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/teams.css";
+import PlayersTable from "../components/PlayersTable.jsx";
 
 export default function Dashboard() {
   const [teams, setTeams] = useState([]);
@@ -93,10 +94,7 @@ export default function Dashboard() {
       >
         {/* Controls */}
         <div style={{ marginBottom: "20px" }}>
-          <button
-            className="add-team-btn"
-            onClick={() => setShowCreate(true)}
-          >
+          <button className="add-team-btn" onClick={() => setShowCreate(true)}>
             Add Team
           </button>
 
@@ -134,23 +132,19 @@ export default function Dashboard() {
               </button>
 
               <div className="team-icon">
-                <img
-                  src={team.image_url || "/team.png"}
-                  alt={team.name}
-                />
+                <img src={team.image_url || "/team.png"} alt={team.name} />
               </div>
 
               <div className="team-name">{team.name}</div>
 
               {team.description && (
-                <div className="team-description">
-                  {team.description}
-                </div>
+                <div className="team-description">{team.description}</div>
               )}
             </div>
           ))}
         </div>
       </div>
+
 
       {/* CREATE TEAM MODAL */}
       {showCreate && (
@@ -159,16 +153,10 @@ export default function Dashboard() {
             <h2>Add Team</h2>
 
             <label>Team Name</label>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} />
 
             <label>Team Description</label>
-            <textarea
-              value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
-            />
+            <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
 
             <div className="modal-actions">
               <button className="modal-primary" onClick={handleCreateTeam}>
@@ -210,4 +198,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

@@ -174,7 +174,13 @@ export default function TeamPage() {
           Edit Team Details
         </button>
 
-        <button className="add-team-btn">Edit / View Roster</button>
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/teams/${teamId}/roster`)}
+        >
+          Edit / View Roster
+        </button>
+
         <button className="add-team-btn">Strategy Analysis</button>
       </div>
 
@@ -367,3 +373,4 @@ export default function TeamPage() {
     </div>
   );
 }
+

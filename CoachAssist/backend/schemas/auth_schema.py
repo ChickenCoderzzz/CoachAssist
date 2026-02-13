@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 #Data for signing up
 class SignupSchema(BaseModel):
@@ -38,4 +39,11 @@ class ForgotPasswordVerifySchema(BaseModel):
 class VerifyProfilePasswordChangeSchema(BaseModel):
     code: str
     new_password: str
+
+class PlayerCreateSchema(BaseModel):
+    player_name: str
+    jersey_number: Optional[int] = None
+    unit: Optional[str] = None      # ✅ NEW
+    position: Optional[str] = None
+    notes: Optional[str] = None
 
