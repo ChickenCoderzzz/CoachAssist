@@ -52,7 +52,7 @@ export default function SignupPage() {
         throw new Error(data.detail || "Failed to create account.");
       }
 
-      // 🔑 STORE EMAIL FOR VERIFY PAGE
+      //Store email for verify page
       localStorage.setItem("pendingEmail", email);
       setAccountCreated(true);
     } catch (err) {

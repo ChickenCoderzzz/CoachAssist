@@ -14,9 +14,6 @@ export default function VerifyPasswordChangePage() {
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
 
-  // =========================
-  // VERIFY + CHANGE PASSWORD
-  // =========================
   const handleVerify = async () => {
     setMessage("");
     setLoading(true);
@@ -44,7 +41,6 @@ export default function VerifyPasswordChangePage() {
         return;
       }
 
-      // ✅ Success → go back to profile
       navigate("/profile");
     } catch (err) {
       setMessage("Server error. Please try again.");
@@ -162,10 +158,6 @@ export default function VerifyPasswordChangePage() {
     </div>
   );
 }
-
-/* =========================
-   STYLES
-   ========================= */
 
 const inputStyle = {
   width: "100%",

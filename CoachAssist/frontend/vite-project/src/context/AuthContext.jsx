@@ -7,7 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
-  // 🔑 Always fetch profile when token exists
+  // Always fetch profile when token exists
   useEffect(() => {
     const fetchProfile = async () => {
       if (!token) {
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await fetch("/auth/profile", {
           headers: {
-            Authorization: `Bearer ${token}`, // ✅ FIXED
+            Authorization: `Bearer ${token}`, 
           },
         });
 
@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
         });
       } catch (err) {
         console.error("Profile fetch failed:", err);
-        logout(); // token invalid → force logout
+        logout(); // token invalid, force logout
       } finally {
         setLoading(false);
       }
@@ -44,9 +44,7 @@ export const AuthProvider = ({ children }) => {
     fetchProfile();
   }, [token]);
 
-  // =====================
-  // AUTH ACTIONS
-  // =====================
+  //Auth actions
   const login = async (username, password) => {
     try {
       const response = await fetch("/auth/login", {
