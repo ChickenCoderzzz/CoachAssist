@@ -7,29 +7,17 @@ from fastapi import FastAPI
 
 from backend.routers.auth import router as auth_router
 from backend.routers.team_folders import router as team_folders_router
-<<<<<<< HEAD
-from backend.routers.games import router as games_router
 from backend.routers.indv_player import router as indv_player_router
-=======
-from backend.routers import players
-from backend.routers import auth, videos
->>>>>>> origin/feature/players-table
+from backend.routers.videos import router as videos_router
+from backend.routers.player_insights import router as player_insights_router
 
 app = FastAPI()
 
-# existing routers
 app.include_router(auth_router)
 app.include_router(team_folders_router)
-<<<<<<< HEAD
-app.include_router(games_router)
 app.include_router(indv_player_router)
-=======
-
-app.include_router(players.router)
-
-app.include_router(auth.router)
-app.include_router(videos.router)
->>>>>>> origin/feature/players-table
+app.include_router(videos_router)
+app.include_router(player_insights_router)
 
 @app.get("/")
 def home():

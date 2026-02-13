@@ -103,7 +103,7 @@ export default function EditRosterPage() {
 
     setShowAdd(false);
     setForm({ player_name: "", jersey_number: "", position: "" });
-    fetchPlayers(); // ✅ guarantees backend hit
+    fetchPlayers(); 
   };
 
   /* ===============================
