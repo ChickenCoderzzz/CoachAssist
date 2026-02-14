@@ -496,11 +496,8 @@
     border-top: 1px solid #000;
 }
 
-
-
-
 /* ========================================= */
-/* PLAYER INSIGHTS MODAL (FIXED + CLEANED)  */
+/* PLAYER INSIGHTS MODAL                    */
 /* ========================================= */
 
 .player-modal-overlay {
@@ -520,7 +517,7 @@
     display: flex;
     flex-direction: column;
     border-radius: 16px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 4px 4px 0px #000;
     background-color: rgba(0, 0, 0, 0.92);
     color: #fff;
@@ -543,7 +540,8 @@
     gap: 30px;
     padding: 20px;
     flex: 1;
-    overflow: visible;
+    overflow: hidden;
+    min-height: 0; /* critical for nested flex scrolling */
 }
 
 /* Footer */
@@ -555,10 +553,44 @@
     border-top: 3px solid #000;
 }
 
+.player-modal-footer.two-btn {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 20px;
+    gap: 20px;
+}
+
+/* Red danger button */
+.action-btn.danger {
+    background-color: #dc2626;  /* clean red */
+    color: white;
+    border: 2px solid #000;
+}
+
+.action-btn.danger:hover {
+    background-color: #b91c1c;
+}
+
+
 /* ========================================= */
 /* LEFT SIDE - NOTES TABLE                  */
 /* ========================================= */
 
+.player-notes-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* critical */
+}
+
+.player-observations-title {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+
+/* Notes container */
 .player-notes-container {
     flex: 1;
     display: flex;
@@ -568,11 +600,7 @@
     border: 2px solid #000;
     border-radius: 8px;
     overflow: hidden;
-}
-
-/* Remove weird white space above header */
-.player-notes-container > *:first-child {
-    margin-top: 0;
+    min-height: 0;
 }
 
 /* Header row */
@@ -582,6 +610,8 @@
     background-color: #fdba74;
     font-weight: bold;
     border-bottom: 2px solid #000;
+    padding-right: 17px; /* match scrollbar width */
+    box-sizing: border-box;
 }
 
 .notes-header div {
@@ -595,9 +625,12 @@
 
 /* Scroll area */
 .notes-body {
-    overflow-y: auto;
+    flex: 1;              /* takes remaining space */
+    overflow-y: auto;     /* scroll only here */
     min-height: 0;
     position: relative;
+    padding-bottom: 10px;
+    scrollbar-gutter: stable;
 }
 
 /* Row layout */
@@ -645,7 +678,7 @@
     width: 100%;
 }
 
-/* Add row button */
+/* Add row button (stays visible at bottom) */
 .add-row-btn {
     padding: 12px;
     font-weight: bold;
@@ -656,19 +689,14 @@
 }
 
 /* ========================================= */
-/* TOOLTIP FIXED                            */
+/* TOOLTIP (DOWNWARD VERSION)               */
 /* ========================================= */
-
-.note-cell {
-    position: relative;
-    overflow: visible; /* allow tooltip to escape */
-}
 
 .note-tooltip {
     position: absolute;
     left: 0;
-    top: -8px;
-    transform: translateY(-100%);
+    top: 100%;
+    margin-top: 6px;
     background: rgba(0, 0, 0, 0.95);
     color: #fff;
     padding: 8px 10px;
@@ -681,7 +709,7 @@
 
     opacity: 0;
     visibility: hidden;
-    z-index: 9999; 
+    z-index: 50;
     transition: opacity 0.15s ease;
 }
 
@@ -689,7 +717,6 @@
     opacity: 1;
     visibility: visible;
 }
-
 
 /* ========================================= */
 /* RIGHT SIDE - STATS                       */
@@ -699,6 +726,7 @@
     flex: 1;
     overflow-y: auto;
     padding-right: 10px;
+    min-height: 0;
 }
 
 .player-stats-section {
@@ -731,17 +759,4 @@
     border-radius: 6px;
     font-weight: bold;
     font-family: inherit;
-}
-
-.player-notes-wrapper {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-.player-observations-title {
-    color: #fff;
-    font-weight: bold;
-    font-size: 1.1rem;
-    margin-bottom: 8px;
 }

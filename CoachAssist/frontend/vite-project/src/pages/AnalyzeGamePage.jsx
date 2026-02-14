@@ -105,6 +105,8 @@ export default function AnalyzeGamePage() {
     const [showEdit, setShowEdit] = useState(false);
 
     const [showPlayerModal, setShowPlayerModal] = useState(false);
+    const [isSavingPlayer, setIsSavingPlayer] = useState(false);
+
 
     // Edit Form State
     const [name, setName] = useState("");
@@ -423,28 +425,45 @@ export default function AnalyzeGamePage() {
         );
     };
 
+    const savePlayerInsights = async () => {
+        if (!selectedPlayer) return;
 
+        try {
+            setIsSavingPlayer(true);
 
-    const savePlayerInsights = () => {
-        fetch(`/games/${matchId}/players/${selectedPlayer.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${localStorage.getItem("token")}`
-            },
-            body: JSON.stringify({
-                stats: playerStats,
-                notes: playerNotes
-            })
-        })
-            .then(res => res.json())
-            .then(() => {
-                setShowPlayerModal(false);
-            })
-            .catch(err => {
-                console.error("Failed to save player insights:", err);
-            });
+            const res = await fetch(
+                `/games/${matchId}/players/${selectedPlayer.id}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${localStorage.getItem("token")}`
+                    },
+                    body: JSON.stringify({
+                        stats: playerStats,
+                        notes: playerNotes
+                    })
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error("Failed to save player insights");
+            }
+
+            setShowPlayerModal(false);
+
+        } catch (err) {
+            console.error("Failed to save player insights:", err);
+            alert("Error saving player insights.");
+        } finally {
+            setIsSavingPlayer(false);
+        }
     };
+
+    const cancelPlayerModal = () => {
+        setShowPlayerModal(false);
+    };
+
 
     return (
         <div className="analyze-game-container">
@@ -889,12 +908,21 @@ export default function AnalyzeGamePage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="player-modal-footer single-btn">
+                        <div className="player-modal-footer two-btn">
                             <button
                                 className="action-btn save"
-                                onClick={() => setShowPlayerModal(false)}
+                                onClick={savePlayerInsights}
+                                disabled={isSavingPlayer}
                             >
-                                Go Back
+                                {isSavingPlayer ? "Saving..." : "Save & Close"}
+                            </button>
+
+                            <button
+                                className="action-btn danger"
+                                onClick={cancelPlayerModal}
+                                disabled={isSavingPlayer}
+                            >
+                                Exit without Saving
                             </button>
                         </div>
                     </div>
