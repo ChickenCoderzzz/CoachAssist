@@ -6,22 +6,27 @@ import bg from "../assets/field_bg.png";
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState("request"); // request | verify
+  //Step control: "request" = enter email, "verify" = enter code + new password
+  const [step, setStep] = useState("request"); 
+
+  //Form state
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
+  //UI state
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // STEP 1 — request reset code
+  //Request reset code
   const handleSendResetCode = async () => {
     setLoading(true);
     setError("");
     setMessage("");
 
+    //Send email to backend to request reset code
     try {
       const res = await fetch("/auth/forgot-password/request", {
         method: "POST",
@@ -35,6 +40,7 @@ export default function ForgotPasswordPage() {
         throw new Error(data.detail || "Failed to send reset code.");
       }
 
+      //Switch to verification step
       setMessage("If an account exists, a reset code has been sent.");
       setStep("verify");
     } catch (e) {
@@ -44,7 +50,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // STEP 1.5 — resend reset code
+  //Resend reset code
   const handleResendCode = async () => {
     if (!email) {
       setError("Please enter your email again.");
@@ -55,6 +61,7 @@ export default function ForgotPasswordPage() {
     setError("");
     setMessage("");
 
+    //Reuse same endpoint to resend code
     try {
       const res = await fetch("/auth/forgot-password/request", {
         method: "POST",
@@ -76,11 +83,12 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  // STEP 2 — verify + reset
+  //Verify + reset
   const handleResetPassword = async () => {
     setLoading(true);
     setError("");
 
+    //Send reset code and new password to backend
     try {
       const res = await fetch("/auth/forgot-password/verify", {
         method: "POST",
@@ -98,6 +106,7 @@ export default function ForgotPasswordPage() {
         throw new Error(data.detail || "Password reset failed.");
       }
 
+      //Show success message and redirect
       setMessage("Password reset successful. Redirecting to login...");
       setTimeout(() => navigate("/login"), 1500);
     } catch (e) {
@@ -120,11 +129,13 @@ export default function ForgotPasswordPage() {
         paddingTop: "110px",
       }}
     >
+      {/* Password reset card */}
       <DarkCard width="420px" padding="40px">
         <h2 style={{ color: "white", marginBottom: "20px" }}>
           Forgot Password
         </h2>
 
+        {/* Step 1: Request reset code */}
         {step === "request" && (
           <>
             <input
@@ -148,8 +159,10 @@ export default function ForgotPasswordPage() {
           </>
         )}
 
+        {/* Step 2: Enter code + new password */}
         {step === "verify" && (
           <>
+            {/* Email (disabled for confirmation) */}
             <input
               type="email"
               value={email}
@@ -157,6 +170,7 @@ export default function ForgotPasswordPage() {
               style={{ ...inputStyle, opacity: 0.7 }}
             />
 
+            {/* Reset code input */}
             <input
               type="text"
               placeholder="Reset Code"
@@ -165,6 +179,7 @@ export default function ForgotPasswordPage() {
               style={inputStyle}
             />
 
+             {/* New password input */}
             <input
               type="password"
               placeholder="New Password"
@@ -176,6 +191,7 @@ export default function ForgotPasswordPage() {
             {error && <p style={errorStyle}>{error}</p>}
             {message && <p style={successStyle}>{message}</p>}
 
+            {/* Reset password button */}
             <button
               style={buttonStyle}
               onClick={handleResetPassword}
@@ -184,7 +200,7 @@ export default function ForgotPasswordPage() {
               {loading ? "Resetting..." : "Reset Password"}
             </button>
 
-            {/* RESEND RESET CODE */}
+            {/* Resend reset code */}
             <button
               style={resendButtonStyle}
               onClick={handleResendCode}
@@ -195,6 +211,7 @@ export default function ForgotPasswordPage() {
           </>
         )}
 
+        {/* Login link */}
         <p style={{ marginTop: "20px", color: "white" }}>
           Remembered your password?{" "}
           <Link to="/login" style={{ color: "#8fd18e" }}>
@@ -206,6 +223,7 @@ export default function ForgotPasswordPage() {
   );
 }
 
+// Shared input style
 const inputStyle = {
   width: "100%",
   padding: "12px",
@@ -214,6 +232,7 @@ const inputStyle = {
   border: "none",
 };
 
+// Primary button style
 const buttonStyle = {
   width: "100%",
   padding: "12px",
@@ -224,6 +243,7 @@ const buttonStyle = {
   fontSize: "1.1rem",
 };
 
+// Resend button style
 const resendButtonStyle = {
   width: "100%",
   padding: "10px",
@@ -234,11 +254,13 @@ const resendButtonStyle = {
   marginTop: "10px",
 };
 
+// Error message style
 const errorStyle = {
   color: "#ff6b6b",
   marginBottom: "10px",
 };
 
+// Success message style
 const successStyle = {
   color: "#8fd18e",
   marginBottom: "10px",

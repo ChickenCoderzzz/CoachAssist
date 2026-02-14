@@ -2,12 +2,18 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/edit_rosters.css";
 
+//POSITION MAP
+//Defines wich positions belong to each unit
+//Dynamically populate dropdown
 const POSITION_MAP = {
   offense: ["QB", "RB", "FB", "WR", "TE", "LT", "LG", "C", "RG", "RT"],
   defense: ["DE", "DT", "NT", "OLB", "ILB", "MLB", "CB", "FS", "SS"],
   special: ["K", "P", "KR", "PR", "LS"],
 };
 
+//POSITION LABELS
+//Convert short position codes to readable names
+//Used for tooltips and dropdowns
 const POSITION_LABELS = {
   QB: "Quarterback",
   RB: "Running Back",
@@ -36,25 +42,27 @@ const POSITION_LABELS = {
 };
 
 export default function EditRosterPage() {
-  const { teamId } = useParams();
-  const navigate = useNavigate();
-  const token = localStorage.getItem("token");
+  const { teamId } = useParams(); //Read teamId from URL
+  const navigate = useNavigate(); //Navigation helper
+  const token = localStorage.getItem("token"); //JWT token for authenticated requests
 
-  const [unit, setUnit] = useState("offense");
-  const [players, setPlayers] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
-  const [editPlayer, setEditPlayer] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  //STATES
+  const [unit, setUnit] = useState("offense"); //Currently selected unit tab
+  const [players, setPlayers] = useState([]); //List of players for selected unit
+  const [showAdd, setShowAdd] = useState(false); //Controls visibility of add plaer modal
+  const [editPlayer, setEditPlayer] = useState(null); //Holds player being edited
+  const [deleteTarget, setDeleteTarget] = useState(null); //Holds player selected for deletion
 
+  //Form state for add/edit modal
   const [form, setForm] = useState({
     player_name: "",
     jersey_number: "",
     position: "",
   });
 
-  /* ===============================
-     FETCH PLAYERS
-  ================================ */
+  //FETCH PLAYERS
+  
+  //Fetch players for selected team and unit
   const fetchPlayers = () => {
     fetch(`/teams/${teamId}/players?unit=${unit}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -67,14 +75,17 @@ export default function EditRosterPage() {
       .catch((err) => console.error(err));
   };
 
+  //Re-fetch when unit changes
   useEffect(() => {
     fetchPlayers();
   }, [teamId, unit]);
 
-  /* ===============================
-     ADD PLAYER (FIXED)
-  ================================ */
+  //ADD PLAYER
+
+  //Sends POST request to create new player
   const addPlayer = async () => {
+
+    //Basic validation
     if (!form.player_name || !form.jersey_number || !form.position) {
       alert("All fields are required");
       return;
@@ -101,14 +112,15 @@ export default function EditRosterPage() {
       return;
     }
 
+    //Reset modal and refresh list
     setShowAdd(false);
     setForm({ player_name: "", jersey_number: "", position: "" });
     fetchPlayers(); 
   };
 
-  /* ===============================
-     UPDATE PLAYER
-  ================================ */
+  //UPDATE PLAYER DETAILS
+
+  //Sends PUT request to update existing player
   const updatePlayer = async () => {
     const res = await fetch(`/teams/players/${editPlayer.id}`, {
       method: "PUT",
@@ -132,9 +144,9 @@ export default function EditRosterPage() {
     fetchPlayers();
   };
 
-  /* ===============================
-     DELETE PLAYER
-  ================================ */
+  //DELETE PLAYER
+
+  //Confirm and delete selected player
   const confirmDelete = async () => {
     await fetch(`/teams/players/${deleteTarget.id}`, {
       method: "DELETE",
@@ -147,8 +159,11 @@ export default function EditRosterPage() {
 
   return (
     <div className="edit-roster-page">
+
+      {/* Page Title */}
       <h2>View / Edit Roster</h2>
 
+      {/* UNIT TABS */}
       <div className="unit-buttons">
         {["offense", "defense", "special"].map((u) => (
           <button
@@ -159,11 +174,14 @@ export default function EditRosterPage() {
             {u.toUpperCase()}
           </button>
         ))}
+
+        {/* Go Back button */}
         <button className="unit-btn back" onClick={() => navigate(-1)}>
           Go Back
         </button>
       </div>
 
+      {/* PLAYER TABLE */}
       <div className="roster-wrapper">
         <table className={`roster-table ${unit}`}>
           <thead>
@@ -185,6 +203,8 @@ export default function EditRosterPage() {
                 >
                   {p.position}
                 </td>
+
+                {/* Edit + Delete actions */}
                 <td className="actions">
                   <button
                     onClick={() => {
@@ -205,16 +225,20 @@ export default function EditRosterPage() {
           </tbody>
         </table>
 
+        {/* Add Player Button */}
         <button className="add-player-wide" onClick={() => setShowAdd(true)}>
           Add Player +
         </button>
       </div>
+
+      {/* ADD / EDIT MODAL */}
 
       {(showAdd || editPlayer) && (
         <div className="modal-overlay">
           <div className="modal-card">
             <h3>{editPlayer ? "Edit Player" : "Add Player"}</h3>
 
+            {/* Name Input */}
             <input
               className="modal-input"
               placeholder="Player Name"
@@ -224,6 +248,7 @@ export default function EditRosterPage() {
               }
             />
 
+            {/* Jersey Number Input */}
             <input
               className="modal-input"
               type="number"
@@ -234,6 +259,7 @@ export default function EditRosterPage() {
               }
             />
 
+            {/* Position Dropdown */}
             <select
               className="modal-input"
               value={form.position}
@@ -249,6 +275,7 @@ export default function EditRosterPage() {
               ))}
             </select>
 
+            {/* Modal Buttons */}
             <div className="modal-actions">
               <button
                 className="primary"
@@ -270,6 +297,7 @@ export default function EditRosterPage() {
         </div>
       )}
 
+      {/* DELETE CONFIRMATION MODAL */}
       {deleteTarget && (
         <div className="modal-overlay">
           <div className="modal-card">

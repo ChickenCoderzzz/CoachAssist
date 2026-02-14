@@ -4,10 +4,12 @@ import "../styles/teams.css";
 import PlayersTable from "../components/PlayersTable.jsx";
 
 export default function Dashboard() {
-  const [teams, setTeams] = useState([]);
-  const [search, setSearch] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [teamToDelete, setTeamToDelete] = useState(null);
+  const [teams, setTeams] = useState([]); //Team list state
+  const [search, setSearch] = useState(""); //Search input state
+  const [showCreate, setShowCreate] = useState(false); //Team creation modal state
+  const [teamToDelete, setTeamToDelete] = useState(null); //Delete confirmation modal state
+
+  //New team state from input
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
 
@@ -28,7 +30,7 @@ export default function Dashboard() {
 
   //Create team
   const handleCreateTeam = () => {
-    if (!newName.trim()) return;
+    if (!newName.trim()) return; //PRevent empty name
 
     fetch("/teams/", {
       method: "POST",
@@ -44,9 +46,13 @@ export default function Dashboard() {
       .then((res) => res.json())
       .then((data) => {
         if (data.team) {
-          setTeams((prev) => [...prev, data.team]);
+          setTeams((prev) => [...prev, data.team]); //Add new team to state
+
+          //Reset form
           setNewName("");
           setNewDesc("");
+
+          //Close modal
           setShowCreate(false);
         }
       });
@@ -73,6 +79,7 @@ export default function Dashboard() {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     }).then(() => {
+      //Remove deleted teams from state
       setTeams((prev) => prev.filter((t) => t.id !== teamToDelete.id));
       setTeamToDelete(null);
     });
@@ -80,8 +87,10 @@ export default function Dashboard() {
 
   return (
     <div style={{ paddingTop: "110px", paddingBottom: "60px" }}>
+      {/* Page Title */}
       <h1 style={{ marginLeft: "40px", marginBottom: "20px" }}>Teams</h1>
 
+      {/* Main Container */}
       <div
         style={{
           border: "3px solid black",
@@ -98,6 +107,7 @@ export default function Dashboard() {
             Add Team
           </button>
 
+          {/* Search Input */}
           <input
             type="text"
             placeholder="Search for Team"
@@ -115,12 +125,15 @@ export default function Dashboard() {
             </p>
           )}
 
+          {/* Team Cards */}
           {teams.map((team) => (
             <div
               key={team.id}
               className="team-card"
               onClick={() => navigate(`/team/${team.id}`)}
             >
+
+              {/* Delete Button */}
               <button
                 className="team-delete"
                 onClick={(e) => {
@@ -131,12 +144,15 @@ export default function Dashboard() {
                 X
               </button>
 
+              {/* Team Image */}
               <div className="team-icon">
                 <img src={team.image_url || "/team.png"} alt={team.name} />
               </div>
 
+              {/* Team Name */}
               <div className="team-name">{team.name}</div>
 
+              {/* Optional Description */}
               {team.description && (
                 <div className="team-description">{team.description}</div>
               )}
@@ -146,7 +162,7 @@ export default function Dashboard() {
       </div>
 
 
-      {/* CREATE TEAM MODAL */}
+      {/* Create Team Modal */}
       {showCreate && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -173,7 +189,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* Delete Confirmation Modal */}
       {teamToDelete && (
         <div className="modal-overlay">
           <div className="confirm-card">

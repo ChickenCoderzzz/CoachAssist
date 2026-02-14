@@ -3,20 +3,23 @@ import { useNavigate, useParams } from "react-router-dom";
 import "../styles/teams.css";
 
 export default function TeamPage() {
+  //Get dynamid team ID from URL
   const { teamId } = useParams();
   const navigate = useNavigate();
 
-  const [team, setTeam] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [search, setSearch] = useState("");
+  //States
+  const [team, setTeam] = useState(null); //Current team details
+  const [matches, setMatches] = useState([]); //Games for team
+  const [search, setSearch] = useState(""); //Search filter for games
 
-  const [showCreate, setShowCreate] = useState(false);
-  const [matchToDelete, setMatchToDelete] = useState(null);
+  const [showCreate, setShowCreate] = useState(false); //Show add game modal
+  const [matchToDelete, setMatchToDelete] = useState(null); //Delete confirmation modal
 
-  const [showEditTeam, setShowEditTeam] = useState(false);
+  const [showEditTeam, setShowEditTeam] = useState(false); //Edit team modal
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
 
+  //New game form fiels
   const [name, setName] = useState("");
   const [opponent, setOpponent] = useState("");
   const [gameDate, setGameDate] = useState("");
@@ -25,14 +28,16 @@ export default function TeamPage() {
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
 
-  //FETCH
+  //Fetch team and matches
   useEffect(() => {
+    //Fetch team details
     fetch(`/teams/${teamId}`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then((res) => res.json())
       .then((data) => data.team && setTeam(data.team));
 
+    //Fetch team matches
     fetch(`/teams/${teamId}/matches`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
@@ -40,10 +45,11 @@ export default function TeamPage() {
       .then((data) => setMatches(data.matches || []));
   }, [teamId]);
 
-  //CREATE MATCH
+  //Create Match
   const handleCreateMatch = () => {
     setError("");
 
+    //Basic validation
     if (!name || !opponent || !gameDate) {
       setError("Please fill out all required fields.");
       return;
@@ -70,9 +76,13 @@ export default function TeamPage() {
         return data;
       })
       .then((data) => {
+        //Add new match to state
         setMatches((prev) => [...prev, data.match]);
+
+        //Close modal
         setShowCreate(false);
 
+        //Reset form
         setName("");
         setOpponent("");
         setGameDate("");
@@ -85,7 +95,7 @@ export default function TeamPage() {
       );
   };
 
-  //DELETE MATCH
+  //Delete Match
   const confirmDeleteMatch = () => {
     fetch(`/teams/matches/${matchToDelete.id}`, {
       method: "DELETE",
@@ -93,6 +103,7 @@ export default function TeamPage() {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     }).then(() => {
+      //Remove match from state
       setMatches((prev) =>
         prev.filter((m) => m.id !== matchToDelete.id)
       );
@@ -100,7 +111,7 @@ export default function TeamPage() {
     });
   };
 
-  //UPDATE TEAM
+  //Update Team Details
   const handleUpdateTeam = () => {
     if (!editName.trim()) return;
 
@@ -124,10 +135,12 @@ export default function TeamPage() {
       });
   };
 
+  //Filter games by search input
   const filteredMatches = matches.filter((m) =>
     m.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  //Loading state
   if (!team) {
     return (
       <p style={{ paddingTop: "110px", paddingLeft: "40px" }}>
@@ -138,7 +151,7 @@ export default function TeamPage() {
 
   return (
     <div style={{ paddingTop: "110px", paddingBottom: "60px" }}>
-      {/* HEADER */}
+      {/* Header */}
       <div style={{ marginLeft: "40px", marginBottom: "25px" }}>
         <button
           className="add-team-btn"
@@ -154,7 +167,7 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* TEAM ACTIONS */}
+      {/* Team Actions */}
       <div
         style={{
           marginLeft: "40px",
@@ -163,6 +176,7 @@ export default function TeamPage() {
           gap: "12px",
         }}
       >
+        {/* Edit team details */}
         <button
           className="add-team-btn"
           onClick={() => {
@@ -174,6 +188,7 @@ export default function TeamPage() {
           Edit Team Details
         </button>
 
+        {/* Go to roster */}
         <button
           className="add-team-btn"
           onClick={() => navigate(`/teams/${teamId}/roster`)}
@@ -181,10 +196,11 @@ export default function TeamPage() {
           Edit / View Roster
         </button>
 
+        {/* Placeholder future feature */}
         <button className="add-team-btn">Strategy Analysis</button>
       </div>
 
-      {/* GAMES CONTAINER */}
+      {/* Games Container */}
       <div className="dashboard-container">
         <h2>Games</h2>
 
@@ -204,6 +220,7 @@ export default function TeamPage() {
           />
         </div>
 
+        {/* Game Cards */}
         <div className="team-grid">
           {filteredMatches.map((match) => (
             <div
@@ -213,6 +230,7 @@ export default function TeamPage() {
                 navigate(`/team/${teamId}/match/${match.id}`)
               }
             >
+              {/* Delete button */}
               <button
                 className="game-delete"
                 onClick={(e) => {
@@ -225,7 +243,8 @@ export default function TeamPage() {
 
               <div className="game-title">{match.name}</div>
               <div className="game-opponent">vs {match.opponent}</div>
-
+              
+              {/* Hover content */}
               <div className="game-hover">
                 {match.team_score !== null &&
                   match.opponent_score !== null && (
@@ -244,7 +263,7 @@ export default function TeamPage() {
         </div>
       </div>
 
-      {/* EDIT TEAM MODAL */}
+      {/* EDIT TEAM Modal */}
       {showEditTeam && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -282,7 +301,7 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* CREATE + DELETE MODALS */}
+      {/* CREATE GAME Modal */}
       {showCreate && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -347,6 +366,7 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {matchToDelete && (
         <div className="modal-overlay">
           <div className="confirm-card">

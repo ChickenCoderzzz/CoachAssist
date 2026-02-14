@@ -5,21 +5,24 @@ import bg from "../assets/field_bg.png";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
-  const email = localStorage.getItem("pendingEmail");
+  const email = localStorage.getItem("pendingEmail"); //Get stored email from signup flow
 
-  const [code, setCode] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [verified, setVerified] = useState(false);
+  //COmponent state
+  const [code, setCode] = useState(""); //Verification code input
+  const [loading, setLoading] = useState(false); //Verify button loading
+  const [resending, setResending] = useState(false); //Resend button loading
+  const [error, setError] = useState(""); //Error message
+  const [message, setMessage] = useState(""); //Success info message
+  const [verified, setVerified] = useState(false); //Email verified
 
+  //Handle verify button click
   const handleVerify = async () => {
     setError("");
     setMessage("");
     setLoading(true);
 
     try {
+      //Send verification code to backend
       const res = await fetch("/auth/verify-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,11 +35,12 @@ export default function VerifyEmail() {
         throw new Error(data.detail || "Verification failed.");
       }
 
+      //Remove stored email after verification
       localStorage.removeItem("pendingEmail");
       setVerified(true);
       setMessage("Email verified successfully! Redirecting to login...");
 
-      setTimeout(() => navigate("/login"), 1500);
+      setTimeout(() => navigate("/login"), 1500); //Redirect to login after short delay
     } catch (err) {
       setError(err.message);
     } finally {
@@ -44,6 +48,7 @@ export default function VerifyEmail() {
     }
   };
 
+  //Handle resend verification code
   const handleResend = async () => {
     if (!email) {
       setError("Email not found. Please sign up again.");
@@ -55,6 +60,7 @@ export default function VerifyEmail() {
     setResending(true);
 
     try {
+      //Request new verification code
       const res = await fetch("/auth/resend-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,17 +94,20 @@ export default function VerifyEmail() {
         paddingTop: "110px",
       }}
     >
+      {/* Verification card container */}
       <DarkCard width="420px" padding="40px">
         <h2 style={{ color: "white", marginBottom: "20px" }}>
           Verify Email
         </h2>
 
+        {/* Display email being verified */}
         {email && (
           <p style={{ color: "white", marginBottom: "10px" }}>
             Verifying: <strong>{email}</strong>
           </p>
         )}
 
+        {/* Verification code input */}
         <input
           type="text"
           placeholder="Verification Code"
@@ -111,9 +120,11 @@ export default function VerifyEmail() {
           disabled={verified}
         />
 
+        {/* Error and success messages */}
         {error && <p style={errorStyle}>{error}</p>}
         {message && <p style={successStyle}>{message}</p>}
 
+        {/* Verify button */}
         <button
           style={buttonStyle}
           onClick={handleVerify}
@@ -122,6 +133,7 @@ export default function VerifyEmail() {
           {loading ? "Verifying..." : "Verify Email"}
         </button>
 
+        {/* Resend button (hidden after verification) */}
         {!verified && (
           <button
             style={resendButtonStyle}
@@ -132,6 +144,7 @@ export default function VerifyEmail() {
           </button>
         )}
 
+        {/* Login link */}
         <p style={{ marginTop: "20px", color: "white" }}>
           Already verified?{" "}
           <Link to="/login" style={{ color: "#8fd18e" }}>
@@ -143,6 +156,7 @@ export default function VerifyEmail() {
   );
 }
 
+// Shared input style
 const inputStyle = {
   width: "100%",
   padding: "12px",
@@ -151,6 +165,7 @@ const inputStyle = {
   border: "none",
 };
 
+// Primary button style
 const buttonStyle = {
   width: "100%",
   padding: "12px",
@@ -161,6 +176,7 @@ const buttonStyle = {
   fontSize: "1.1rem",
 };
 
+// Resend button style
 const resendButtonStyle = {
   width: "100%",
   padding: "10px",
@@ -171,11 +187,13 @@ const resendButtonStyle = {
   marginTop: "10px",
 };
 
+// Error message style
 const errorStyle = {
   color: "#ff6b6b",
   marginBottom: "10px",
 };
 
+// Success message style
 const successStyle = {
   color: "#8fd18e",
   marginBottom: "10px",

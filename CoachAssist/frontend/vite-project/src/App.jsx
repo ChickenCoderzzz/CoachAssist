@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 
+// Page Components
 import LandingPage from "./pages/LandingPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
@@ -13,14 +14,17 @@ import DeleteAccountPage from "./pages/DeleteAccountPage.jsx";
 import VerifyPasswordChangePage from "./pages/VerifyPasswordChangePage.jsx";
 import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
-import WatchPage from "./pages/WatchPage";
 import EditRosterPage from "./pages/EditRosterPage";
 
+// Shared UI component
 import Navbar from "./components/Navbar.jsx";
 
 function App() {
+  // Get current location
   const location = useLocation();
 
+  // Routes where Navbar shouldn't appear
+  // (auth and landing pages)
   const hideNavbarPaths = [
     "/",
     "/login",
@@ -30,6 +34,7 @@ function App() {
     "/forgotpassword",
   ];
 
+  // Determine if Navbar should be hidden
   const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
   return (
@@ -57,4 +62,5 @@ function App() {
   );
 }
 
+// Export root App component
 export default App;

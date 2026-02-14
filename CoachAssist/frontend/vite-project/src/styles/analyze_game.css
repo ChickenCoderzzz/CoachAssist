@@ -374,13 +374,7 @@
     background-color: #f87171;
 }
 
-/* ================================= */
 /* PLAYER TABLE (MATCH GAME STATE)   */
-/* ================================= */
-
-/* ========================================= */
-/* PLAYER TABLE (MATCHES GAME STATE STYLE)  */
-/* ========================================= */
 
 .player-table-container {
     border: 2px solid #000;
@@ -389,9 +383,8 @@
     background: #fff;
 }
 
-/* ================================= */
+
 /* TITLE HEADER (COLOR CODED)       */
-/* ================================= */
 
 .player-table-title {
     padding: 12px;
@@ -416,9 +409,7 @@
     background: #6a4ea3;
 }
 
-/* ================================= */
 /* HEADER ROW                        */
-/* ================================= */
 
 .player-table-header {
     display: grid;
@@ -438,18 +429,14 @@
     border-left: none;
 }
 
-/* ================================= */
 /* SCROLL AREA                       */
-/* ================================= */
 
 .player-table-body {
     max-height: 350px;
     overflow-y: auto;
 }
 
-/* ================================= */
 /* TABLE ROWS                        */
-/* ================================= */
 
 .player-table-row {
     display: grid;
@@ -468,9 +455,7 @@
     border-left: none;
 }
 
-/* ================================= */
 /* VIEW BUTTON                       */
-/* ================================= */
 
 .player-view-btn {
     background: #fdba74;
@@ -487,18 +472,14 @@
     transform: translateY(-1px);
 }
 
-/* ================================= */
 /* EMPTY SPACE FILLER (OPTIONAL)    */
-/* ================================= */
 
 .player-table-filler {
     height: 150px;
     border-top: 1px solid #000;
 }
 
-/* ========================================= */
 /* PLAYER INSIGHTS MODAL                    */
-/* ========================================= */
 
 .player-modal-overlay {
     position: fixed;
@@ -571,10 +552,7 @@
     background-color: #b91c1c;
 }
 
-
-/* ========================================= */
 /* LEFT SIDE - NOTES TABLE                  */
-/* ========================================= */
 
 .player-notes-wrapper {
     flex: 1;
@@ -688,9 +666,7 @@
     width: 100%;
 }
 
-/* ========================================= */
 /* TOOLTIP (DOWNWARD VERSION)               */
-/* ========================================= */
 
 .note-tooltip {
     position: absolute;
@@ -718,9 +694,7 @@
     visibility: visible;
 }
 
-/* ========================================= */
 /* RIGHT SIDE - STATS                       */
-/* ========================================= */
 
 .player-stats-container {
     flex: 1;

@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); //Get authenticated user and logout function
 
   return (
     <div
@@ -16,6 +16,7 @@ export default function ProfilePage() {
         justifyContent: "center",
       }}
     >
+      {/* Profile card container */}
       <DarkCard width="420px" padding="40px">
         <img
           src={logo}
@@ -23,6 +24,7 @@ export default function ProfilePage() {
           style={{ width: "140px", marginBottom: "20px" }}
         />
 
+        {/* Display user information */}
         <h2 style={{ color: "white", marginBottom: "20px" }}>
           Profile
         </h2>
@@ -37,7 +39,7 @@ export default function ProfilePage() {
           <strong>Full Name:</strong> {user?.full_name || "Not set"}
         </p>
 
-        {/* CHANGE PASSWORD */}
+        {/* Change password */}
         <button
           style={{
             marginTop: "25px",
@@ -54,7 +56,7 @@ export default function ProfilePage() {
           Change Password
         </button>
 
-        {/* DELETE ACCOUNT */}
+        {/* Delete account */}
         <button
           style={{
             marginTop: "15px",
@@ -71,7 +73,7 @@ export default function ProfilePage() {
           Delete Account
         </button>
 
-        {/* LOG OUT */}
+        {/* Log Out */}
         <button
           style={{
             marginTop: "15px",

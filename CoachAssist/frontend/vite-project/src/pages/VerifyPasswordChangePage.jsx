@@ -6,18 +6,23 @@ import { useAuth } from "../context/AuthContext";
 
 export default function VerifyPasswordChangePage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token } = useAuth(); //Get authenticated token to protect requests
 
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [resending, setResending] = useState(false);
+  //Form state
+  const [code, setCode] = useState(""); //Verification code
+  const [newPassword, setNewPassword] = useState(""); //New password input
 
+  //UI state
+  const [message, setMessage] = useState(""); //Success/error message
+  const [loading, setLoading] = useState(false); //Update button lading
+  const [resending, setResending] = useState(false); //Resend loading button
+
+  //Verify Code and Update Password
   const handleVerify = async () => {
     setMessage("");
     setLoading(true);
 
+    //Send verification code + new password to backend
     try {
       const res = await fetch(
         "/auth/profile/verify-password-change",
@@ -25,7 +30,7 @@ export default function VerifyPasswordChangePage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, //Protected route
           },
           body: JSON.stringify({
             code,
@@ -41,6 +46,7 @@ export default function VerifyPasswordChangePage() {
         return;
       }
 
+      //On success, return to profile page
       navigate("/profile");
     } catch (err) {
       setMessage("Server error. Please try again.");
@@ -49,20 +55,19 @@ export default function VerifyPasswordChangePage() {
     }
   };
 
-  // =========================
-  // RESEND VERIFICATION CODE
-  // =========================
+  // Resend Verification Code
   const handleResend = async () => {
     setMessage("");
     setResending(true);
 
+    //Request new verification code
     try {
       const res = await fetch(
         "/auth/profile/request-password-change",
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, //Protected route
           },
         }
       );
@@ -90,6 +95,7 @@ export default function VerifyPasswordChangePage() {
         justifyContent: "center",
       }}
     >
+      {/* Password change card */}
       <DarkCard width="420px" padding="40px">
         <img
           src={logo}
@@ -101,6 +107,7 @@ export default function VerifyPasswordChangePage() {
           Change Password
         </h2>
 
+        {/* Verification code input */}
         <input
           type="text"
           placeholder="Verification Code"
@@ -109,6 +116,7 @@ export default function VerifyPasswordChangePage() {
           style={inputStyle}
         />
 
+        {/* New password input */}
         <input
           type="password"
           placeholder="New Password"
@@ -117,6 +125,7 @@ export default function VerifyPasswordChangePage() {
           style={inputStyle}
         />
 
+        {/* Dynamic message (success = green, error = red) */}
         {message && (
           <p
             style={{
@@ -130,6 +139,7 @@ export default function VerifyPasswordChangePage() {
           </p>
         )}
 
+        {/* Update password button */}
         <button
           style={buttonStyle}
           onClick={handleVerify}
@@ -138,7 +148,7 @@ export default function VerifyPasswordChangePage() {
           {loading ? "Updating..." : "Update Password"}
         </button>
 
-        {/* RESEND CODE */}
+        {/* Resend code button */}
         <button
           style={resendButtonStyle}
           onClick={handleResend}
@@ -147,7 +157,7 @@ export default function VerifyPasswordChangePage() {
           {resending ? "Resending..." : "Resend Verification Code"}
         </button>
 
-        {/* BACK */}
+        {/* Back button */}
         <button
           style={backButtonStyle}
           onClick={() => navigate("/profile")}
@@ -159,6 +169,7 @@ export default function VerifyPasswordChangePage() {
   );
 }
 
+// Shared input style
 const inputStyle = {
   width: "100%",
   padding: "12px",
@@ -167,6 +178,7 @@ const inputStyle = {
   border: "none",
 };
 
+// Primary action button style
 const buttonStyle = {
   width: "100%",
   padding: "12px",
@@ -178,6 +190,7 @@ const buttonStyle = {
   marginBottom: "10px",
 };
 
+// Resend button style
 const resendButtonStyle = {
   width: "100%",
   padding: "10px",
@@ -188,6 +201,7 @@ const resendButtonStyle = {
   marginBottom: "10px",
 };
 
+// Back button style
 const backButtonStyle = {
   width: "100%",
   padding: "10px",

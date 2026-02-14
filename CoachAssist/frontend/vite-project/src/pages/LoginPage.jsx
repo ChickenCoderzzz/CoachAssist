@@ -7,17 +7,19 @@ import { useAuth } from "../context/AuthContext";
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login } = useAuth(); //Get login function from AuthContext
 
+  //Form input state
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
 
-  const [error, setError] = useState("");
-  const [needsVerification, setNeedsVerification] = useState(false); // NEW
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(""); //Error message state
+  const [needsVerification, setNeedsVerification] = useState(false); //If backend indicated unverified email
+  const [loading, setLoading] = useState(false); //Loading state for login button
 
+  //Handle input field changes
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -25,22 +27,24 @@ export default function LoginPage() {
     });
   };
 
+  //Handle login button click
   const handleLogin = async () => {
     setError("");
     setNeedsVerification(false);
 
+    //Basic frontend validation
     if (!formData.username || !formData.password) {
       setError("Please fill in all fields");
       return;
     }
 
     setLoading(true);
-    const result = await login(formData.username, formData.password);
+    const result = await login(formData.username, formData.password); // Call login function from AuthContext
 
     if (result.success) {
-      navigate("/dashboard");
+      navigate("/dashboard");//Redirect to dashboard on access
     } else {
-      // NEW: detect unverified email case
+      //Detect unverified email case
       if (result.message?.toLowerCase().includes("verify")) {
         setNeedsVerification(true);
         setError("Please verify your email before logging in.");
@@ -64,16 +68,20 @@ export default function LoginPage() {
         alignItems: "center",
       }}
     >
+      {/* Card container for login form */}
       <DarkCard width="420px" padding="50px 40px">
 
+        {/* App logo */}
         <img
           src={logo}
           alt="CoachAssist Logo"
           style={{ width: "170px", marginBottom: "30px" }}
         />
 
+        {/* Page title */}
         <h2 style={{ color: "white", marginBottom: "25px" }}>Login</h2>
 
+        {/* Username input */}
         <input
           type="text"
           name="username"
@@ -90,6 +98,7 @@ export default function LoginPage() {
           }}
         />
 
+        {/* Password input */}
         <input
           type="password"
           name="password"
@@ -106,6 +115,7 @@ export default function LoginPage() {
           }}
         />
 
+        {/* Error message display */}
         {error && (
           <p
             style={{
@@ -119,7 +129,7 @@ export default function LoginPage() {
           </p>
         )}
 
-        {/* NEW: Verify Email CTA */}
+        {/*Verify Email CTA*/}
         {needsVerification && (
           <button
             style={{
@@ -138,6 +148,7 @@ export default function LoginPage() {
           </button>
         )}
 
+        {/* Login button */}
         <button
           style={{
             width: "100%",
@@ -156,6 +167,7 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
 
+        {/* Forgot password link */}
         <p style={{ fontSize: "1rem", marginTop: "22px", color: "white" }}>
           <span
             style={{
@@ -170,6 +182,7 @@ export default function LoginPage() {
           </span>
         </p>
 
+        {/* Signup link */}
         <p style={{ marginTop: "20px", color: "white" }}>
           Don’t have an account?{" "}
           <span

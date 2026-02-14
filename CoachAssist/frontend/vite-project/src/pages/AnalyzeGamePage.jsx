@@ -11,8 +11,10 @@ const INITIAL_DATA = {
     "Special": []
 };
 
-// ================= PLAYER TABLE CONSTANTS =================
+//PLAYER TABLE CONSTANTS
+//Defines dynamic structure for individual player tables
 
+//Converts short position codes into fully readable names.
 const POSITION_LABELS = {
     QB: "Quarterback",
     RB: "Running Back",
@@ -40,10 +42,12 @@ const POSITION_LABELS = {
     LS: "Long Snapper"
 };
 
+//Helper function ensures readable position names are displayed
 const getFullPositionName = (pos) => {
     return POSITION_LABELS[pos] || pos;
 };
 
+//Stats applied to all player regardless of position
 const UNIVERSAL_STATS = [
     "snaps_played",
     "penalties",
@@ -51,7 +55,23 @@ const UNIVERSAL_STATS = [
     "touchdowns"
 ];
 
+
+// POSITION-SPECIFIC STAT GROUPS
+// Core structure that dynamically builds
+// the right-hand side of the Player Insights modal.
+//
+// Structure:
+// POSITION → CATEGORY → [stat fields]
+//
+// This allows the modal to:
+// 1. Detect the player’s position
+// 2. Render only relevant stat categories
+// 3. Automatically generate input fields
+//
+// This makes the system scalable — adding a new stat
+// only requires editing this object.
 const POSITION_GROUPS = {
+    //OFFENSE
     QB: {
         Passing: ["pass_attempts", "pass_completions", "passing_yards", "passing_tds", "interceptions_thrown"],
         Rushing: ["rush_attempts", "rushing_yards", "rushing_tds"]
@@ -68,6 +88,8 @@ const POSITION_GROUPS = {
     C: { Blocking: ["pass_block_snaps", "run_block_snaps"], Snapping: ["bad_snaps"] },
     RG: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
     RT: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
+
+    //DEFENSE
     DE: { Defense: ["tackles", "tackles_for_loss", "sacks", "forced_fumbles"] },
     DT: { Defense: ["tackles", "tackles_for_loss", "sacks"] },
     NT: { Defense: ["tackles", "tackles_for_loss"] },
@@ -77,6 +99,8 @@ const POSITION_GROUPS = {
     CB: { Coverage: ["targets_allowed", "completions_allowed", "interceptions", "passes_defended"] },
     FS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
     SS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
+
+    //SPECIAL
     K: { Kicking: ["field_goals_made", "field_goals_attempted", "extra_points_made"] },
     P: { Punting: ["punts", "punt_yards", "punts_inside_20"] },
     KR: { Returns: ["kick_returns", "kick_return_yards", "kick_return_tds"] },
@@ -93,19 +117,18 @@ export default function AnalyzeGamePage() {
     // Main state holding all data
     const [allTableData, setAllTableData] = useState(INITIAL_DATA);
 
-    // ================= PLAYER TABLE STATE =================
-
-    const [players, setPlayers] = useState([]);
-    const [selectedPlayer, setSelectedPlayer] = useState(null);
-    const [playerStats, setPlayerStats] = useState({});
-    const [playerNotes, setPlayerNotes] = useState([]);
+    // Player Table State
+    const [players, setPlayers] = useState([]); //Holds players for selected unit
+    const [selectedPlayer, setSelectedPlayer] = useState(null); //Currently selected player for modal
+    const [playerStats, setPlayerStats] = useState({}); //Stores editable stat values for chosen player
+    const [playerNotes, setPlayerNotes] = useState([]); //Stores editable note rows for chosen player
 
     // Match State
     const [match, setMatch] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
 
-    const [showPlayerModal, setShowPlayerModal] = useState(false);
-    const [isSavingPlayer, setIsSavingPlayer] = useState(false);
+    const [showPlayerModal, setShowPlayerModal] = useState(false); //Visibility of player insights modal
+    const [isSavingPlayer, setIsSavingPlayer] = useState(false); //Loading state while saving player insights
 
 
     // Edit Form State
@@ -160,6 +183,7 @@ export default function AnalyzeGamePage() {
         if (activeTab === "Defensive") unit = "defense";
         if (activeTab === "Special") unit = "special";
 
+        //If not a player-based tab, do nothing
         if (!unit) return;
 
         fetch(`/teams/${teamId}/players?unit=${unit}`, {
@@ -340,11 +364,12 @@ export default function AnalyzeGamePage() {
         navigate(`/team/${teamId}`);
     };
 
-    // ================= OPEN PLAYER MODAL =================
+    // OPEN PLAYER MODAL
     const openPlayerModal = (player) => {
-        setSelectedPlayer(player);
-        setShowPlayerModal(true);
+        setSelectedPlayer(player); //Store selected player for modal display
+        setShowPlayerModal(true); //Show modal
 
+        //Fetch player insights from this game
         fetch(`/games/${matchId}/players/${player.id}`, {
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`
@@ -385,7 +410,7 @@ export default function AnalyzeGamePage() {
 
 
 
-    // ================= FILTER PLAYERS BY UNIT =================
+    // FILTER PLAYERS BY UNIT
 
     const filteredPlayers = players.filter(player => {
         if (activeTab === "Offensive") return player.unit === "offense";
@@ -394,10 +419,9 @@ export default function AnalyzeGamePage() {
         return false;
     });
 
-    // ==========================
     // PLAYER NOTE HANDLERS
-    // ==========================
 
+    // Updates specific note field
     const updatePlayerNote = (id, field, value) => {
         setPlayerNotes(prev =>
             prev.map(note =>
@@ -408,6 +432,7 @@ export default function AnalyzeGamePage() {
         );
     };
 
+    //Add new blank observation row to notes
     const addPlayerNoteRow = () => {
         const newRow = {
             id: Date.now(),
@@ -419,12 +444,15 @@ export default function AnalyzeGamePage() {
         setPlayerNotes(prev => [...prev, newRow]);
     };
 
+    //Delete note row
     const deletePlayerNoteRow = (id) => {
         setPlayerNotes(prev =>
             prev.filter(row => row.id !== id)
         );
     };
 
+
+    // SAVE PLAYER INSIGHTS
     const savePlayerInsights = async () => {
         if (!selectedPlayer) return;
 
@@ -450,6 +478,7 @@ export default function AnalyzeGamePage() {
                 throw new Error("Failed to save player insights");
             }
 
+            //Close modal after successful save
             setShowPlayerModal(false);
 
         } catch (err) {
@@ -460,6 +489,7 @@ export default function AnalyzeGamePage() {
         }
     };
 
+    //Close modal without saving 
     const cancelPlayerModal = () => {
         setShowPlayerModal(false);
     };
@@ -613,6 +643,7 @@ export default function AnalyzeGamePage() {
 
                     // PLAYER TABLE REPLACES GAME STATE TABLE
                     <div className="game-state-table-container player-table">
+                         {/* Dynamic header color based on unit */}
                         <div
                             className={`table-title-header ${activeTab === "Offensive"
                                 ? "offense"
@@ -626,19 +657,23 @@ export default function AnalyzeGamePage() {
                             Player Table - {activeTab}
                         </div>
 
+                        {/* Table header row */}
                         <div className="player-table-header">
                             <div>#</div>
                             <div>Name</div>
                             <div>Position</div>
                             <div>Action</div>
                         </div>
-
+                        
+                        {/* Player rows */}
                         <div className="player-table-body">
                             {filteredPlayers.map((player) => (
                                 <div className="player-table-row" key={player.id}>
                                     <div>{player.jersey_number}</div>
                                     <div>{player.player_name}</div>
                                     <div>{getFullPositionName(player.position)}</div>
+
+                                    {/* Open modal */}
                                     <div>
                                         <button
                                             className="player-view-btn"
@@ -669,7 +704,7 @@ export default function AnalyzeGamePage() {
                 </button>
             </div>
 
-            {/* EDIT GAME MODAL */}
+            {/* Edit Game Modal */}
             {showEdit && (
                 <div className="modal-overlay">
                     <div className="modal-card">
@@ -732,7 +767,7 @@ export default function AnalyzeGamePage() {
                 </div>
             )}
 
-            {/* EXIT CONFIRM MODAL */}
+            {/* Exit Confirm Modal */}
             {showExitConfirm && (
                 <div className="modal-overlay">
                     <div className="confirm-card">
@@ -754,7 +789,7 @@ export default function AnalyzeGamePage() {
                 </div>
             )}
 
-            {/* PLAYER INSIGHTS MODAL */}
+            {/* Player Insights Modal */}
             {showPlayerModal && (
                 <div className="player-modal-overlay">
                     <div className="player-modal">
