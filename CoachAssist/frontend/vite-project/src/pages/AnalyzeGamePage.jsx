@@ -14,74 +14,74 @@ const INITIAL_DATA = {
 // ================= PLAYER TABLE CONSTANTS =================
 
 const POSITION_LABELS = {
-  QB: "Quarterback",
-  RB: "Running Back",
-  FB: "Fullback",
-  WR: "Wide Receiver",
-  TE: "Tight End",
-  LT: "Left Tackle",
-  LG: "Left Guard",
-  C:  "Center",
-  RG: "Right Guard",
-  RT: "Right Tackle",
-  DE: "Defensive End",
-  DT: "Defensive Tackle",
-  NT: "Nose Tackle",
-  OLB: "Outside Linebacker",
-  ILB: "Inside Linebacker",
-  MLB: "Middle Linebacker",
-  CB: "Cornerback",
-  FS: "Free Safety",
-  SS: "Strong Safety",
-  K:  "Kicker",
-  P:  "Punter",
-  KR: "Kick Returner",
-  PR: "Punt Returner",
-  LS: "Long Snapper"
+    QB: "Quarterback",
+    RB: "Running Back",
+    FB: "Fullback",
+    WR: "Wide Receiver",
+    TE: "Tight End",
+    LT: "Left Tackle",
+    LG: "Left Guard",
+    C: "Center",
+    RG: "Right Guard",
+    RT: "Right Tackle",
+    DE: "Defensive End",
+    DT: "Defensive Tackle",
+    NT: "Nose Tackle",
+    OLB: "Outside Linebacker",
+    ILB: "Inside Linebacker",
+    MLB: "Middle Linebacker",
+    CB: "Cornerback",
+    FS: "Free Safety",
+    SS: "Strong Safety",
+    K: "Kicker",
+    P: "Punter",
+    KR: "Kick Returner",
+    PR: "Punt Returner",
+    LS: "Long Snapper"
 };
 
 const getFullPositionName = (pos) => {
-  return POSITION_LABELS[pos] || pos;
+    return POSITION_LABELS[pos] || pos;
 };
 
 const UNIVERSAL_STATS = [
-  "snaps_played",
-  "penalties",
-  "turnovers",
-  "touchdowns"
+    "snaps_played",
+    "penalties",
+    "turnovers",
+    "touchdowns"
 ];
 
 const POSITION_GROUPS = {
-  QB: {
-    Passing: ["pass_attempts","pass_completions","passing_yards","passing_tds","interceptions_thrown"],
-    Rushing: ["rush_attempts","rushing_yards","rushing_tds"]
-  },
-  RB: {
-    Rushing: ["rush_attempts","rushing_yards","rushing_tds"],
-    Receiving: ["targets","receptions","receiving_yards","receiving_tds"]
-  },
-  FB: { Rushing: ["rush_attempts","rushing_yards"], Blocking:["lead_blocks"] },
-  WR: { Receiving:["targets","receptions","receiving_yards","receiving_tds","drops"] },
-  TE: { Receiving:["targets","receptions","receiving_yards","receiving_tds"], Blocking:["run_block_snaps","pass_block_snaps"] },
-  LT: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
-  LG: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
-  C:  { Blocking:["pass_block_snaps","run_block_snaps"], Snapping:["bad_snaps"] },
-  RG: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
-  RT: { Blocking:["pass_block_snaps","run_block_snaps","sacks_allowed"] },
-  DE: { Defense:["tackles","tackles_for_loss","sacks","forced_fumbles"] },
-  DT: { Defense:["tackles","tackles_for_loss","sacks"] },
-  NT: { Defense:["tackles","tackles_for_loss"] },
-  OLB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
-  ILB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
-  MLB:{ Defense:["tackles","sacks","interceptions","passes_defended"] },
-  CB: { Coverage:["targets_allowed","completions_allowed","interceptions","passes_defended"] },
-  FS: { Coverage:["interceptions","passes_defended","tackles"] },
-  SS: { Coverage:["interceptions","passes_defended","tackles"] },
-  K:  { Kicking:["field_goals_made","field_goals_attempted","extra_points_made"] },
-  P:  { Punting:["punts","punt_yards","punts_inside_20"] },
-  KR: { Returns:["kick_returns","kick_return_yards","kick_return_tds"] },
-  PR: { Returns:["punt_returns","punt_return_yards","punt_return_tds"] },
-  LS: { Snapping:["total_snaps","bad_snaps"] }
+    QB: {
+        Passing: ["pass_attempts", "pass_completions", "passing_yards", "passing_tds", "interceptions_thrown"],
+        Rushing: ["rush_attempts", "rushing_yards", "rushing_tds"]
+    },
+    RB: {
+        Rushing: ["rush_attempts", "rushing_yards", "rushing_tds"],
+        Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds"]
+    },
+    FB: { Rushing: ["rush_attempts", "rushing_yards"], Blocking: ["lead_blocks"] },
+    WR: { Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds", "drops"] },
+    TE: { Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds"], Blocking: ["run_block_snaps", "pass_block_snaps"] },
+    LT: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
+    LG: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
+    C: { Blocking: ["pass_block_snaps", "run_block_snaps"], Snapping: ["bad_snaps"] },
+    RG: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
+    RT: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
+    DE: { Defense: ["tackles", "tackles_for_loss", "sacks", "forced_fumbles"] },
+    DT: { Defense: ["tackles", "tackles_for_loss", "sacks"] },
+    NT: { Defense: ["tackles", "tackles_for_loss"] },
+    OLB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
+    ILB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
+    MLB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
+    CB: { Coverage: ["targets_allowed", "completions_allowed", "interceptions", "passes_defended"] },
+    FS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
+    SS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
+    K: { Kicking: ["field_goals_made", "field_goals_attempted", "extra_points_made"] },
+    P: { Punting: ["punts", "punt_yards", "punts_inside_20"] },
+    KR: { Returns: ["kick_returns", "kick_return_yards", "kick_return_tds"] },
+    PR: { Returns: ["punt_returns", "punt_return_yards", "punt_return_tds"] },
+    LS: { Snapping: ["total_snaps", "bad_snaps"] }
 };
 
 
@@ -152,19 +152,19 @@ export default function AnalyzeGamePage() {
 
     // Fetch Players for Offensive / Defensive / Special tabs
     useEffect(() => {
-      let unit = null;
+        let unit = null;
 
-      if (activeTab === "Offensive") unit = "offense";
-      if (activeTab === "Defensive") unit = "defense";
-      if (activeTab === "Special") unit = "special";
+        if (activeTab === "Offensive") unit = "offense";
+        if (activeTab === "Defensive") unit = "defense";
+        if (activeTab === "Special") unit = "special";
 
-      if (!unit) return;
+        if (!unit) return;
 
-      fetch(`/teams/${teamId}/players?unit=${unit}`, {
-       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      })
-        .then(res => res.json())
-        .then(data => setPlayers(data || []));
+        fetch(`/teams/${teamId}/players?unit=${unit}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        })
+            .then(res => res.json())
+            .then(data => setPlayers(data || []));
     }, [activeTab, teamId]);
 
 
@@ -548,95 +548,94 @@ export default function AnalyzeGamePage() {
                     )}
                 </div>
 
-            {/* Table */}
-            {activeTab === "Game State" ? (
+                {/* Table */}
+                {activeTab === "Game State" ? (
 
-                // ORIGINAL GAME STATE TABLE (unchanged)
-                <div className="game-state-table-container">
-                    <div className="table-title-header">{tableHeaderTitle}</div>
+                    // ORIGINAL GAME STATE TABLE (unchanged)
+                    <div className="game-state-table-container">
+                        <div className="table-title-header">{tableHeaderTitle}</div>
 
-                    <div className="table-header-row">
-                        <div className="cell col-obs">Observation</div>
-                        <div className="cell col-time">Time</div>
-                        <div className="scrollbar-spacer"></div>
-                    </div>
+                        <div className="table-header-row">
+                            <div className="cell col-obs">Observation</div>
+                            <div className="cell col-time">Time</div>
+                            <div className="scrollbar-spacer"></div>
+                        </div>
 
-                    <div className="table-scroll-area">
-                        {currentTableData.map((row) => (
-                            <div className="table-row" key={row.id}>
-                                <div className="cell col-obs">
-                                    <input
-                                        className="table-input"
-                                        value={row.text}
-                                        onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
-                                    />
+                        <div className="table-scroll-area">
+                            {currentTableData.map((row) => (
+                                <div className="table-row" key={row.id}>
+                                    <div className="cell col-obs">
+                                        <input
+                                            className="table-input"
+                                            value={row.text}
+                                            onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="cell col-time">
+                                        <input
+                                            className="table-input center"
+                                            value={row.time}
+                                            onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
+                                            onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="cell col-time">
-                                    <input
-                                        className="table-input center"
-                                        value={row.time}
-                                        onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
-                                        onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
-                                    />
+                            ))}
+                        </div>
+
+                        <div className="table-footer-row">
+                            <button className="add-row-btn" onClick={handleAddRow}>
+                                Add Row +
+                            </button>
+                        </div>
+                    </div>
+
+                ) : (
+
+                    // PLAYER TABLE REPLACES GAME STATE TABLE
+                    <div className="game-state-table-container player-table">
+                        <div
+                            className={`table-title-header ${activeTab === "Offensive"
+                                ? "offense"
+                                : activeTab === "Defensive"
+                                    ? "defense"
+                                    : activeTab === "Special"
+                                        ? "special"
+                                        : ""
+                                }`}
+                        >
+                            Player Table - {activeTab}
+                        </div>
+
+                        <div className="player-table-header">
+                            <div>#</div>
+                            <div>Name</div>
+                            <div>Position</div>
+                            <div>Action</div>
+                        </div>
+
+                        <div className="player-table-body">
+                            {filteredPlayers.map((player) => (
+                                <div className="player-table-row" key={player.id}>
+                                    <div>{player.jersey_number}</div>
+                                    <div>{player.player_name}</div>
+                                    <div>{getFullPositionName(player.position)}</div>
+                                    <div>
+                                        <button
+                                            className="player-view-btn"
+                                            onClick={() => openPlayerModal(player)}
+                                        >
+                                            View
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="table-footer-row">
-                        <button className="add-row-btn" onClick={handleAddRow}>
-                            Add Row +
-                        </button>
-                    </div>
-                </div>
+                )}
 
-            ) : (
-
-                // PLAYER TABLE REPLACES GAME STATE TABLE
-                <div className="game-state-table-container player-table">
-                  <div
-                      className={`table-title-header ${
-                          activeTab === "Offensive"
-                              ? "offense"
-                              : activeTab === "Defensive"
-                              ? "defense"
-                              : activeTab === "Special"
-                              ? "special"
-                              : ""
-                      }`}
-                  >
-                      Player Table - {activeTab}
-                  </div>
-
-                  <div className="player-table-header">
-                      <div>#</div>
-                      <div>Name</div>
-                      <div>Position</div>
-                      <div>Action</div>
-                  </div>
-
-                  <div className="player-table-body">
-                      {filteredPlayers.map((player) => (
-                          <div className="player-table-row" key={player.id}>
-                              <div>{player.jersey_number}</div>
-                              <div>{player.player_name}</div>
-                              <div>{getFullPositionName(player.position)}</div>
-                              <div>
-                                  <button
-                                      className="player-view-btn"
-                                      onClick={() => openPlayerModal(player)}
-                                  >
-                                      View
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-              </div>
-
-            )}
-    
-          </div>
+            </div>
 
             {/* Footer Buttons */}
             <div className="footer-buttons">
