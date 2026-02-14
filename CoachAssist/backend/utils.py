@@ -101,4 +101,4 @@ def send_password_reset_email(to_email: str, code: str):
         print("!!! EMAIL FAILED !!!")
         print(e)
 
-    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+    #oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
