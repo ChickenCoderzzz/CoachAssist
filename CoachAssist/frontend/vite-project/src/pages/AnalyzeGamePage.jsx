@@ -889,22 +889,14 @@ export default function AnalyzeGamePage() {
                         </div>
 
                         {/* Footer */}
-                        <div className="player-modal-footer">
+                        <div className="player-modal-footer single-btn">
                             <button
                                 className="action-btn save"
-                                onClick={savePlayerInsights}
-                            >
-                                Save
-                            </button>
-
-                            <button
-                                className="action-btn exit"
                                 onClick={() => setShowPlayerModal(false)}
                             >
-                                Cancel
+                                Go Back
                             </button>
                         </div>
-
                     </div>
                 </div>
             )}
