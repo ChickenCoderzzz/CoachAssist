@@ -18,6 +18,7 @@ import EditRosterPage from "./pages/EditRosterPage";
 
 // Shared UI component
 import Navbar from "./components/Navbar.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 function App() {
   // Get current location
@@ -46,17 +47,69 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/edit-profile" element={<EditProfilePage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/edit-profile"
+          element={
+            <ProtectedRoute>
+              <EditProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/forgotpassword" element={<ForgotPasswordPage />} />
         <Route path="/delete-account" element={<DeleteAccountPage />} />
-        <Route path="/verify-password-change" element={<VerifyPasswordChangePage />} />
-        <Route path="/analyze-game" element={<AnalyzeGamePage />} />
-        <Route path="/team/:teamId" element={<TeamPage />} />
-        <Route path="/team/:teamId/match/:matchId" element={<AnalyzeGamePage />} />
-        <Route path="/teams/:teamId/roster" element={<EditRosterPage />} />
+        <Route
+          path="/verify-password-change"
+          element={<VerifyPasswordChangePage />}
+        />
+        <Route
+          path="/analyze-game"
+          element={
+            <ProtectedRoute>
+              <AnalyzeGamePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId"
+          element={
+            <ProtectedRoute>
+              <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/match/:matchId"
+          element={
+            <ProtectedRoute>
+              <AnalyzeGamePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams/:teamId/roster"
+          element={
+            <ProtectedRoute>
+              <EditRosterPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </>
   );

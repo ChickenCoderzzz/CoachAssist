@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await fetch("/auth/profile", {
           headers: {
-            Authorization: `Bearer ${token}`, 
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -44,6 +44,46 @@ export const AuthProvider = ({ children }) => {
     fetchProfile();
   }, [token]);
 
+  // Global Fetch Interceptor for 401s
+  useEffect(() => {
+    const originalFetch = window.fetch;
+
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args);
+
+      if (response.status === 401) {
+        // Only redirect if we thought we were logged in (token exists)
+        // AND validation failed on a protected endpoint.
+        // If we are already on login page, or just tried to login and failed,
+        // we might not want to force a reload/redirect loop, 
+        // but logout() clears token which triggers the ProtectedRoute to kick in.
+
+        let urlString = "";
+        const resource = args[0];
+
+        if (typeof resource === 'string') {
+          urlString = resource;
+        } else if (resource instanceof Request) {
+          urlString = resource.url;
+        } else if (resource instanceof URL) {
+          urlString = resource.toString();
+        }
+
+        // We avoid redirecting if the 401 came from the login endpoint itself
+        // (e.g. wrong password), because we want the Login page to handle that error.
+        if (urlString && !urlString.includes("/auth/login")) {
+          logout();
+        }
+      }
+
+      return response;
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
+
   //Auth actions
   const login = async (username, password) => {
     try {
@@ -67,6 +107,7 @@ export const AuthProvider = ({ children }) => {
 
       const data = await response.json();
       localStorage.setItem("token", data.token);
+      setLoading(true); // Ensure ProtectedRoute waits for profile fetch
       setToken(data.token); // triggers profile fetch
 
       return { success: true };
