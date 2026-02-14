@@ -1,3 +1,19 @@
+"""
+indv_player.py
+
+Handles all individual player management routes for CoachAssist.
+
+Features:
+- Get all players for a team (with optional unit filter)
+- Add a player
+- Delete a player
+- Get a single player
+- Update player information
+
+All routes are protected and require authentication.
+Users may only access players belonging to their own teams.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional, Literal
 
@@ -9,19 +25,26 @@ from backend.schemas.indv_player_schema import (
 from backend.database import get_db
 from backend.routers.auth import require_user
 
-
+#Router for team-related player endpoints
 router = APIRouter(
     prefix="/teams",
     tags=["Players"]
 )
 
+#Restricts allowed unit values to valid football categories
 UnitType = Literal["offense", "defense", "special"]
 
 
-# --------------------------------------------------
-# Helper: ensure logged-in user owns the team
-# --------------------------------------------------
+#HELPER: ensure logged-in user owns the team
+
 def verify_team_access(team_id: int, user_id: int, db):
+    """
+    Ensures that the authenticated user owns the team
+    they are attempting to access.
+
+    Prevents horizontal privilege escalation.
+    """
+
     cur = db.cursor()
     cur.execute(
         """
@@ -40,10 +63,8 @@ def verify_team_access(team_id: int, user_id: int, db):
             detail="You do not have access to this team"
         )
 
+# GET ALL PLAYERS FOR A TEAM (optional unit filter)
 
-# --------------------------------------------------
-# Get all players for a team (optional unit filter)
-# --------------------------------------------------
 @router.get("/{team_id}/players", response_model=List[PlayerOut])
 def get_players(
     team_id: int,
@@ -51,11 +72,23 @@ def get_players(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
+    """
+    Returns all players belonging to a team.
+
+    Optional:
+    - Filter by unit (offense, defense, special teams)
+
+    Only accessible by the team owner.
+    """
+
     user_id = user["id"]
+
+    #Ensures user owns the team
     verify_team_access(team_id, user_id, db)
 
     cur = db.cursor()
 
+    #Base query
     query = """
         SELECT id, team_id, player_name, jersey_number, unit, position
         FROM indv_players
@@ -63,6 +96,7 @@ def get_players(
     """
     params = [team_id]
 
+    #Optional filtering by unit
     if unit:
         query += " AND unit = %s"
         params.append(unit)
@@ -73,10 +107,8 @@ def get_players(
 
     return players
 
+#ADD A PLAYER
 
-# --------------------------------------------------
-# Add a player
-# --------------------------------------------------
 @router.post("/{team_id}/players", response_model=PlayerOut, status_code=201)
 def add_player(
     team_id: int,
@@ -84,9 +116,19 @@ def add_player(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
+    """
+    Creates a new player for a team.
+
+    Validates:
+    - User owns the team
+    - Team ID in URL matches request body
+    - Jersey number conflicts handled at DB level
+    """
+
     user_id = user["id"]
     verify_team_access(team_id, user_id, db)
 
+    #Ensure URL team_id matches body team_id
     if team_id != player.team_id:
         raise HTTPException(
             status_code=400,
@@ -114,6 +156,7 @@ def add_player(
         db.commit()
         return new_player
 
+    #Roll back transaction on conflict
     except Exception:
         db.rollback()
         raise HTTPException(
@@ -124,19 +167,27 @@ def add_player(
     finally:
         cur.close()
 
+#DELETE A PLAYER
 
-# --------------------------------------------------
-# Delete a player
-# --------------------------------------------------
 @router.delete("/players/{player_id}", status_code=200)
 def delete_player(
     player_id: int,
     db=Depends(get_db),
     user=Depends(require_user)
 ):
+    """
+    Creates a new player for a team.
+
+    Validates:
+    - User owns the team
+    - Team ID in URL matches request body
+    - Jersey number conflicts handled at DB level
+    """
+
     user_id = user["id"]
     cur = db.cursor()
 
+    # Ensure player belongs to team owned by user
     cur.execute(
         """
         SELECT p.id
@@ -155,6 +206,7 @@ def delete_player(
             detail="Player not found or access denied"
         )
 
+    #Delete player
     cur.execute(
         "DELETE FROM indv_players WHERE id = %s",
         (player_id,)
@@ -164,16 +216,20 @@ def delete_player(
 
     return {"success": True}
 
+# GET A SINGLE PLAYER
 
-# --------------------------------------------------
-# Get a single player
-# --------------------------------------------------
 @router.get("/players/{player_id}", response_model=PlayerOut)
 def get_player(
     player_id: int,
     db=Depends(get_db),
     user=Depends(require_user)
 ):
+    """
+    Returns detailed information for a single player.
+
+    Access restricted to team owner.
+    """
+
     user_id = user["id"]
     cur = db.cursor()
 
@@ -204,10 +260,8 @@ def get_player(
 
     return player
 
+#UPDATE PLAYER DETAILS
 
-# --------------------------------------------------
-# Update a player
-# --------------------------------------------------
 @router.put("/players/{player_id}", response_model=PlayerOut)
 def update_player(
     player_id: int,
@@ -215,9 +269,17 @@ def update_player(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
+    """
+    Updates one or more player fields dynamically.
+
+    Only updates fields that are provided.
+    Prevents unauthorized access via team ownership validation.
+    """
+    
     user_id = user["id"]
     cur = db.cursor()
 
+    #Ensure player belongs to team owned by user
     cur.execute(
         """
         SELECT p.id
@@ -236,6 +298,7 @@ def update_player(
             detail="Player not found or access denied"
         )
 
+    #Build dynamic update query based on provided fields
     fields = []
     values = []
 

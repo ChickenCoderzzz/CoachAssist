@@ -1,19 +1,43 @@
+"""
+teams.py
+
+Handles:
+- Team (Folder) management
+- Match (Game) management
+
+Features:
+- Create, read, update, delete teams
+- Create, read, update, delete matches
+- Ownership verification for all operations
+
+All routes require authentication.
+Users can only access teams and matches they own.
+"""
+
 from fastapi import APIRouter, Depends, HTTPException
 from backend.database import get_db
 from backend.schemas.team_folder_schema import TeamCreateSchema
 from backend.schemas.match_schema import MatchCreateSchema
 from backend.routers.auth import require_user
 
+#Endpoints prefixed with /teams
 router = APIRouter(
     prefix="/teams",
     tags=["Teams"]
 )
 
-#Endpoints for Teams
+#=== TEAM FOLDER ENDPOINTS ===
 
-#Create Team
+#CREATE A TEAM
+
 @router.post("/")
 def create_team(data: TeamCreateSchema, user=Depends(require_user)):
+    """
+    Creates a new team folder for the authenticated user.
+
+    Each team is owned by a specific user.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -31,9 +55,15 @@ def create_team(data: TeamCreateSchema, user=Depends(require_user)):
 
     return {"team": dict(row)}
 
-#Get All Teams
+#GET ALL TEAMS (owned by user)
+
 @router.get("/")
 def get_teams(user=Depends(require_user)):
+    """
+    Returns all teams belonging to the authenticated user.
+    Ordered by newest first.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -49,9 +79,14 @@ def get_teams(user=Depends(require_user)):
 
     return {"teams": cur.fetchall()}
 
-# Get Single Team
+#GET SINGLE TEAM
+
 @router.get("/{team_id}")
 def get_team(team_id: int, user=Depends(require_user)):
+    """
+    Retrieves a single team if it belongs to the user.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -71,9 +106,14 @@ def get_team(team_id: int, user=Depends(require_user)):
     return {"team": dict(row)}
 
 
-#Delete Team
+#DELETE TEAM
+
 @router.delete("/{team_id}")
 def delete_team(team_id: int, user=Depends(require_user)):
+    """
+    Deletes a team owned by the authenticated user.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -85,13 +125,19 @@ def delete_team(team_id: int, user=Depends(require_user)):
 
     return {"message": "Team deleted"}
 
-#Update Team
+#UPDATE TEAM DETAILS
+
 @router.put("/{team_id}")
 def update_team(
     team_id: int,
     data: TeamCreateSchema,
     user=Depends(require_user)
 ):
+    """
+    Updates team name and description.
+    Only allowed if user owns the team.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -114,15 +160,24 @@ def update_team(
     return {"team": dict(row)}
 
 
-#Match (Game) endpoints
+#=== MATCH (GAME) ENDPOINTS ===
 
-# Create Match
+#CREATE MATCH
+
 @router.post("/{team_id}/matches")
 def create_match(
     team_id: int,
     data: MatchCreateSchema,
     user=Depends(require_user)
 ):
+    """
+    Creates a new match (game) inside a team.
+
+    Validations:
+    - Team must belong to user
+    - No duplicate game dates for same team
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -180,11 +235,15 @@ def create_match(
 
     return {"match": dict(row)}
 
+#GET MATCHES FOR TEAM
 
-
-#Get Matches for Team
 @router.get("/{team_id}/matches")
 def get_matches(team_id: int, user=Depends(require_user)):
+    """
+    Returns all matches for a team owned by the user.
+    Ordered by most recent game first.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -201,9 +260,15 @@ def get_matches(team_id: int, user=Depends(require_user)):
 
     return {"matches": cur.fetchall()}
 
-# Get Single Match
+# GET SINGLE MATCH
+
 @router.get("/matches/{match_id}")
 def get_match(match_id: int, user=Depends(require_user)):
+    """
+    Retrieves a specific match if it belongs to a team
+    owned by the authenticated user.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -223,9 +288,14 @@ def get_match(match_id: int, user=Depends(require_user)):
 
     return {"match": dict(row)}
 
-# Delete Match
+# DELETE MATCH
+
 @router.delete("/matches/{match_id}")
 def delete_match(match_id: int, user=Depends(require_user)):
+    """
+    Deletes a match only if it belongs to a team owned by the user.
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -243,13 +313,20 @@ def delete_match(match_id: int, user=Depends(require_user)):
     db.commit()
     return {"message": "Match deleted"}
 
-# Update Match
+# UPDATE MATCH DETAILS
+
 @router.put("/matches/{match_id}")
 def update_match(
     match_id: int,
     data: MatchCreateSchema,
     user=Depends(require_user)
 ):
+    """
+    Updates match metadata (name, opponent, scores, date, description).
+
+    Ensures match belongs to a team owned by user.
+    """
+
     db = get_db()
     cur = db.cursor()
 

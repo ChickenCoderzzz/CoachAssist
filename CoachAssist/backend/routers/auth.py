@@ -1,3 +1,16 @@
+"""
+auth.py
+
+Handles all authentication-related routes for CoachAssist:
+- Signup & email verification
+- Login & profile retrieval
+- Password reset (forgot password)
+- Logged-in password change
+- Account deletion
+
+Implements JWT-based authentication using HTTP Bearer tokens.
+"""
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timedelta
@@ -22,28 +35,44 @@ from backend.utils import (
     send_password_reset_email
 )
 
+#Prefix routes with /auth
 router = APIRouter(prefix="/auth")
 
-# ⬇️ IMPORTANT: auto_error=False
+#Security scheme extracts Bearer tokens from headers
 security = HTTPBearer(auto_error=False)
 
-# -------------------------
-# Helper functions
-# -------------------------
+
+#HELPER FUNCTIONS
 
 def normalize_email(email: str) -> str:
+    """
+    Normalize email to avoid case/spacing issues
+    Ensures consistent database storage
+    """
+
     return email.strip().lower()
 
 def generate_code() -> str:
+    """
+    Generate 6 digit verification code for email verification and password resets
+    """
+
     return f"{random.randint(100000, 999999)}"
 
-# -------------------------
-# Auth dependency (FINAL)
-# -------------------------
+#AUTHENTICATION DEPENDENCY
 
 def require_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
+    """
+    Dependency protects routes
+    
+    -Extract JWT from Authorization Header
+    -Decode and validate token
+    -Retrieve corresponding user from database
+    -Return user record if valid
+    """
+
     if not credentials:
         raise HTTPException(status_code=401, detail="Authorization header missing")
 
@@ -60,6 +89,7 @@ def require_user(
     db = get_db()
     cur = db.cursor()
 
+    #Fetch authenticated user
     cur.execute(
         """
         SELECT id, username, email
@@ -76,22 +106,27 @@ def require_user(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return user  # ✅ always a dict
+    return user  
 
-def require_username(user=Depends(require_user)) -> str:
-    return user["username"]
 
-# -------------------------
-# Signup / Verification
-# -------------------------
+# SIGNUP / EMAIL VERIFICATION
 
 @router.post("/signup")
 def signup(data: SignupSchema):
+    """
+    Registration Step 1:
+     
+    -Check for duplicate username/email
+    -Store user in pending_users table
+    -Send verification code via email
+    """
+
     db = get_db()
     cur = db.cursor()
 
     email = normalize_email(data.email)
 
+    #Ensure username/email not in use
     cur.execute(
         "SELECT id FROM users WHERE username=%s OR email=%s",
         (data.username, email)
@@ -99,11 +134,13 @@ def signup(data: SignupSchema):
     if cur.fetchone():
         raise HTTPException(400, "Username or email already in use")
 
+    #Remove pending signup with same email
     cur.execute("DELETE FROM pending_users WHERE email=%s", (email,))
 
     code = generate_code()
     expires = datetime.utcnow() + timedelta(minutes=15)
 
+    #Insert into temporary pending_users table
     cur.execute(
         """
         INSERT INTO pending_users
@@ -128,8 +165,17 @@ def signup(data: SignupSchema):
 
     return {"message": "Check your email for a verification code."}
 
+
 @router.post("/verify-email")
 def verify_email(data: VerifyEmailSchema):
+    """
+    Registration Step 2:
+    
+    -Validate verifiaction code
+    -Move users from pending_users to users
+    -Marks email as verified
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -145,6 +191,7 @@ def verify_email(data: VerifyEmailSchema):
     if pending["verification_expires"] < datetime.utcnow():
         raise HTTPException(400, "Verification code expired")
 
+    #Move user to permanent users table
     cur.execute(
         """
         INSERT INTO users (full_name, email, username, password_hash, email_verified)
@@ -158,6 +205,7 @@ def verify_email(data: VerifyEmailSchema):
         )
     )
 
+    #Remove from pending table
     cur.execute("DELETE FROM pending_users WHERE id=%s", (pending["id"],))
 
     db.commit()
@@ -168,6 +216,13 @@ def verify_email(data: VerifyEmailSchema):
 
 @router.post("/resend-verification")
 def resend_verification(data: ResendVerificationSchema):
+    """
+    Resends verification code if:
+    
+    -Email exists in pending users
+    -Email not verified
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -203,12 +258,14 @@ def resend_verification(data: ResendVerificationSchema):
 
     return {"message": "Verification code resent."}
 
-# -------------------------
-# Login / Profile
-# -------------------------
-
+# LOGIN / PROFILE
 @router.post("/login")
 def login(data: LoginSchema):
+    """
+    Authenticates user by username or email
+    Returns JWT token if credentials are valid
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -236,18 +293,29 @@ def login(data: LoginSchema):
 
 @router.get("/profile")
 def get_profile(user=Depends(require_user)):
+    """
+    Returns authenticated user's basic profile info
+    """
+
     return {
         "id": user["id"],
         "username": user["username"],
         "email": user["email"]
     }
 
-# -------------------------
-# Forgot Password
-# -------------------------
+
+#FORGOT PASSWORD
 
 @router.post("/forgot-password/request")
 def forgot_password_request(data: ForgotPasswordRequestSchema):
+    """
+    Initiate password reset
+
+    -Generate reset code
+    -Email user
+    -Store expiration in database
+    """
+
     db = get_db()
     cur = db.cursor()
 
@@ -256,6 +324,7 @@ def forgot_password_request(data: ForgotPasswordRequestSchema):
     cur.execute("SELECT id FROM users WHERE email=%s", (email,))
     user = cur.fetchone()
 
+    #Generic message for security
     if not user:
         return {"message": "If an account exists, a reset code has been sent."}
 
@@ -320,12 +389,18 @@ def forgot_password_verify(data: ForgotPasswordVerifySchema):
 
     return {"message": "Password reset successful"}
 
-# -------------------------
-# Logged-in Password Change
-# -------------------------
+# LOGGED IN PASSWORD CHANGE
 
 @router.post("/profile/request-password-change")
 def request_password_change(user=Depends(require_user)):
+    """
+    Initiate password reset when logged in
+
+    -Generate reset code
+    -Email user
+    -Store expiration in database
+    """
+    
     db = get_db()
     cur = db.cursor()
 
@@ -391,10 +466,8 @@ def verify_password_change(
 
     return {"message": "Password updated successfully"}
 
-# -------------------------
-# Delete Account
-# -------------------------
 
+#DELETE ACCOUNT
 @router.post("/delete-account")
 def delete_account(user=Depends(require_user)):
     db = get_db()

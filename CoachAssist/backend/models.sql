@@ -3,6 +3,10 @@
 -- Football-ready schema
 -- =========================
 
+-- =========================
+-- USERS TABLES
+-- =========================
+
 -- USERS
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -10,6 +14,192 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) UNIQUE,
     password_hash TEXT NOT NULL,
     full_name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add email verification to USERS table
+ALTER TABLE users
+ADD COLUMN email_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN email_verification_code VARCHAR(6),
+ADD COLUMN email_verification_expires TIMESTAMP;
+
+-- Add password reset columns to USERS table
+ALTER TABLE users
+ADD COLUMN password_reset_code TEXT,
+ADD COLUMN password_reset_expires TIMESTAMP;
+
+-- PENDING USERS
+CREATE TABLE pending_users (
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    verification_code TEXT NOT NULL,
+    verification_expires TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- =========================
+-- TEAMS TABLES
+-- =========================
+
+-- TEAMS
+CREATE TABLE teams (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    image_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add cascade delete to TEAMS table
+ALTER TABLE teams
+ADD CONSTRAINT teams_user_id_fkey
+FOREIGN KEY (user_id)
+REFERENCES users(id)
+ON DELETE CASCADE;
+
+-- =========================
+-- MATCHES (Games) TABLES
+-- =========================
+
+-- MATCHES
+CREATE TABLE matches (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  name VARCHAR(150) NOT NULL,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add opponents and game details to MATCHES table
+ALTER TABLE matches
+ADD COLUMN opponent VARCHAR(150) NOT NULL,
+ADD COLUMN game_date DATE NOT NULL,
+ADD COLUMN team_score INTEGER,
+ADD COLUMN opponent_score INTEGER;
+
+-- =========================
+-- INDV_PLAYERS TABLES
+-- =========================
+
+-- INDV_PLAYERS
+CREATE TABLE indv_players (
+    id SERIAL PRIMARY KEY,
+    team_id INTEGER NOT NULL,
+    player_name VARCHAR(100) NOT NULL,
+    jersey_number INTEGER NOT NULL,
+    position VARCHAR(20) NOT NULL,
+    unit VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================
+-- PLAYER INSIGHTS TABLES
+-- =========================
+
+-- PLAYER_STATS
+CREATE TABLE player_stats (
+    id SERIAL PRIMARY KEY,
+
+    -- Link to roster player
+    player_id INTEGER NOT NULL
+        REFERENCES indv_players(id)
+        ON DELETE CASCADE,
+
+    -- =====================
+    -- UNIVERSAL (All Players)
+    -- =====================
+
+    games_played INTEGER DEFAULT 0,
+    snaps_played INTEGER DEFAULT 0,
+    penalties INTEGER DEFAULT 0,
+    turnovers INTEGER DEFAULT 0,
+    touchdowns INTEGER DEFAULT 0,
+
+    -- =====================
+    -- OFFENSE
+    -- =====================
+
+    -- Passing (QB)
+    pass_attempts INTEGER DEFAULT 0,
+    pass_completions INTEGER DEFAULT 0,
+    passing_yards INTEGER DEFAULT 0,
+    passing_tds INTEGER DEFAULT 0,
+    interceptions_thrown INTEGER DEFAULT 0,
+
+    -- Rushing
+    rush_attempts INTEGER DEFAULT 0,
+    rushing_yards INTEGER DEFAULT 0,
+    rushing_tds INTEGER DEFAULT 0,
+
+    -- Receiving
+    receptions INTEGER DEFAULT 0,
+    receiving_yards INTEGER DEFAULT 0,
+    receiving_tds INTEGER DEFAULT 0,
+
+    -- Offensive Line
+    sacks_allowed INTEGER DEFAULT 0,
+
+    -- =====================
+    -- DEFENSE
+    -- =====================
+
+    tackles INTEGER DEFAULT 0,
+    sacks INTEGER DEFAULT 0,
+    interceptions INTEGER DEFAULT 0,
+    forced_fumbles INTEGER DEFAULT 0,
+    fumbles_recovered INTEGER DEFAULT 0,
+    passes_defended INTEGER DEFAULT 0,
+
+    -- =====================
+    -- SPECIAL TEAMS
+    -- =====================
+
+    field_goals_made INTEGER DEFAULT 0,
+    field_goals_attempted INTEGER DEFAULT 0,
+    extra_points_made INTEGER DEFAULT 0,
+
+    punts INTEGER DEFAULT 0,
+    punt_yards INTEGER DEFAULT 0,
+
+    kick_returns INTEGER DEFAULT 0,
+    kick_return_yards INTEGER DEFAULT 0,
+    kick_return_tds INTEGER DEFAULT 0,
+
+    punt_returns INTEGER DEFAULT 0,
+    punt_return_yards INTEGER DEFAULT 0,
+    punt_return_tds INTEGER DEFAULT 0,
+
+    -- General
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add game_id to PLAYER_STATS table
+ALTER TABLE player_stats
+ADD COLUMN game_id INTEGER NOT NULL
+REFERENCES matches(id)
+ON DELETE CASCADE;
+
+-- PLAYER_NOTES
+CREATE TABLE player_notes (
+    id SERIAL PRIMARY KEY,
+
+    player_id INTEGER NOT NULL
+        REFERENCES indv_players(id)
+        ON DELETE CASCADE,
+
+    game_id INTEGER NOT NULL
+        REFERENCES matches(id)
+        ON DELETE CASCADE,
+
+    category VARCHAR(50) DEFAULT 'General',
+    note TEXT NOT NULL,
+    time VARCHAR(20),
+
     created_at TIMESTAMP DEFAULT NOW()
 );
 
