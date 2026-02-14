@@ -543,7 +543,7 @@
     gap: 30px;
     padding: 20px;
     flex: 1;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Footer */
@@ -597,6 +597,7 @@
 .notes-body {
     overflow-y: auto;
     min-height: 0;
+    position: relative;
 }
 
 /* Row layout */
@@ -655,18 +656,19 @@
 }
 
 /* ========================================= */
-/* TOOLTIP                                  */
+/* TOOLTIP FIXED                            */
 /* ========================================= */
 
 .note-cell {
     position: relative;
+    overflow: visible; /* allow tooltip to escape */
 }
 
 .note-tooltip {
-    display: none;
     position: absolute;
     left: 0;
-    bottom: 120%;
+    top: -8px;
+    transform: translateY(-100%);
     background: rgba(0, 0, 0, 0.95);
     color: #fff;
     padding: 8px 10px;
@@ -676,11 +678,18 @@
     white-space: normal;
     box-shadow: 0 2px 6px rgba(0,0,0,0.5);
     pointer-events: none;
+
+    opacity: 0;
+    visibility: hidden;
+    z-index: 9999; 
+    transition: opacity 0.15s ease;
 }
 
 .note-cell:hover .note-tooltip {
-    display: block;
+    opacity: 1;
+    visibility: visible;
 }
+
 
 /* ========================================= */
 /* RIGHT SIDE - STATS                       */
