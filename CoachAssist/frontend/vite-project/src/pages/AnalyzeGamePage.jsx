@@ -644,7 +644,7 @@ export default function AnalyzeGamePage() {
 
                     // PLAYER TABLE REPLACES GAME STATE TABLE
                     <div className="game-state-table-container player-table">
-                         {/* Dynamic header color based on unit */}
+                        {/* Dynamic header color based on unit */}
                         <div
                             className={`table-title-header ${activeTab === "Offensive"
                                 ? "offense"
@@ -665,7 +665,7 @@ export default function AnalyzeGamePage() {
                             <div>Position</div>
                             <div>Action</div>
                         </div>
-                        
+
                         {/* Player rows.*/}
                         <div className="player-table-body">
                             {filteredPlayers.map((player) => (

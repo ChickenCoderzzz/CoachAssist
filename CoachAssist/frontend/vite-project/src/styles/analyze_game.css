@@ -53,27 +53,42 @@
     align-items: stretch;
 }
 
-/* Video Player container */
-/* Video Player container */
+/* Old Video Player container 
 .video-player-section {
     width: 100%;
-    /* max-width: 800px; Remove max-width to allow stretch */
+    max-width: 800px;
+    max-height: 400px;
     position: relative;
-    /* Remove padding-top hack */
-    aspect-ratio: 16 / 9;
-    /* Prevent collapse if table is empty */
+    padding-top: 56.25%; 
     background: #000;
+}
+*/
+/*new video player container*/
+.video-player-section {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    padding-top: 56.25%;
+    /* 16:9 container */
+    background: #000;
+    overflow: hidden;
+    /* ensures video can't expand beyond container */
 }
 
 /* Actual <video> element */
 .video-player {
     position: absolute;
+    /* stay inside container */
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     object-fit: contain;
-    /* scales video inside container without cropping */
+    /* keep aspect ratio, show black bars if portrait */
+    margin: 0;
+    /* override any default margin from video element */
+    display: block;
+    /* avoid inline spacing issues */
     background-color: #000;
 }
 
@@ -522,7 +537,8 @@
     padding: 20px;
     flex: 1;
     overflow: hidden;
-    min-height: 0; /* critical for nested flex scrolling */
+    min-height: 0;
+    /* critical for nested flex scrolling */
 }
 
 /* Footer */
@@ -543,7 +559,8 @@
 
 /* Red danger button */
 .action-btn.danger {
-    background-color: #dc2626;  /* clean red */
+    background-color: #dc2626;
+    /* clean red */
     color: white;
     border: 2px solid #000;
 }
@@ -558,7 +575,8 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0; /* critical */
+    min-height: 0;
+    /* critical */
 }
 
 .player-observations-title {
@@ -588,7 +606,8 @@
     background-color: #fdba74;
     font-weight: bold;
     border-bottom: 2px solid #000;
-    padding-right: 17px; /* match scrollbar width */
+    padding-right: 17px;
+    /* match scrollbar width */
     box-sizing: border-box;
 }
 
@@ -603,8 +622,10 @@
 
 /* Scroll area */
 .notes-body {
-    flex: 1;              /* takes remaining space */
-    overflow-y: auto;     /* scroll only here */
+    flex: 1;
+    /* takes remaining space */
+    overflow-y: auto;
+    /* scroll only here */
     min-height: 0;
     position: relative;
     padding-bottom: 10px;
@@ -680,7 +701,7 @@
     border-radius: 6px;
     max-width: 260px;
     white-space: normal;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
     pointer-events: none;
 
     opacity: 0;
