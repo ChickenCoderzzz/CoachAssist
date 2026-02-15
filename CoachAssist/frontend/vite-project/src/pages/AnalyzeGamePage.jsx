@@ -144,7 +144,45 @@ if (!res.ok) {
     alert("Error adding YouTube video:\n" + err);
   }
 };
+// Register a video (firebase)
+const handleVideoUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    alert("No file selected.");
+    return;
+  }
+  if (!token) {
+    alert("You must be logged in. (No token)");
+    return;
+  }
 
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("/videos/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      alert("Upload failed: " + text);
+      return;
+    }
+
+    const newVideo = await res.json();
+    setVideoList(prev => [newVideo, ...prev]);
+    setVideoSrc(newVideo.playback_url);
+    setVideoName(newVideo.filename);
+
+  } catch (err) {
+    alert("Upload error: " + err);
+  }
+};
 
 
   const currentTableData = allTableData[activeTab];
@@ -185,38 +223,43 @@ if (!res.ok) {
         <div className="video-column">
             {/*upload button*/}
           <div className="video-upload-wrapper">
-            <button className="action-btn" onClick={handleYouTubeVideo}>
-              Add YouTube Video
-            </button>
+            <label className="action-btn">
+              Upload Video
+              <input
+                type="file"
+                accept="video/*"
+                hidden
+                onChange={handleVideoUpload}
+              />
+            </label>
             {videoName && <span className="video-name">{videoName}</span>}
           </div>
 
           {/*fetch button*/}
             <div className="video-upload-wrapper">
             <button className="action-btn" onClick={fetchVideos}>
-            Fetch YouTube Video
+            Fetch Videos
             </button>
             {videoName && <span className="video-name">{videoName}</span>}
             </div>
 
           <div className="video-player-section">
-            {loadingVideos ? (
-              <div>Loading videos...</div>
-            ) : videoSrc ? (
-              <iframe
-                ref={videoRef}
-                src={videoSrc}
-                title={videoName}
-                width="100%"
-                height="360"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
-            ) : (
-              <div className="video-placeholder">
-                Upload a video to begin analysis
-              </div>
-            )}
+          {loadingVideos ? (
+            <div>Loading videos...</div>
+          ) : videoSrc ? (
+            <video
+              ref={videoRef}
+              width="100%"
+              height="360"
+              controls
+            >
+              <source src={videoSrc} type="video/mp4" />
+            </video>
+          ) : (
+            <div className="video-placeholder">
+              Upload a video to begin analysis
+            </div>
+          )}
           </div>
 
           {/* Video list selection */}
