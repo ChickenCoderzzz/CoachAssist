@@ -255,26 +255,90 @@ export default function AnalyzeGamePage() {
     };
 
     // Video state
+    const [videoList, setVideoList] = useState([]);
     const [videoSrc, setVideoSrc] = useState(null);
     const [videoName, setVideoName] = useState("");
+    const [loadingVideos, setLoadingVideos] = useState(true);
     const videoRef = useRef(null);
 
-    // Video Upload Handler
-    const handleVideoUpload = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            setVideoName(file.name);
-            const url = URL.createObjectURL(file);
-            setVideoSrc(url);
+    // Auth token from localStorage
+    const token = localStorage.getItem("token");
+
+    // Fetch videos from backend
+    const fetchVideos = async () => {
+        if (!token) return;
+
+        try {
+            const res = await fetch("/videos", {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                console.error("Failed to fetch videos", await res.text());
+                return;
+            }
+
+            const videos = await res.json();
+            setVideoList(videos);
+
+            // Load the first video if exists
+            if (videos.length > 0) {
+                setVideoSrc(videos[0].playback_url);
+                setVideoName(videos[0].filename);
+            }
+        } catch (err) {
+            console.error("Error fetching videos:", err);
+        } finally {
+            setLoadingVideos(false);
         }
     };
 
-    // Cleanup object URL
     useEffect(() => {
-        return () => {
-            if (videoSrc) URL.revokeObjectURL(videoSrc);
-        };
-    }, [videoSrc]);
+        fetchVideos();
+    }, []);
+
+    const handleVideoUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            alert("No file selected.");
+            return;
+        }
+        if (!token) {
+            alert("You must be logged in. (No token)");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/videos/upload", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                alert("Upload failed: " + text);
+                return;
+            }
+
+            const newVideo = await res.json();
+            setVideoList(prev => [newVideo, ...prev]);
+            setVideoSrc(newVideo.playback_url);
+            setVideoName(newVideo.filename);
+
+        } catch (err) {
+            alert("Upload error: " + err);
+        }
+    };
+
+
 
     // Handle table input
     const handleInputChange = (id, field, value) => {
