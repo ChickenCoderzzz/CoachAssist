@@ -121,7 +121,7 @@ export default function AnalyzeGamePage() {
     const [players, setPlayers] = useState([]); //Holds players for selected unit
     const [selectedPlayer, setSelectedPlayer] = useState(null); //Currently selected player for modal
     const [playerStats, setPlayerStats] = useState({}); //Stores editable stat values for chosen player
-    const [playerNotes, setPlayerNotes] = useState([]); //Stores editable note rows for chosen player
+    const [playerNotes, setPlayerNotes] = useState([]); //Stores editable note rows for chosen player. Added by Wences Jacob Lorenzo
 
     // Match State
     const [match, setMatch] = useState(null);
@@ -176,6 +176,7 @@ export default function AnalyzeGamePage() {
     }, [matchId]);
 
     // Fetch Players for Offensive / Defensive / Special tabs
+    // Added by Wences Jacob Lorenzo
     useEffect(() => {
         let unit = null;
 
@@ -401,7 +402,7 @@ export default function AnalyzeGamePage() {
                     ...(data.stats || {})
                 });
 
-                setPlayerNotes(data.notes || []);
+                setPlayerNotes(data.notes || []); //Added by Wences Jacob Lorenzo
             })
             .catch(err => {
                 console.error("Failed to load player insights:", err);
@@ -419,9 +420,9 @@ export default function AnalyzeGamePage() {
         return false;
     });
 
-    // PLAYER NOTE HANDLERS
+    // PLAYER NOTE HANDLERS. Added by Wences Jacob Lorenzo
 
-    // Updates specific note field
+    // Updates specific note field.
     const updatePlayerNote = (id, field, value) => {
         setPlayerNotes(prev =>
             prev.map(note =>
@@ -665,7 +666,7 @@ export default function AnalyzeGamePage() {
                             <div>Action</div>
                         </div>
                         
-                        {/* Player rows */}
+                        {/* Player rows.*/}
                         <div className="player-table-body">
                             {filteredPlayers.map((player) => (
                                 <div className="player-table-row" key={player.id}>
@@ -804,7 +805,7 @@ export default function AnalyzeGamePage() {
                         {/* Body */}
                         <div className="player-modal-body">
 
-                            {/* LEFT SIDE - NOTES */}
+                            {/* LEFT SIDE - NOTES. Added by Wences Jacob Lorenzo */}
                             <div className="player-notes-wrapper">
 
                                 <div className="player-observations-title">

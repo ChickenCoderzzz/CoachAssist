@@ -16,7 +16,7 @@ export default function LoginPage() {
   });
 
   const [error, setError] = useState(""); //Error message state
-  const [needsVerification, setNeedsVerification] = useState(false); //If backend indicated unverified email
+  const [needsVerification, setNeedsVerification] = useState(false); //If backend indicated unverified email. Added by Wences Jacob Lorenzo
   const [loading, setLoading] = useState(false); //Loading state for login button
 
   //Handle input field changes
@@ -30,7 +30,7 @@ export default function LoginPage() {
   //Handle login button click
   const handleLogin = async () => {
     setError("");
-    setNeedsVerification(false);
+    setNeedsVerification(false); //Added by Wences Jacob Lorenzo
 
     //Basic frontend validation
     if (!formData.username || !formData.password) {
@@ -44,7 +44,7 @@ export default function LoginPage() {
     if (result.success) {
       navigate("/dashboard");//Redirect to dashboard on access
     } else {
-      //Detect unverified email case
+      //Detect unverified email case. Added by Wences Jacob Lorenzo
       if (result.message?.toLowerCase().includes("verify")) {
         setNeedsVerification(true);
         setError("Please verify your email before logging in.");
@@ -129,7 +129,7 @@ export default function LoginPage() {
           </p>
         )}
 
-        {/*Verify Email CTA*/}
+        {/*Verify Email CTA. Added by Wences Jacob Lorenzo*/}
         {needsVerification && (
           <button
             style={{

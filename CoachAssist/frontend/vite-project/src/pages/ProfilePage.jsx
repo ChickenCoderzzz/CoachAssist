@@ -56,7 +56,7 @@ export default function ProfilePage() {
           Change Password
         </button>
 
-        {/* Delete account */}
+        {/* Delete account by Wences Jacob Lorenzo*/}
         <button
           style={{
             marginTop: "15px",

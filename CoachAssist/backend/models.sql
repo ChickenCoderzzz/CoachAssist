@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Add email verification to USERS table
+--START OF SQL by Wences Jacob Lorenzo
+-- Add email verification to USERS table 
 ALTER TABLE users
 ADD COLUMN email_verified BOOLEAN DEFAULT FALSE,
 ADD COLUMN email_verification_code VARCHAR(6),
@@ -95,6 +96,7 @@ CREATE TABLE indv_players (
     unit VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+--END OF SQL by Wences Jacob Lorenzo
 
 -- =========================
 -- PLAYER INSIGHTS TABLES
@@ -185,6 +187,7 @@ REFERENCES matches(id)
 ON DELETE CASCADE;
 
 -- PLAYER_NOTES
+--Section by Wences Jacob Lorenzo
 CREATE TABLE player_notes (
     id SERIAL PRIMARY KEY,
 

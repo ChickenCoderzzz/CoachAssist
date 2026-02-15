@@ -17,8 +17,8 @@ from jose import jwt, JWTError
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
-import smtplib
-from email.message import EmailMessage
+import smtplib #Import by Wences Jacob Lorenzo
+from email.message import EmailMessage #Import by Wences Jacob Lorenzo
 
 #=== LOAD ENVIRONMENT VARIABLES ===
 
@@ -95,7 +95,9 @@ def decode_token(token: str):
     except JWTError:
         return None
 
+
 #=== EMAIL SENDING (Verification) ===
+#Following Code by Wences Jacob Lorenzo:
 
 def send_verification_email(to_email: str, code: str):
     """

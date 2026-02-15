@@ -18,14 +18,14 @@ export default function SignupPage() {
   //UI states
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [accountCreated, setAccountCreated] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false); //Added by Wences Jacob Lorenzo
 
   //Handle input field changes
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  //Handle signup button click
+  //Handle signup button click by Wences Jacob Lorenzo
   const handleSignup = async () => {
     setError("");
 
@@ -39,9 +39,9 @@ export default function SignupPage() {
 
     try {
       //Normalize email before sending to backend
-      const email = formData.email.trim().toLowerCase();
+      const email = formData.email.trim().toLowerCase(); //Added by Wences Jacob Lorenzo 
 
-      //Send signup request to backend
+      //Send signup request to backend by Wences Jacob Lorenzo
       const res = await fetch("/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -89,7 +89,7 @@ export default function SignupPage() {
           Create Account
         </h2>
 
-        {/* If account successfully created, show verification message */}
+        {/* If account successfully created, show verification message. Added by Wences Jacob Lorenzo*/}
         {accountCreated ? (
           <>
             <p style={{ color: "#8fd18e", marginBottom: "20px" }}>
@@ -193,7 +193,7 @@ export default function SignupPage() {
   );
 }
 
-//Shared input style
+//Shared input style. Added by Wences Jacob Lorenzo
 const inputStyle = {
   width: "100%",
   padding: "12px",
@@ -202,7 +202,7 @@ const inputStyle = {
   border: "none",
 };
 
-//Shared button style
+//Shared button style. Added by Wences Jacob Lorenzo
 const buttonStyle = {
   width: "100%",
   padding: "12px",

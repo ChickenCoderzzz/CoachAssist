@@ -92,7 +92,7 @@ def get_player_insights(
         if not stats:
             stats = {}
 
-        # Fetch Notes
+        # Fetch Notes - By Wences Jacob Lorenzo
         cur.execute("""
             SELECT id, category, note, time
             FROM player_notes
@@ -131,7 +131,7 @@ def update_player_insights(
     - No partial updates
     - Clean synchronization between UI and database
     """
-    
+
     user_id = user["id"]
     verify_game_access(game_id, user_id, db)
 
@@ -167,7 +167,7 @@ def update_player_insights(
                     [player_id, game_id] + values
                 )
 
-            # Replace Notes
+            # Replace Notes - By Wences Jacob Lorenzo
 
             #Remove existing notes
             cur.execute("""

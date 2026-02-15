@@ -6,6 +6,7 @@ import bg from "../assets/field_bg.png";
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
 
+  //New Const added by Wences Jaocb Lorenzo
   //Step control: "request" = enter email, "verify" = enter code + new password
   const [step, setStep] = useState("request"); 
 
@@ -21,6 +22,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState("");
 
   //Request reset code
+  //Added by Wences Jacob Lorenzo
   const handleSendResetCode = async () => {
     setLoading(true);
     setError("");
@@ -51,6 +53,7 @@ export default function ForgotPasswordPage() {
   };
 
   //Resend reset code
+  //Added by Wences Jacob Lorenzo
   const handleResendCode = async () => {
     if (!email) {
       setError("Please enter your email again.");
@@ -84,6 +87,7 @@ export default function ForgotPasswordPage() {
   };
 
   //Verify + reset
+  //Added by Wences Jacob Lorenzo
   const handleResetPassword = async () => {
     setLoading(true);
     setError("");
@@ -135,7 +139,7 @@ export default function ForgotPasswordPage() {
           Forgot Password
         </h2>
 
-        {/* Step 1: Request reset code */}
+        {/* Step 1: Request reset code  by Wences Jacob Lorenzo*/}
         {step === "request" && (
           <>
             <input
@@ -159,7 +163,7 @@ export default function ForgotPasswordPage() {
           </>
         )}
 
-        {/* Step 2: Enter code + new password */}
+        {/* Step 2: Enter code + new password by Wences Jacob Lorenzo*/}
         {step === "verify" && (
           <>
             {/* Email (disabled for confirmation) */}

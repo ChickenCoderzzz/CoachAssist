@@ -6,16 +6,20 @@ import { useAuth } from "../context/AuthContext";
 
 export default function EditProfilePage() {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token } = useAuth(); //Get JWT token for authenticated request
 
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  //Consts added by Wences Jacob Lorenzo
+  const [message, setMessage] = useState(""); //Success or error message
+  const [loading, setLoading] = useState(false); //Button loading stage
 
+  //Send password change verification code to user's email
+  //Added by Wences Jacob Lorenzo
   const handleSendCode = async () => {
     setMessage("");
     setLoading(true);
 
     try {
+      //Call backend endpoint to request password change verification
       const res = await fetch("/auth/profile/request-password-change", {
         method: "POST",
         headers: {
@@ -25,6 +29,7 @@ export default function EditProfilePage() {
 
       const data = await res.json();
 
+      //Handle backend error
       if (!res.ok) {
         setMessage(data.detail || "Failed to send verification code.");
         return;
@@ -46,6 +51,7 @@ export default function EditProfilePage() {
         justifyContent: "center",
       }}
     >
+      {/* Card container */}
       <DarkCard width="420px" padding="40px">
         <img
           src={logo}
@@ -57,6 +63,7 @@ export default function EditProfilePage() {
           Change Password
         </h2>
 
+        {/* Display dynamic success/error message. Added by Wences Jacob Lorenzo */}
         {message && (
           <p
             style={{
@@ -70,6 +77,7 @@ export default function EditProfilePage() {
           </p>
         )}
 
+        {/* Send Verification Code Button. Added by Wences Jacob Lorenzo*/}
         <button
           style={{
             width: "100%",
@@ -87,6 +95,7 @@ export default function EditProfilePage() {
           {loading ? "Sending..." : "Send Verification Code"}
         </button>
 
+        {/* Back Button. Added by Wences Jacob Lorenzo */}
         <button
           style={{
             width: "100%",

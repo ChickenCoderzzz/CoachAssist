@@ -23,9 +23,9 @@ from fastapi import FastAPI
 
 # Import all route modules
 # Each router handles a specific domain of functionality
-from backend.routers.auth import router as auth_router
-from backend.routers.team_folders import router as team_folders_router
-from backend.routers.indv_player import router as indv_player_router
+from backend.routers.auth import router as auth_router 
+from backend.routers.team_folders import router as team_folders_router #Added by Wences Jacob Lorenzo
+from backend.routers.indv_player import router as indv_player_router #Added by Wences Jacob Lorenzo
 from backend.routers.videos import router as videos_router
 from backend.routers.player_insights import router as player_insights_router
 from backend.routers.games import router as games_router
@@ -38,8 +38,8 @@ app = FastAPI()
 #Keeps backend organized and scalable
 
 app.include_router(auth_router) # Authentication (signup, login, password reset)
-app.include_router(team_folders_router) # Team folder management
-app.include_router(indv_player_router) # Individual player management
+app.include_router(team_folders_router) # Team folder management (Added by Wences Jacob Lorenzo)
+app.include_router(indv_player_router) # Individual player management (Added by Wences Jacob Lorenzo)
 app.include_router(videos_router) # Game video management
 app.include_router(player_insights_router) # Player stats + notes per game
 app.include_router(games_router) # Game metadata management

@@ -78,6 +78,7 @@ class PlayerStatsSchema(BaseModel):
     punt_return_tds: Optional[int] = None
 
 #=== Player Notes Schema ===
+#Following Code by Wences Jacob Lorenzo
 
 class PlayerNoteRow(BaseModel):
     """
