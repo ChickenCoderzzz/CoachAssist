@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/teams.css";
+import defaultLogo from "../assets/default_team_logo.png";
 import PlayersTable from "../components/PlayersTable.jsx";
+
+const TEAM_COLOR_OPTIONS = [ //Colormap
+  "#B38F8F", // red
+  "#B39A8F", // orange
+  "#B3AD8F", // yellow
+  "#9DBA8A", // green
+  "#8FA8B3", // blue
+  "#A88FB3", // purple
+  "#E5E5E5", // white
+  "#5F5F5F"  // dark grey
+];
 
 export default function Dashboard() {
   const [teams, setTeams] = useState([]); //Team list state
@@ -12,6 +24,10 @@ export default function Dashboard() {
   //New team state from input
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [imageFile, setImageFile] = useState(null); //Team logo file
+  const [previewUrl, setPreviewUrl] = useState(null); //Preview of selected logo
+  const [isCreating, setIsCreating] = useState(false); //Loading state for team creation
+  const [newColor, setNewColor] = useState("#9DBA8A"); //Color state
 
   const navigate = useNavigate();
 
@@ -28,34 +44,47 @@ export default function Dashboard() {
       });
   }, []);
 
-  //Create team
-  const handleCreateTeam = () => {
-    if (!newName.trim()) return; //PRevent empty name
+  //Create team (Updated for image + loading)
+  const handleCreateTeam = async () => {
+    if (!newName.trim() || isCreating) return; //Prevent empty name + double submit
 
-    fetch("/teams/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      body: JSON.stringify({
-        name: newName,
-        description: newDesc,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.team) {
-          setTeams((prev) => [...prev, data.team]); //Add new team to state
+    setIsCreating(true);
 
-          //Reset form
-          setNewName("");
-          setNewDesc("");
+    const formData = new FormData();
+    formData.append("name", newName);
+    formData.append("description", newDesc || "");
+    formData.append("color", newColor);
 
-          //Close modal
-          setShowCreate(false);
-        }
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
+
+    try {
+      const response = await fetch("/teams/", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
       });
+
+      const data = await response.json();
+
+      if (data.team) {
+        setTeams((prev) => [...prev, data.team]); //Add new team to state
+
+        //Reset form
+        setNewName("");
+        setNewDesc("");
+        setImageFile(null);
+        setPreviewUrl(null);
+
+        //Close modal
+        setShowCreate(false);
+      }
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   //Search teams
@@ -132,7 +161,6 @@ export default function Dashboard() {
               className="team-card"
               onClick={() => navigate(`/team/${team.id}`)}
             >
-
               {/* Delete Button */}
               <button
                 className="team-delete"
@@ -145,10 +173,20 @@ export default function Dashboard() {
               </button>
 
               {/* Team Image */}
-              <div className="team-icon">
-                <img src={team.image_url || "/team.png"} alt={team.name} />
+              <div
+                className="team-icon"
+                style={{
+                  backgroundColor: team.color || "#9DBA8A"
+                }}
+              >
+                <img
+                  src={team.image_url || defaultLogo}
+                  alt={team.name}
+                  style={{
+                    filter: team.color === "#5F5F5F" ? "invert(1)" : "none"
+                  }}
+                />
               </div>
-
               {/* Team Name */}
               <div className="team-name">{team.name}</div>
 
@@ -161,7 +199,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-
       {/* Create Team Modal */}
       {showCreate && (
         <div className="modal-overlay">
@@ -169,18 +206,107 @@ export default function Dashboard() {
             <h2>Add Team</h2>
 
             <label>Team Name</label>
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
 
             <label>Team Description</label>
-            <textarea value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
+            <textarea
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+            />
+
+            {/* Team Color */}
+            <label style={{ display: "block", textAlign: "center", marginTop: "10px" }}>
+              Team Color
+            </label>
+
+            <div className="color-options">
+              {TEAM_COLOR_OPTIONS.map((color) => (
+                <div
+                  key={color}
+                  className={`color-circle ${
+                    newColor === color ? "selected" : ""
+                  }`}
+                  style={{ backgroundColor: color }}
+                  onClick={() => setNewColor(color)}
+                />
+              ))}
+            </div>
+
+            {/* Live Preview Circle */}
+            <div
+              style={{
+                width: "90px",
+                height: "90px",
+                borderRadius: "50%",
+                overflow: "hidden",
+                margin: "15px auto",
+                border: "2px solid #000",
+                backgroundColor: newColor,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background-color 0.2s ease"
+              }}
+            >
+              <img
+                src={previewUrl ? previewUrl : defaultLogo}
+                alt="Preview"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  filter: newColor === "#5F5F5F" ? "invert(1)" : "none"
+                }}
+              />
+            </div>
+
+            {/* Team Logo Upload */}
+            <label>Team Logo (Optional)</label>
+            <input
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              onChange={(e) => {
+                const file = e.target.files[0];
+                setImageFile(file);
+
+                if (file) {
+                  setPreviewUrl(URL.createObjectURL(file));
+                } else {
+                  setPreviewUrl(null);
+                }
+              }}
+            />
 
             <div className="modal-actions">
-              <button className="modal-primary" onClick={handleCreateTeam}>
-                Add Team
+              <button
+                className="modal-primary"
+                onClick={handleCreateTeam}
+                style={{
+                  opacity: isCreating ? 0.7 : 1,
+                  cursor: isCreating ? "not-allowed" : "pointer",
+                }}
+              >
+                {isCreating ? (
+                  <>
+                    <span className="spinner"></span>
+                    Creating...
+                  </>
+                ) : (
+                  "Add Team"
+                )}
               </button>
+
               <button
                 className="modal-secondary"
-                onClick={() => setShowCreate(false)}
+                onClick={() => {
+                  setShowCreate(false);
+                  setImageFile(null);
+                  setPreviewUrl(null);
+                  setNewColor("#9DBA8A");
+                }}
               >
                 Cancel
               </button>

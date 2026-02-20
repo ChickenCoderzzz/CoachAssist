@@ -1,9 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../styles/teams.css";
+import defaultLogo from "../assets/default_team_logo.png";
+
+const TEAM_COLOR_OPTIONS = [
+  "#B38F8F", // red
+  "#B39A8F", // orange
+  "#B3AD8F", // yellow
+  "#9DBA8A", // green
+  "#8FA8B3", // blue
+  "#A88FB3", // purple
+  "#E5E5E5", // white
+  "#5F5F5F"  // dark grey
+];
 
 export default function TeamPage() {
-  //Get dynamid team ID from URL
+  //Get dynamic team ID from URL
   const { teamId } = useParams();
   const navigate = useNavigate();
 
@@ -17,9 +29,16 @@ export default function TeamPage() {
 
   const [showEditTeam, setShowEditTeam] = useState(false); //Edit team modal
   const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("#9DBA8A");
   const [editDescription, setEditDescription] = useState("");
 
-  //New game form fiels
+  //NEW: Image editing state
+  const [editImageFile, setEditImageFile] = useState(null);
+  const [editPreviewUrl, setEditPreviewUrl] = useState(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // Loading state for team update
+
+  //New game form fields
   const [name, setName] = useState("");
   const [opponent, setOpponent] = useState("");
   const [gameDate, setGameDate] = useState("");
@@ -49,7 +68,6 @@ export default function TeamPage() {
   const handleCreateMatch = () => {
     setError("");
 
-    //Basic validation
     if (!name || !opponent || !gameDate) {
       setError("Please fill out all required fields.");
       return;
@@ -76,13 +94,8 @@ export default function TeamPage() {
         return data;
       })
       .then((data) => {
-        //Add new match to state
         setMatches((prev) => [...prev, data.match]);
-
-        //Close modal
         setShowCreate(false);
-
-        //Reset form
         setName("");
         setOpponent("");
         setGameDate("");
@@ -103,7 +116,6 @@ export default function TeamPage() {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
       },
     }).then(() => {
-      //Remove match from state
       setMatches((prev) =>
         prev.filter((m) => m.id !== matchToDelete.id)
       );
@@ -111,28 +123,44 @@ export default function TeamPage() {
     });
   };
 
-  //Update Team Details
-  const handleUpdateTeam = () => {
-    if (!editName.trim()) return;
+  //Update Team Details (supports replace + remove image)
+  const handleUpdateTeam = async () => {
+    if (!editName.trim() || isSaving) return;
 
-    fetch(`/teams/${teamId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      body: JSON.stringify({
-        name: editName,
-        description: editDescription,
-      }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.team) {
-          setTeam(data.team);
-          setShowEditTeam(false);
-        }
+    setIsSaving(true);
+
+    const formData = new FormData();
+    formData.append("name", editName);
+    formData.append("description", editDescription || "");
+    formData.append("color", editColor);
+
+    if (removeImage) {
+      formData.append("remove_image", "true");
+    } else if (editImageFile) {
+      formData.append("image", editImageFile);
+    }
+
+    try {
+      const response = await fetch(`/teams/${teamId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
       });
+
+      const data = await response.json();
+
+      if (data.team) {
+        setTeam(data.team);
+        setShowEditTeam(false);
+        setEditImageFile(null);
+        setEditPreviewUrl(null);
+        setRemoveImage(false);
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   //Filter games by search input
@@ -140,13 +168,8 @@ export default function TeamPage() {
     m.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  //Loading state
   if (!team) {
-    return (
-      <p style={{ paddingTop: "110px", paddingLeft: "40px" }}>
-        Loading…
-      </p>
-    );
+    return <p style={{ paddingTop: "110px", paddingLeft: "40px" }}>Loading…</p>;
   }
 
   return (
@@ -161,34 +184,55 @@ export default function TeamPage() {
           ← Back to Teams
         </button>
 
-        <h1 style={{ marginBottom: "5px" }}>{team.name}</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div
+            style={{
+              width: "70px",
+              height: "70px",
+              borderRadius: "50%",
+              backgroundColor: team.color || "#9DBA8A",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+              border: "2px solid #000"
+            }}
+          >
+            <img
+              src={team.image_url || defaultLogo}
+              alt={team.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                filter: team.color === "#5F5F5F" ? "invert(1)" : "none"
+              }}
+            />
+          </div>
+          <h1 style={{ marginBottom: "5px" }}>{team.name}</h1>
+        </div>
         {team.description && (
           <p style={{ fontStyle: "italic" }}>{team.description}</p>
         )}
       </div>
 
       {/* Team Actions */}
-      <div
-        style={{
-          marginLeft: "40px",
-          marginBottom: "30px",
-          display: "flex",
-          gap: "12px",
-        }}
-      >
-        {/* Edit team details */}
+      <div style={{ marginLeft: "40px", marginBottom: "30px", display: "flex", gap: "12px" }}>
         <button
           className="add-team-btn"
           onClick={() => {
             setEditName(team.name);
+            setEditColor(team.color || "#9DBA8A");
             setEditDescription(team.description || "");
+            setRemoveImage(false);
+            setEditImageFile(null);
+            setEditPreviewUrl(null);
             setShowEditTeam(true);
           }}
         >
           Edit Team Details
         </button>
 
-        {/* Go to roster */}
         <button
           className="add-team-btn"
           onClick={() => navigate(`/teams/${teamId}/roster`)}
@@ -196,7 +240,6 @@ export default function TeamPage() {
           Edit / View Roster
         </button>
 
-        {/* Placeholder future feature */}
         <button className="add-team-btn">Strategy Analysis</button>
       </div>
 
@@ -205,10 +248,7 @@ export default function TeamPage() {
         <h2>Games</h2>
 
         <div className="dashboard-controls">
-          <button
-            className="add-team-btn"
-            onClick={() => setShowCreate(true)}
-          >
+          <button className="add-team-btn" onClick={() => setShowCreate(true)}>
             Add Game
           </button>
 
@@ -230,7 +270,6 @@ export default function TeamPage() {
                 navigate(`/team/${teamId}/match/${match.id}`)
               }
             >
-              {/* Delete button */}
               <button
                 className="game-delete"
                 onClick={(e) => {
@@ -243,8 +282,7 @@ export default function TeamPage() {
 
               <div className="game-title">{match.name}</div>
               <div className="game-opponent">vs {match.opponent}</div>
-              
-              {/* Hover content */}
+
               <div className="game-hover">
                 {match.team_score !== null &&
                   match.opponent_score !== null && (
@@ -269,30 +307,127 @@ export default function TeamPage() {
           <div className="modal-card">
             <h2>Edit Team Details</h2>
 
+            {/* Team Color Picker (only if no image or image removed) */}
+            {(!editImageFile && (removeImage || !team.image_url)) && (
+              <>
+                <label>Team Color</label>
+                <div className="color-options">
+                  {TEAM_COLOR_OPTIONS.map((color) => (
+                    <div
+                      key={color}
+                      className={`color-circle ${
+                        editColor === color ? "selected" : ""
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setEditColor(color)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Image Preview */}
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div
+                style={{
+                  width: "100px",
+                  height: "100px",
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  margin: "0 auto 12px",
+                  border: "2px solid #000",
+                  backgroundColor: editColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <img
+                  src={
+                    editPreviewUrl
+                      ? editPreviewUrl
+                      : removeImage
+                      ? defaultLogo
+                      : team.image_url || defaultLogo
+                  }
+                  alt="Team Logo"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+
+              <label>Replace Team Logo (Optional)</label>
+              <input
+                type="file"
+                accept="image/png, image/jpeg, image/webp"
+                style={{ display: "block", margin: "8px auto" }}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  setEditImageFile(file);
+                  setRemoveImage(false);
+                  if (file) {
+                    setEditPreviewUrl(URL.createObjectURL(file));
+                  }
+                }}
+              />
+
+              {/* Remove image option */}
+              {(!removeImage && (editImageFile || team.image_url)) && (
+                <button
+                  type="button"
+                  className="modal-secondary"
+                  style={{
+                    marginTop: "8px",
+                    display: "block",
+                    marginLeft: "auto",
+                    marginRight: "auto"
+                  }}
+                  onClick={() => {
+                    setRemoveImage(true);
+                    setEditImageFile(null);
+                    setEditPreviewUrl(null);
+                  }}
+                >
+                  Remove Image
+                </button>
+              )}
+            </div>
+
             <label>Team Name</label>
-            <input
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-            />
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} />
 
             <label>Description</label>
             <textarea
               value={editDescription}
-              onChange={(e) =>
-                setEditDescription(e.target.value)
-              }
+              onChange={(e) => setEditDescription(e.target.value)}
             />
 
             <div className="modal-actions">
               <button
-                className="modal-primary"
-                onClick={handleUpdateTeam}
-              >
-                Save Changes
-              </button>
+                  className="modal-primary"
+                  onClick={handleUpdateTeam}
+                  disabled={isSaving}
+                  style={{
+                    opacity: isSaving ? 0.7 : 1,
+                    cursor: isSaving ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="spinner"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </button>
               <button
                 className="modal-secondary"
-                onClick={() => setShowEditTeam(false)}
+                onClick={() => {
+                  setShowEditTeam(false);
+                  setEditImageFile(null);
+                  setEditPreviewUrl(null);
+                  setRemoveImage(false);
+                }}
               >
                 Cancel
               </button>
@@ -307,58 +442,20 @@ export default function TeamPage() {
           <div className="modal-card">
             <h2>Add Game</h2>
 
-            {error && (
-              <p style={{ color: "#ff9b9b" }}>{error}</p>
-            )}
+            {error && <p style={{ color: "#ff9b9b" }}>{error}</p>}
 
-            <input
-              placeholder="Game name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <input
-              placeholder="Opponent"
-              value={opponent}
-              onChange={(e) => setOpponent(e.target.value)}
-            />
-            <input
-              type="date"
-              value={gameDate}
-              onChange={(e) => setGameDate(e.target.value)}
-            />
-            <input
-              type="number"
-              placeholder="Team score"
-              value={teamScore}
-              onChange={(e) => setTeamScore(e.target.value)}
-            />
-            <input
-              type="number"
-              placeholder="Opponent score"
-              value={opponentScore}
-              onChange={(e) =>
-                setOpponentScore(e.target.value)
-              }
-            />
-            <textarea
-              placeholder="Description"
-              value={description}
-              onChange={(e) =>
-                setDescription(e.target.value)
-              }
-            />
+            <input placeholder="Game name" value={name} onChange={(e) => setName(e.target.value)} />
+            <input placeholder="Opponent" value={opponent} onChange={(e) => setOpponent(e.target.value)} />
+            <input type="date" value={gameDate} onChange={(e) => setGameDate(e.target.value)} />
+            <input type="number" placeholder="Team score" value={teamScore} onChange={(e) => setTeamScore(e.target.value)} />
+            <input type="number" placeholder="Opponent score" value={opponentScore} onChange={(e) => setOpponentScore(e.target.value)} />
+            <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
 
             <div className="modal-actions">
-              <button
-                className="modal-primary"
-                onClick={handleCreateMatch}
-              >
+              <button className="modal-primary" onClick={handleCreateMatch}>
                 Create
               </button>
-              <button
-                className="modal-secondary"
-                onClick={() => setShowCreate(false)}
-              >
+              <button className="modal-secondary" onClick={() => setShowCreate(false)}>
                 Cancel
               </button>
             </div>
@@ -375,16 +472,10 @@ export default function TeamPage() {
               <br />
               <strong>This cannot be undone.</strong>
             </p>
-            <button
-              className="confirm-yes"
-              onClick={confirmDeleteMatch}
-            >
+            <button className="confirm-yes" onClick={confirmDeleteMatch}>
               Yes, Delete
             </button>
-            <button
-              className="confirm-cancel"
-              onClick={() => setMatchToDelete(null)}
-            >
+            <button className="confirm-cancel" onClick={() => setMatchToDelete(null)}>
               Cancel
             </button>
           </div>
@@ -393,4 +484,3 @@ export default function TeamPage() {
     </div>
   );
 }
-
