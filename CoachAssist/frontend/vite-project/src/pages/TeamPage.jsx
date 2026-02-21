@@ -240,7 +240,6 @@ export default function TeamPage() {
           Edit / View Roster
         </button>
 
-<<<<<<< HEAD
         {/* View full game history */}
         <button
           className="add-team-btn"
@@ -250,8 +249,6 @@ export default function TeamPage() {
         </button>
 
         {/* Placeholder future feature */}
-=======
->>>>>>> cdfdfad (Implemented folder customization)
         <button className="add-team-btn">Strategy Analysis</button>
       </div>
 
@@ -295,10 +292,7 @@ export default function TeamPage() {
               <div className="game-title">{match.name}</div>
               <div className="game-opponent">vs {match.opponent}</div>
 
-<<<<<<< HEAD
               {/* Hover content */}
-=======
->>>>>>> cdfdfad (Implemented folder customization)
               <div className="game-hover">
                 {match.team_score !== null &&
                   match.opponent_score !== null && (
