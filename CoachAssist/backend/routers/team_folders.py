@@ -7,6 +7,8 @@ Handles:
 
 Features:
 - Create, read, update, delete teams
+- Optional team photo upload via Firebase
+- Automatic image cleanup on replace/delete
 - Create, read, update, delete matches
 - Ownership verification for all operations
 
@@ -14,40 +16,57 @@ All routes require authentication.
 Users can only access teams and matches they own.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from backend.database import get_db
-from backend.schemas.team_folder_schema import TeamCreateSchema
 from backend.schemas.match_schema import MatchCreateSchema
 from backend.routers.auth import require_user
+from backend.video_providers.photo_handler import (
+    upload_photo_to_firebase,
+    delete_photo_from_firebase
+)
 
-#Endpoints prefixed with /teams
+# Endpoints prefixed with /teams
 router = APIRouter(
     prefix="/teams",
     tags=["Teams"]
 )
 
-#=== TEAM FOLDER ENDPOINTS ===
+# =====================================================
+# ================= TEAM FOLDER ENDPOINTS =============
+# =====================================================
 
-#CREATE A TEAM
+# CREATE A TEAM (supports optional image upload)
 
 @router.post("/")
-def create_team(data: TeamCreateSchema, user=Depends(require_user)):
+async def create_team(
+    name: str = Form(...),
+    description: str = Form(None),
+    color: str = Form("#9DBA8A"),  # NEW
+    image: UploadFile = File(None),
+    user=Depends(require_user)
+):
     """
     Creates a new team folder for the authenticated user.
-
     Each team is owned by a specific user.
+    Photo upload is optional.
     """
+
+    image_url = None
+    image_path = None
+
+    if image:
+        image_path, image_url = upload_photo_to_firebase(image, user["id"])
 
     db = get_db()
     cur = db.cursor()
 
     cur.execute(
         """
-        INSERT INTO teams (user_id, name, description, image_url)
-        VALUES (%s, %s, %s, %s)
-        RETURNING id, name, description, image_url
+        INSERT INTO teams (user_id, name, description, image_url, image_path, color)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id, name, description, image_url, color
         """,
-        (user["id"], data.name, data.description, data.image_url)
+        (user["id"], name, description, image_url, image_path, color)
     )
 
     row = cur.fetchone()
@@ -55,7 +74,8 @@ def create_team(data: TeamCreateSchema, user=Depends(require_user)):
 
     return {"team": dict(row)}
 
-#GET ALL TEAMS (owned by user)
+
+# GET ALL TEAMS (owned by user)
 
 @router.get("/")
 def get_teams(user=Depends(require_user)):
@@ -69,7 +89,7 @@ def get_teams(user=Depends(require_user)):
 
     cur.execute(
         """
-        SELECT id, name, description, image_url
+        SELECT id, name, description, image_url, color
         FROM teams
         WHERE user_id = %s
         ORDER BY created_at DESC
@@ -79,7 +99,8 @@ def get_teams(user=Depends(require_user)):
 
     return {"teams": cur.fetchall()}
 
-#GET SINGLE TEAM
+
+# GET SINGLE TEAM
 
 @router.get("/{team_id}")
 def get_team(team_id: int, user=Depends(require_user)):
@@ -92,7 +113,7 @@ def get_team(team_id: int, user=Depends(require_user)):
 
     cur.execute(
         """
-        SELECT id, name, description, image_url
+        SELECT id, name, description, image_url, color
         FROM teams
         WHERE id = %s AND user_id = %s
         """,
@@ -106,63 +127,147 @@ def get_team(team_id: int, user=Depends(require_user)):
     return {"team": dict(row)}
 
 
-#DELETE TEAM
+# DELETE TEAM (also deletes image from Firebase)
 
 @router.delete("/{team_id}")
 def delete_team(team_id: int, user=Depends(require_user)):
     """
     Deletes a team owned by the authenticated user.
+    Also removes associated Firebase image if present.
     """
 
     db = get_db()
     cur = db.cursor()
+
+    # Get image_path first
+    cur.execute(
+        "SELECT image_path FROM teams WHERE id = %s AND user_id = %s",
+        (team_id, user["id"])
+    )
+    existing = cur.fetchone()
+
+    if existing and existing.get("image_path"):
+        delete_photo_from_firebase(existing["image_path"])
 
     cur.execute(
         "DELETE FROM teams WHERE id = %s AND user_id = %s",
         (team_id, user["id"])
     )
+
     db.commit()
 
     return {"message": "Team deleted"}
 
-#UPDATE TEAM DETAILS
+
+# UPDATE TEAM DETAILS (supports optional image replacement + removal)
 
 @router.put("/{team_id}")
-def update_team(
+async def update_team(
     team_id: int,
-    data: TeamCreateSchema,
+    name: str = Form(...),
+    description: str = Form(None),
+    color: str = Form("#9DBA8A"),  # NEW
+    remove_image: str = Form(None),
+    image: UploadFile = File(None),
     user=Depends(require_user)
 ):
     """
-    Updates team name and description.
+    Updates team name, description, color and optionally team image.
     Only allowed if user owns the team.
+    Supports:
+    - Image replacement
+    - Image removal
     """
 
     db = get_db()
     cur = db.cursor()
 
     cur.execute(
-        """
-        UPDATE teams
-        SET name = %s,
-            description = %s
-        WHERE id = %s AND user_id = %s
-        RETURNING id, name, description, image_url
-        """,
-        (data.name, data.description, team_id, user["id"])
+        "SELECT image_path FROM teams WHERE id = %s AND user_id = %s",
+        (team_id, user["id"])
     )
+    existing = cur.fetchone()
 
-    row = cur.fetchone()
-    if not row:
+    if not existing:
         raise HTTPException(status_code=404, detail="Team not found")
 
+    existing_image_path = existing.get("image_path")
+
+    # =====================================================
+    # ================= IMAGE REMOVAL LOGIC ===============
+    # =====================================================
+
+    if remove_image == "true":
+
+        if existing_image_path:
+            delete_photo_from_firebase(existing_image_path)
+
+        cur.execute(
+            """
+            UPDATE teams
+            SET name = %s,
+                description = %s,
+                color = %s,
+                image_url = NULL,
+                image_path = NULL
+            WHERE id = %s AND user_id = %s
+            RETURNING id, name, description, image_url, color
+            """,
+            (name, description, color, team_id, user["id"])
+        )
+
+    # =====================================================
+    # ================= IMAGE REPLACEMENT =================
+    # =====================================================
+
+    elif image:
+
+        if existing_image_path:
+            delete_photo_from_firebase(existing_image_path)
+
+        image_path, image_url = upload_photo_to_firebase(image, user["id"])
+
+        cur.execute(
+            """
+            UPDATE teams
+            SET name = %s,
+                description = %s,
+                color = %s,
+                image_url = %s,
+                image_path = %s
+            WHERE id = %s AND user_id = %s
+            RETURNING id, name, description, image_url, color
+            """,
+            (name, description, color, image_url, image_path, team_id, user["id"])
+        )
+
+    # =====================================================
+    # ================= TEXT ONLY UPDATE ==================
+    # =====================================================
+
+    else:
+        cur.execute(
+            """
+            UPDATE teams
+            SET name = %s,
+                description = %s,
+                color = %s
+            WHERE id = %s AND user_id = %s
+            RETURNING id, name, description, image_url, color
+            """,
+            (name, description, color, team_id, user["id"])
+        )
+
+    row = cur.fetchone()
     db.commit()
+
     return {"team": dict(row)}
 
+# =====================================================
+# ================= MATCH (GAME) ENDPOINTS ============
+# =====================================================
 
-#=== MATCH (GAME) ENDPOINTS ===
-
-#CREATE MATCH
+# CREATE MATCH
 
 @router.post("/{team_id}/matches")
 def create_match(
@@ -181,7 +286,7 @@ def create_match(
     db = get_db()
     cur = db.cursor()
 
-    #Verify team ownership
+    # Verify team ownership
     cur.execute(
         "SELECT id FROM teams WHERE id = %s AND user_id = %s",
         (team_id, user["id"])
@@ -189,7 +294,7 @@ def create_match(
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="Team not found or unauthorized")
 
-    #Check for duplicate dates when making games
+    # Check duplicate date
     cur.execute(
         """
         SELECT id
@@ -235,7 +340,8 @@ def create_match(
 
     return {"match": dict(row)}
 
-#GET MATCHES FOR TEAM
+
+# GET MATCHES FOR TEAM
 
 @router.get("/{team_id}/matches")
 def get_matches(team_id: int, user=Depends(require_user)):
@@ -259,6 +365,7 @@ def get_matches(team_id: int, user=Depends(require_user)):
     )
 
     return {"matches": cur.fetchall()}
+
 
 # GET SINGLE MATCH
 
@@ -288,6 +395,7 @@ def get_match(match_id: int, user=Depends(require_user)):
 
     return {"match": dict(row)}
 
+
 # DELETE MATCH
 
 @router.delete("/matches/{match_id}")
@@ -313,6 +421,7 @@ def delete_match(match_id: int, user=Depends(require_user)):
     db.commit()
     return {"message": "Match deleted"}
 
+
 # UPDATE MATCH DETAILS
 
 @router.put("/matches/{match_id}")
@@ -323,7 +432,6 @@ def update_match(
 ):
     """
     Updates match metadata (name, opponent, scores, date, description).
-
     Ensures match belongs to a team owned by user.
     """
 
@@ -363,4 +471,3 @@ def update_match(
 
     db.commit()
     return {"match": dict(row)}
-
