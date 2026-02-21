@@ -144,6 +144,7 @@ export default function Dashboard() {
                 X
               </button>
 
+
               {/* Team Image */}
               <div className="team-icon">
                 <img src={team.image_url || "/team.png"} alt={team.name} />

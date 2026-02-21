@@ -15,6 +15,7 @@ import VerifyPasswordChangePage from "./pages/VerifyPasswordChangePage.jsx";
 import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import EditRosterPage from "./pages/EditRosterPage";
+import GameHistoryPage from "./pages/GameHistoryPage.jsx";
 
 // Shared UI component
 import Navbar from "./components/Navbar.jsx";
@@ -91,6 +92,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TeamPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/history"
+          element={
+            <ProtectedRoute>
+              <GameHistoryPage />
             </ProtectedRoute>
           }
         />

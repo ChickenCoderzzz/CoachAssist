@@ -196,6 +196,14 @@ export default function TeamPage() {
           Edit / View Roster
         </button>
 
+        {/* View full game history */}
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/team/${teamId}/history`)}
+        >
+          Game History
+        </button>
+
         {/* Placeholder future feature */}
         <button className="add-team-btn">Strategy Analysis</button>
       </div>
@@ -243,7 +251,7 @@ export default function TeamPage() {
 
               <div className="game-title">{match.name}</div>
               <div className="game-opponent">vs {match.opponent}</div>
-              
+
               {/* Hover content */}
               <div className="game-hover">
                 {match.team_score !== null &&
