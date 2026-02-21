@@ -109,6 +109,35 @@
   opacity: 1;
 }
 
+/* Team history (hover only) */
+.team-history {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+
+  height: 22px;
+  padding: 0 8px;
+  background: #f8ca5c;
+  border: 2px solid #000;
+  border-radius: 4px;
+
+  font-size: 11px;
+  font-weight: bold;
+  color: #000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.team-card:hover .team-history {
+  opacity: 1;
+}
+
 /*Team hover tooltip*/
 .team-description {
   position: absolute;
@@ -318,29 +347,6 @@
   padding: 6px 16px;
   margin-top: 8px;
   font-weight: bold;
-}
-
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-right: 8px;
-  border: 2px solid #000;
-  border-top: 2px solid transparent;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  vertical-align: middle;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* =========================================
-   TEAM COLOR PICKER
-========================================= */
 
 .color-options {
   display: flex;

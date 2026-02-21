@@ -72,10 +72,6 @@ def get_game_state(
                 "time": row["time"]
             })
             
-    # If empty, return empty structure (frontend handles initial state? Actually frontend expects rows to edit)
-    # If the DB is empty, the frontend might render empty tables. 
-    # For now, let's return what we have.
-    
     return result
 
 @router.put("/{game_id}/state")
@@ -89,9 +85,6 @@ def update_game_state(
     cur = db.cursor()
     
     try:
-        # We will replace all entries for this game_id with the new data
-        # This is a simple approach: Delete all for game_id and re-insert.
-        # A more optimized approach would be diffing, but for this size of data, replace is fine.
         
         cur.execute("DELETE FROM game_states WHERE game_id = %s", (game_id,))
         
