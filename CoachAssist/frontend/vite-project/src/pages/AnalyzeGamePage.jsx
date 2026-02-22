@@ -2,113 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/analyze_game.css";
 import "../styles/teams.css";
-
-// Initial data structure
-const INITIAL_DATA = {
-    "Game State": [],
-    "Offensive": [],
-    "Defensive": [],
-    "Special": [],
-    "Videos": []
-};
-
-//PLAYER TABLE CONSTANTS
-//Defines dynamic structure for individual player tables
-
-//Converts short position codes into fully readable names.
-const POSITION_LABELS = {
-    QB: "Quarterback",
-    RB: "Running Back",
-    FB: "Fullback",
-    WR: "Wide Receiver",
-    TE: "Tight End",
-    LT: "Left Tackle",
-    LG: "Left Guard",
-    C: "Center",
-    RG: "Right Guard",
-    RT: "Right Tackle",
-    DE: "Defensive End",
-    DT: "Defensive Tackle",
-    NT: "Nose Tackle",
-    OLB: "Outside Linebacker",
-    ILB: "Inside Linebacker",
-    MLB: "Middle Linebacker",
-    CB: "Cornerback",
-    FS: "Free Safety",
-    SS: "Strong Safety",
-    K: "Kicker",
-    P: "Punter",
-    KR: "Kick Returner",
-    PR: "Punt Returner",
-    LS: "Long Snapper"
-};
-
-//Helper function ensures readable position names are displayed
-const getFullPositionName = (pos) => {
-    return POSITION_LABELS[pos] || pos;
-};
-
-//Stats applied to all player regardless of position
-const UNIVERSAL_STATS = [
-    "snaps_played",
-    "penalties",
-    "turnovers",
-    "touchdowns"
-];
-
-
-// POSITION-SPECIFIC STAT GROUPS
-// Core structure that dynamically builds
-// the right-hand side of the Player Insights modal.
-//
-// Structure:
-// POSITION → CATEGORY → [stat fields]
-//
-// This allows the modal to:
-// 1. Detect the player’s position
-// 2. Render only relevant stat categories
-// 3. Automatically generate input fields
-//
-// This makes the system scalable — adding a new stat
-// only requires editing this object.
-const POSITION_GROUPS = {
-    //OFFENSE
-    QB: {
-        Passing: ["pass_attempts", "pass_completions", "passing_yards", "passing_tds", "interceptions_thrown"],
-        Rushing: ["rush_attempts", "rushing_yards", "rushing_tds"]
-    },
-    RB: {
-        Rushing: ["rush_attempts", "rushing_yards", "rushing_tds"],
-        Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds"]
-    },
-    FB: { Rushing: ["rush_attempts", "rushing_yards"], Blocking: ["lead_blocks"] },
-    WR: { Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds", "drops"] },
-    TE: { Receiving: ["targets", "receptions", "receiving_yards", "receiving_tds"], Blocking: ["run_block_snaps", "pass_block_snaps"] },
-    LT: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
-    LG: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
-    C: { Blocking: ["pass_block_snaps", "run_block_snaps"], Snapping: ["bad_snaps"] },
-    RG: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
-    RT: { Blocking: ["pass_block_snaps", "run_block_snaps", "sacks_allowed"] },
-
-    //DEFENSE
-    DE: { Defense: ["tackles", "tackles_for_loss", "sacks", "forced_fumbles"] },
-    DT: { Defense: ["tackles", "tackles_for_loss", "sacks"] },
-    NT: { Defense: ["tackles", "tackles_for_loss"] },
-    OLB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
-    ILB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
-    MLB: { Defense: ["tackles", "sacks", "interceptions", "passes_defended"] },
-    CB: { Coverage: ["targets_allowed", "completions_allowed", "interceptions", "passes_defended"] },
-    FS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
-    SS: { Coverage: ["interceptions", "passes_defended", "tackles"] },
-
-    //SPECIAL
-    K: { Kicking: ["field_goals_made", "field_goals_attempted", "extra_points_made"] },
-    P: { Punting: ["punts", "punt_yards", "punts_inside_20"] },
-    KR: { Returns: ["kick_returns", "kick_return_yards", "kick_return_tds"] },
-    PR: { Returns: ["punt_returns", "punt_return_yards", "punt_return_tds"] },
-    LS: { Snapping: ["total_snaps", "bad_snaps"] }
-};
-
+import { INITIAL_DATA, POSITION_LABELS, getFullPositionName, UNIVERSAL_STATS, POSITION_GROUPS } from "../constants/gameConstants";
 
 export default function AnalyzeGamePage() {
     const { teamId, matchId } = useParams();
@@ -187,7 +81,7 @@ export default function AnalyzeGamePage() {
 
 
         //videos tab, added by Peter Van Vooren
-        if (activeTab === "Videos"){
+        if (activeTab === "Videos") {
             fetchVideos()
             setPlayers(videoList)
         }
@@ -275,7 +169,7 @@ export default function AnalyzeGamePage() {
     // Fetch videos from backend
     const fetchVideos = async () => {
         if (!token || !teamId || !matchId) return;
-        
+
 
         try {
             const res = await fetch(
@@ -719,52 +613,52 @@ export default function AnalyzeGamePage() {
                 </div>
                 {/* Table */}
                 {activeTab === "Videos" ? (
-    // VIDEO TABLE
-    <div className="game-state-table-container player-table">
-        <div className="table-title-header">Video Library</div>
-        
-        {/* Table header row */}
-        <div className="player-table-header">
-            <div>Filename</div>
-            <div>Action</div>
-        </div>
+                    // VIDEO TABLE
+                    <div className="game-state-table-container player-table">
+                        <div className="table-title-header">Video Library</div>
 
-        {/* Video rows */}
-        <div className="player-table-body">
-            {videoList.length > 0 ? (
-                videoList.map((video) => (
-                    <div className="player-table-row" key={video.id}>
-                        <div>{video.filename}</div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                className="player-view-btn"
-                                onClick={() => {
-                                    setVideoSrc(video.playback_url);
-                                    setVideoName(video.filename);
-                                }}
-                            >
-                                Play
-                            </button>
-                            <button
-                                className="player-view-btn"
-                                style={{ backgroundColor: '#dc3545' }}
-                                onClick={() => handleDeleteVideo(video.id)}
-                            >
-                                Delete
-                            </button>
+                        {/* Table header row */}
+                        <div className="player-table-header">
+                            <div>Filename</div>
+                            <div>Action</div>
+                        </div>
+
+                        {/* Video rows */}
+                        <div className="player-table-body">
+                            {videoList.length > 0 ? (
+                                videoList.map((video) => (
+                                    <div className="player-table-row" key={video.id}>
+                                        <div>{video.filename}</div>
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <button
+                                                className="player-view-btn"
+                                                onClick={() => {
+                                                    setVideoSrc(video.playback_url);
+                                                    setVideoName(video.filename);
+                                                }}
+                                            >
+                                                Play
+                                            </button>
+                                            <button
+                                                className="player-view-btn"
+                                                style={{ backgroundColor: '#dc3545' }}
+                                                onClick={() => handleDeleteVideo(video.id)}
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="player-table-row">
+                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>
+                                        No videos uploaded yet
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                ))
-            ) : (
-                <div className="player-table-row">
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>
-                        No videos uploaded yet
-                    </div>
-                </div>
-            )}
-        </div>
-    </div>
-) : activeTab === "Game State" ? (
+                ) : activeTab === "Game State" ? (
 
                     // ORIGINAL GAME STATE TABLE (unchanged)
                     <div className="game-state-table-container">
@@ -822,7 +716,7 @@ export default function AnalyzeGamePage() {
                         >
                             Player Table - {activeTab}
                         </div>
-                        
+
                         {/* Table header row */}
                         <div className="player-table-header">
                             <div>#</div>
