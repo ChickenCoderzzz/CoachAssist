@@ -211,3 +211,66 @@ def upload_video(
         db.close()
 
     return new_video
+
+
+#delete method
+@router.delete("/{video_id}")
+def delete_video(
+    team_id: int,
+    match_id: int,
+    video_id: int,
+    user=Depends(require_user)
+):
+    verify_match_ownership(team_id, match_id, user["id"])
+
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        # Get video details before deleting
+        cur.execute(
+            """
+            SELECT provider, storage_path
+            FROM videos
+            WHERE id = %s
+                AND user_id = %s
+                AND team_id = %s
+                AND match_id = %s
+            """,
+            (video_id, user["id"], team_id, match_id)
+        )
+
+        video = cur.fetchone()
+
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+
+        # Delete from Firebase if applicable
+        if video["provider"] == "firebase" and video["storage_path"]:
+            try:
+                blob = bucket.blob(video["storage_path"])
+                blob.delete()
+            except Exception as firebase_error:
+                print(f"Warning: Failed to delete blob from Firebase: {firebase_error}")
+
+        # Delete from database
+        cur.execute(
+            """
+            DELETE FROM videos
+            WHERE id = %s
+                AND user_id = %s
+            """,
+            (video_id, user["id"])
+        )
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to delete video: {str(e)}")
+
+    finally:
+        cur.close()
+        db.close()
+
+    return {"message": "Video deleted successfully"}

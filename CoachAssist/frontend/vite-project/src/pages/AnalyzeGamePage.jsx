@@ -8,7 +8,8 @@ const INITIAL_DATA = {
     "Game State": [],
     "Offensive": [],
     "Defensive": [],
-    "Special": []
+    "Special": [],
+    "Videos": []
 };
 
 //PLAYER TABLE CONSTANTS
@@ -184,6 +185,13 @@ export default function AnalyzeGamePage() {
         if (activeTab === "Defensive") unit = "defense";
         if (activeTab === "Special") unit = "special";
 
+
+        //videos tab, added by Peter Van Vooren
+        if (activeTab === "Videos"){
+            fetchVideos()
+            setPlayers(videoList)
+        }
+
         //If not a player-based tab, do nothing
         if (!unit) return;
 
@@ -351,6 +359,31 @@ export default function AnalyzeGamePage() {
         }
     };
 
+    const handleDeleteVideo = async (videoId) => {
+        try {
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos/${videoId}`,
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            if (!res.ok) {
+                alert("Failed to delete video");
+                return;
+            }
+
+            setVideoList(prev => prev.filter(video => video.id !== videoId));
+            setVideoSrc(null);
+            setVideoName("");
+        } catch (err) {
+            alert("Delete error: " + err);
+        }
+    };
+
 
 
     // Handle table input
@@ -406,6 +439,9 @@ export default function AnalyzeGamePage() {
             break;
         case "Special":
             tableHeaderTitle = "Game State Table - Special";
+            break;
+        case "Videos":
+            tableHeaderTitle = "Game State Table - Videos";
             break;
         default:
             tableHeaderTitle = "Game State Table";
@@ -654,6 +690,13 @@ export default function AnalyzeGamePage() {
                     >
                         Special
                     </button>
+                    <button
+                        className="tab-button"
+                        style={activeTab === "Videos" ? { transform: "translate(2px, 2px)", boxShadow: "none" } : {}}
+                        onClick={() => setActiveTab("Videos")}
+                    >
+                        Videos
+                    </button>
                 </div>
             </div>
 
@@ -674,9 +717,54 @@ export default function AnalyzeGamePage() {
                         </div>
                     )}
                 </div>
-
                 {/* Table */}
-                {activeTab === "Game State" ? (
+                {activeTab === "Videos" ? (
+    // VIDEO TABLE
+    <div className="game-state-table-container player-table">
+        <div className="table-title-header">Video Library</div>
+        
+        {/* Table header row */}
+        <div className="player-table-header">
+            <div>Filename</div>
+            <div>Action</div>
+        </div>
+
+        {/* Video rows */}
+        <div className="player-table-body">
+            {videoList.length > 0 ? (
+                videoList.map((video) => (
+                    <div className="player-table-row" key={video.id}>
+                        <div>{video.filename}</div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                className="player-view-btn"
+                                onClick={() => {
+                                    setVideoSrc(video.playback_url);
+                                    setVideoName(video.filename);
+                                }}
+                            >
+                                Play
+                            </button>
+                            <button
+                                className="player-view-btn"
+                                style={{ backgroundColor: '#dc3545' }}
+                                onClick={() => handleDeleteVideo(video.id)}
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                ))
+            ) : (
+                <div className="player-table-row">
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>
+                        No videos uploaded yet
+                    </div>
+                </div>
+            )}
+        </div>
+    </div>
+) : activeTab === "Game State" ? (
 
                     // ORIGINAL GAME STATE TABLE (unchanged)
                     <div className="game-state-table-container">
@@ -734,7 +822,7 @@ export default function AnalyzeGamePage() {
                         >
                             Player Table - {activeTab}
                         </div>
-
+                        
                         {/* Table header row */}
                         <div className="player-table-header">
                             <div>#</div>
@@ -1045,3 +1133,5 @@ export default function AnalyzeGamePage() {
         </div>
     );
 }
+
+
