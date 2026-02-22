@@ -266,14 +266,18 @@ export default function AnalyzeGamePage() {
 
     // Fetch videos from backend
     const fetchVideos = async () => {
-        if (!token) return;
+        if (!token || !teamId || !matchId) return;
+        
 
         try {
-            const res = await fetch("/videos", {
-                headers: {
-                    Authorization: `Bearer ${token}`
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
                 }
-            });
+            );
 
             if (!res.ok) {
                 console.error("Failed to fetch videos", await res.text());
@@ -287,6 +291,9 @@ export default function AnalyzeGamePage() {
             if (videos.length > 0) {
                 setVideoSrc(videos[0].playback_url);
                 setVideoName(videos[0].filename);
+            } else {
+                setVideoSrc(null);
+                setVideoName("");
             }
         } catch (err) {
             console.error("Error fetching videos:", err);
@@ -296,8 +303,10 @@ export default function AnalyzeGamePage() {
     };
 
     useEffect(() => {
-        fetchVideos();
-    }, []);
+        if (teamId && matchId) {
+            fetchVideos();
+        }
+    }, [teamId, matchId]);
 
     const handleVideoUpload = async (event) => {
         const file = event.target.files[0];
@@ -311,16 +320,20 @@ export default function AnalyzeGamePage() {
         }
 
         const formData = new FormData();
+        //attaches the video
         formData.append("file", file);
 
         try {
-            const res = await fetch("/videos/upload", {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`
-                },
-                body: formData
-            });
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: formData
+                }
+            );
 
             if (!res.ok) {
                 const text = await res.text();
