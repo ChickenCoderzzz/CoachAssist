@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import logo from "../assets/logo.png";
-import bg from "../assets/field_bg.png";
 import DarkCard from "../components/DarkCard";
 import { useAuth } from "../context/AuthContext";
+import "../styles/auth.css";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -57,17 +57,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        backgroundImage: `url(${bg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
+    <div className="auth-page-container">
       {/* Card container for login form */}
       <DarkCard width="420px" padding="50px 40px">
 
@@ -75,11 +65,11 @@ export default function LoginPage() {
         <img
           src={logo}
           alt="CoachAssist Logo"
-          style={{ width: "170px", marginBottom: "30px" }}
+          className="auth-logo"
         />
 
         {/* Page title */}
-        <h2 style={{ color: "white", marginBottom: "25px" }}>Login</h2>
+        <h2 className="auth-title">Login</h2>
 
         {/* Username input */}
         <input
@@ -88,14 +78,7 @@ export default function LoginPage() {
           placeholder="Username"
           value={formData.username}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "15px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          className="auth-input username"
         />
 
         {/* Password input */}
@@ -105,26 +88,12 @@ export default function LoginPage() {
           placeholder="Password"
           value={formData.password}
           onChange={handleChange}
-          style={{
-            width: "100%",
-            padding: "12px",
-            marginBottom: "20px",
-            borderRadius: "6px",
-            border: "1px solid #777",
-            background: "rgba(255, 255, 255, 0.9)",
-          }}
+          className="auth-input password"
         />
 
         {/* Error message display */}
         {error && (
-          <p
-            style={{
-              color: "#ff6b6b",
-              marginBottom: "15px",
-              fontWeight: "bold",
-              textAlign: "center",
-            }}
-          >
+          <p className="auth-error">
             {error}
           </p>
         )}
@@ -132,16 +101,7 @@ export default function LoginPage() {
         {/*Verify Email CTA. Added by Wences Jacob Lorenzo*/}
         {needsVerification && (
           <button
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "15px",
-              borderRadius: "6px",
-              background: "#357abd",
-              color: "white",
-              border: "none",
-              cursor: "pointer",
-            }}
+            className="auth-btn-secondary"
             onClick={() => navigate("/verify-email")}
           >
             Verify Email
@@ -150,17 +110,7 @@ export default function LoginPage() {
 
         {/* Login button */}
         <button
-          style={{
-            width: "100%",
-            padding: "12px",
-            fontSize: "1rem",
-            borderRadius: "6px",
-            background: loading ? "#2d5e28" : "#4b8b3b",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-            opacity: loading ? 0.7 : 1,
-          }}
+          className="auth-btn-primary"
           disabled={loading}
           onClick={handleLogin}
         >
@@ -168,14 +118,9 @@ export default function LoginPage() {
         </button>
 
         {/* Forgot password link */}
-        <p style={{ fontSize: "1rem", marginTop: "22px", color: "white" }}>
+        <p className="auth-text forgot-password">
           <span
-            style={{
-              fontSize: "1rem",
-              color: "#8fd18e",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
+            className="auth-link"
             onClick={() => navigate("/forgotpassword")}
           >
             Forgot password?
@@ -183,14 +128,10 @@ export default function LoginPage() {
         </p>
 
         {/* Signup link */}
-        <p style={{ marginTop: "20px", color: "white" }}>
+        <p className="auth-text signup">
           Don’t have an account?{" "}
           <span
-            style={{
-              color: "#8fd18e",
-              cursor: "pointer",
-              fontWeight: "bold",
-            }}
+            className="auth-link"
             onClick={() => navigate("/signup")}
           >
             Sign up

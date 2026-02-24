@@ -869,5 +869,3 @@ export default function AnalyzeGamePage() {
         </div>
     );
 }
-
-
