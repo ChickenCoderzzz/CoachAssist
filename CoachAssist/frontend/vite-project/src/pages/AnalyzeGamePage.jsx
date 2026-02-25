@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/analyze_game.css";
 import "../styles/teams.css";
 import { INITIAL_DATA, POSITION_LABELS, getFullPositionName, UNIVERSAL_STATS, POSITION_GROUPS } from "../constants/gameConstants";
 import PlayerInsightsModal from "../components/PlayerInsightsModal";
+import VideoTable from "../components/VideoTable";
+import useVideos from "../hooks/useVideos";
 
 export default function AnalyzeGamePage() {
     const { teamId, matchId } = useParams();
@@ -83,8 +85,8 @@ export default function AnalyzeGamePage() {
 
         //videos tab, added by Peter Van Vooren
         if (activeTab === "Videos") {
-            fetchVideos()
-            setPlayers(videoList)
+            fetchVideos();
+            setPlayers(videoList);
         }
 
         //If not a player-based tab, do nothing
@@ -157,127 +159,14 @@ export default function AnalyzeGamePage() {
         }
     };
 
-    // Video state
-    const [videoList, setVideoList] = useState([]);
-    const [videoSrc, setVideoSrc] = useState(null);
-    const [videoName, setVideoName] = useState("");
-    const [loadingVideos, setLoadingVideos] = useState(true);
-    const videoRef = useRef(null);
-
-    // Auth token from localStorage
-    const token = localStorage.getItem("token");
-
-    // Fetch videos from backend
-    const fetchVideos = async () => {
-        if (!token || !teamId || !matchId) return;
+    // Video logic (extracted to hook)
+    const {
+        videoList, videoSrc, videoName, videoRef,
+        setVideoSrc, setVideoName,
+        fetchVideos, handleVideoUpload, handleDeleteVideo
+    } = useVideos(teamId, matchId);
 
 
-        try {
-            const res = await fetch(
-                `/teams/${teamId}/matches/${matchId}/videos`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
-
-            if (!res.ok) {
-                console.error("Failed to fetch videos", await res.text());
-                return;
-            }
-
-            const videos = await res.json();
-            setVideoList(videos);
-
-            // Load the first video if exists
-            if (videos.length > 0) {
-                setVideoSrc(videos[0].playback_url);
-                setVideoName(videos[0].filename);
-            } else {
-                setVideoSrc(null);
-                setVideoName("");
-            }
-        } catch (err) {
-            console.error("Error fetching videos:", err);
-        } finally {
-            setLoadingVideos(false);
-        }
-    };
-
-    useEffect(() => {
-        if (teamId && matchId) {
-            fetchVideos();
-        }
-    }, [teamId, matchId]);
-
-    const handleVideoUpload = async (event) => {
-        const file = event.target.files[0];
-        if (!file) {
-            alert("No file selected.");
-            return;
-        }
-        if (!token) {
-            alert("You must be logged in. (No token)");
-            return;
-        }
-
-        const formData = new FormData();
-        //attaches the video
-        formData.append("file", file);
-
-        try {
-            const res = await fetch(
-                `/teams/${teamId}/matches/${matchId}/videos`,
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: formData
-                }
-            );
-
-            if (!res.ok) {
-                const text = await res.text();
-                alert("Upload failed: " + text);
-                return;
-            }
-
-            const newVideo = await res.json();
-            setVideoList(prev => [newVideo, ...prev]);
-            setVideoSrc(newVideo.playback_url);
-            setVideoName(newVideo.filename);
-
-        } catch (err) {
-            alert("Upload error: " + err);
-        }
-    };
-
-    const handleDeleteVideo = async (videoId) => {
-        try {
-            const res = await fetch(
-                `/teams/${teamId}/matches/${matchId}/videos/${videoId}`,
-                {
-                    method: "DELETE",
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            );
-
-            if (!res.ok) {
-                alert("Failed to delete video");
-                return;
-            }
-
-            setVideoList(prev => prev.filter(video => video.id !== videoId));
-            setVideoSrc(null);
-            setVideoName("");
-        } catch (err) {
-            alert("Delete error: " + err);
-        }
-    };
 
 
 
@@ -614,51 +503,12 @@ export default function AnalyzeGamePage() {
                 </div>
                 {/* Table */}
                 {activeTab === "Videos" ? (
-                    // VIDEO TABLE
-                    <div className="game-state-table-container player-table">
-                        <div className="table-title-header">Video Library</div>
-
-                        {/* Table header row */}
-                        <div className="player-table-header">
-                            <div>Filename</div>
-                            <div>Action</div>
-                        </div>
-
-                        {/* Video rows */}
-                        <div className="player-table-body">
-                            {videoList.length > 0 ? (
-                                videoList.map((video) => (
-                                    <div className="player-table-row" key={video.id}>
-                                        <div>{video.filename}</div>
-                                        <div style={{ display: 'flex', gap: '10px' }}>
-                                            <button
-                                                className="player-view-btn"
-                                                onClick={() => {
-                                                    setVideoSrc(video.playback_url);
-                                                    setVideoName(video.filename);
-                                                }}
-                                            >
-                                                Play
-                                            </button>
-                                            <button
-                                                className="player-view-btn"
-                                                style={{ backgroundColor: '#dc3545' }}
-                                                onClick={() => handleDeleteVideo(video.id)}
-                                            >
-                                                Delete
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="player-table-row">
-                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>
-                                        No videos uploaded yet
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                    <VideoTable
+                        videoList={videoList}
+                        setVideoSrc={setVideoSrc}
+                        setVideoName={setVideoName}
+                        handleDeleteVideo={handleDeleteVideo}
+                    />
                 ) : activeTab === "Game State" ? (
 
                     // ORIGINAL GAME STATE TABLE (unchanged)
