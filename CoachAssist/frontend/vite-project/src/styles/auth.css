@@ -1,0 +1,89 @@
+.auth-page-container {
+    height: 100vh;
+    background-image: url('../assets/field_bg.png');
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-logo {
+    width: 170px;
+    margin-bottom: 30px;
+}
+
+.auth-title {
+    color: white;
+    margin-bottom: 25px;
+}
+
+.auth-input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #777;
+    background: rgba(255, 255, 255, 0.9);
+    box-sizing: border-box;
+}
+
+.auth-input.username {
+    margin-bottom: 15px;
+}
+
+.auth-input.password {
+    margin-bottom: 15px;
+}
+
+.auth-error {
+    color: #ff6b6b;
+    margin-bottom: 15px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.auth-btn-secondary {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    background: #357abd;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.auth-btn-primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border-radius: 6px;
+    background: #4b8b3b;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.auth-btn-primary:disabled {
+    background: #2d5e28;
+    opacity: 0.7;
+}
+
+.auth-text {
+    color: white;
+}
+
+.auth-text.forgot-password {
+    font-size: 1rem;
+    margin-top: 22px;
+}
+
+.auth-text.signup {
+    margin-top: 20px;
+}
+
+.auth-link {
+    color: #8fd18e;
+    cursor: pointer;
+    font-weight: bold;
+}
