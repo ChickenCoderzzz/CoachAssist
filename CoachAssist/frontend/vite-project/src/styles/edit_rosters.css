@@ -42,10 +42,25 @@
 }
 
 /* ===============================
+   ROSTER + HISTORY LAYOUT
+================================ */
+.roster-layout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+/* ===============================
    WRAPPER (TABLE + BUTTON)
 ================================ */
 .roster-wrapper {
-  width: 520px; /* controls table + button width */
+  display: flex;
+  gap: 40px;
+  align-items: flex-start
+}
+
+.roster-left {
+  width: 520px;
 }
 
 /* ===============================
@@ -135,6 +150,24 @@
 }
 
 /* ===============================
+   ACTIVE PLAYER ROW
+================================ */
+
+.active-player-row {
+  background: rgba(255, 215, 0, 0.15);
+  transition: background 0.25s ease;
+}
+
+.active-player-row td {
+  font-weight: 600;
+}
+
+.roster-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.2s ease;
+}
+
+/* ===============================
    MODAL OVERLAY
 ================================ */
 .modal-overlay {
@@ -204,4 +237,246 @@
 ================================ */
 .center-text {
   text-align: center;
+}
+
+
+/* ===============================
+   Player History
+================================ */
+.history-panel {
+  flex: 1;
+  max-width: 1100px;
+  min-width: 600px;
+
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 20px;
+
+  max-height: 650px;
+  overflow-y: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: white;
+  color: black;
+}
+
+.history-table th {
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #0f0e0e;
+}
+
+.history-table td {
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #0f0e0e;
+  background: white;
+  color: black;
+}
+
+.metric-group {
+  margin-bottom: 20px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* ===============================
+   HISTORY TABLE COLUMN WIDTHS
+================================ */
+
+.history-table .date-col {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+/* ===============================
+   GAME FILTER DROPDOWN
+================================ */
+
+.game-filter-container {
+  position: relative;
+  display: inline-block;
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+.game-filter-button {
+  padding: 6px 12px;
+  border: 1px solid #999;
+  border-radius: 4px;
+  background: #eee;
+  cursor: pointer;
+}
+
+/* Floating dropdown panel */
+.game-dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  width: 260px;
+
+  background: white;
+  color: black;
+  border: 1px solid #070707;
+  border-radius: 6px;
+
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  z-index: 1000;
+}
+
+/* Scrollable content */
+.game-dropdown-content {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.game-option {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.history-description {
+  margin-top: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.history-tabs {
+  margin-bottom: 14px;
+}
+
+.history-tabs button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 2px solid #444;
+  background: #e2c675;
+  color: black;
+  cursor: pointer;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.history-tabs button:hover {
+  background: #444;
+}
+
+/* Dynamic header colors based on current unit */
+
+.history-header-offense th {
+  background: #9b5548;
+  color: white;
+}
+
+.history-header-defense th {
+  background: #4f63b6;
+  color: white;
+}
+
+.history-header-special th {
+  background: #6a4ea3;
+  color: white;
+}
+
+/* ===============================
+   ACTIVE TAB
+================================ */
+
+.history-tabs button {
+  transition: all 0.25s ease;
+}
+
+.history-tabs button.active-tab {
+  background: #e2c675;
+  color: black;
+  border-color: #e2c675;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+/* ===============================
+   INSIGHTS TABLE STYLING
+================================ */
+
+/* Orange header to match recording tables */
+.insights-header th {
+  background: #fdba74;
+  color: black;
+}
+
+/* Allow observation text to wrap naturally */
+.insight-note-cell {
+  white-space: normal;
+  word-wrap: break-word;
+  text-align: left;
+  padding: 8px;
+}
+
+/* Make date/time columns tighter */
+.insights-container th:first-child,
+.insights-container td:first-child {
+  width: 110px;
+}
+
+.insights-container th:last-child,
+.insights-container td:last-child {
+  width: 90px;
+}
+
+/* Slight row hover effect */
+.insights-container tbody tr:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.player-position {
+  font-size: 14px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+/* ===============================
+   INSIGHTS TABLE COLUMN WIDTHS
+================================ */
+
+.insight-date {
+  width: 120px;
+  white-space: nowrap;
+}
+
+.insight-opponent {
+  width: 140px;     /* smaller than before */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insight-time {
+  width: 90px;
+  white-space: nowrap;
+}
+
+.insight-note {
+  /* This column gets remaining space */
+  word-wrap: break-word;
+  white-space: normal;
 }

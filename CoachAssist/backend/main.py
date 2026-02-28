@@ -29,6 +29,7 @@ from backend.routers.indv_player import router as indv_player_router #Added by W
 from backend.routers.videos import router as videos_router
 from backend.routers.player_insights import router as player_insights_router
 from backend.routers.games import router as games_router
+from backend.routers.player_history import router as player_history #Added by Wences Jacob Lorenzo
 
 #Initialize FastAPI App
 app = FastAPI()
@@ -43,6 +44,7 @@ app.include_router(indv_player_router) # Individual player management (Added by 
 app.include_router(videos_router) # Game video management
 app.include_router(player_insights_router) # Player stats + notes per game
 app.include_router(games_router) # Game metadata management
+app.include_router(player_history) #Player history management (Added by Wences Jacob Lorenzo)
 
 #Verify if backend is running
 @app.get("/")
