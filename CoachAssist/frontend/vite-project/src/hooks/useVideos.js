@@ -119,6 +119,66 @@ export default function useVideos(teamId, matchId) {
         }
     };
 
+    const handleClipVideo = async (videoId) => {
+    if (!token) {
+        alert("You must be logged in.");
+        return;
+    }
+
+    const video = videoList.find(v => v.id === videoId);
+    if (!video) {
+        alert("Video not found.");
+        return;
+    }
+
+    //range input
+    const startInput = prompt("Enter clip start time (in seconds):");
+    const endInput = prompt("Enter clip end time (in seconds):");
+
+    if (startInput === null || endInput === null) return;
+
+    const start = parseFloat(startInput);
+    const end = parseFloat(endInput);
+
+    if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
+        alert("Invalid time range.");
+        return;
+    }
+
+    try {
+        const res = await fetch(
+            `/teams/${teamId}/matches/${matchId}/videos/${videoId}/clip`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ start, end })
+            }
+        );
+
+        if (!res.ok) {
+            const text = await res.text();
+            alert("Clip failed: " + text);
+            return;
+        }
+
+        const newClip = await res.json();
+
+        // add new clip to list
+        setVideoList(prev => [newClip, ...prev]);
+
+        // set as active
+        setVideoSrc(newClip.playback_url);
+        setVideoName(newClip.filename);
+
+    } catch (err) {
+        alert("Clip error: " + err);
+    }
+    };
+
+
     return {
         videoList,
         videoSrc,
@@ -129,6 +189,7 @@ export default function useVideos(teamId, matchId) {
         setVideoName,
         fetchVideos,
         handleVideoUpload,
-        handleDeleteVideo
+        handleDeleteVideo,
+        handleClipVideo
     };
 }

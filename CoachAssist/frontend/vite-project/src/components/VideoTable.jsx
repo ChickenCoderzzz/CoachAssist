@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo }) {
+export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo }) {
     return (
         <div className="game-state-table-container player-table">
             <div className="table-title-header">Video Library</div>
@@ -33,6 +33,13 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
                                     onClick={() => handleDeleteVideo(video.id)}
                                 >
                                     Delete
+                                </button>
+                                <button
+                                    className="player-view-btn"
+                                    style={{ backgroundColor: '#dc35ce' }}
+                                    onClick={() => handleClipVideo(video.id)}
+                                >
+                                    Clip
                                 </button>
                             </div>
                         </div>
