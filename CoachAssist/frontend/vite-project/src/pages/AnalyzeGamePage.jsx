@@ -5,6 +5,7 @@ import "../styles/teams.css";
 import { INITIAL_DATA, POSITION_LABELS, getFullPositionName } from "../constants/gameConstants";
 import PlayerInsightsModal from "../components/PlayerInsightsModal";
 import VideoTable from "../components/VideoTable";
+import ClipVideoModal from "../components/ClipVideoModal";
 import useVideos from "../hooks/useVideos";
 import usePlayerInsights from "../hooks/usePlayerInsights";
 
@@ -164,8 +165,10 @@ export default function AnalyzeGamePage() {
     // Video logic (extracted to hook)
     const {
         videoList, videoSrc, videoName, videoRef,
+        clipTarget,
         setVideoSrc, setVideoName,
-        fetchVideos, handleVideoUpload, handleDeleteVideo, handleClipVideo
+        fetchVideos, handleVideoUpload, handleDeleteVideo,
+        openClipModal, closeClipModal, handleClipVideo
     } = useVideos(teamId, matchId);
 
 
@@ -389,7 +392,7 @@ export default function AnalyzeGamePage() {
                         setVideoSrc={setVideoSrc}
                         setVideoName={setVideoName}
                         handleDeleteVideo={handleDeleteVideo}
-                        handleClipVideo={handleClipVideo}
+                        handleClipVideo={openClipModal}
                     />
                 ) : activeTab === "Game State" ? (
 
@@ -595,6 +598,15 @@ export default function AnalyzeGamePage() {
                     savePlayerInsights={savePlayerInsights}
                     cancelPlayerModal={cancelPlayerModal}
                     isSavingPlayer={isSavingPlayer}
+                />
+            )}
+
+            {/* Clip Video Modal */}
+            {clipTarget && (
+                <ClipVideoModal
+                    video={clipTarget}
+                    onSave={handleClipVideo}
+                    onDiscard={closeClipModal}
                 />
             )}
 

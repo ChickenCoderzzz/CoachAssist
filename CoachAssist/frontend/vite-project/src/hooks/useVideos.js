@@ -7,7 +7,17 @@ export default function useVideos(teamId, matchId) {
     const [loadingVideos, setLoadingVideos] = useState(true);
     const videoRef = useRef(null);
 
+    // Clip modal state – holds the video object being clipped, or null
+    const [clipTarget, setClipTarget] = useState(null);
+
     const token = localStorage.getItem("token");
+
+    const openClipModal = (videoId) => {
+        const video = videoList.find(v => v.id === videoId);
+        if (video) setClipTarget(video);
+    };
+
+    const closeClipModal = () => setClipTarget(null);
 
     // Fetch videos from backend
     const fetchVideos = async () => {
@@ -119,63 +129,58 @@ export default function useVideos(teamId, matchId) {
         }
     };
 
-    const handleClipVideo = async (videoId) => {
-    if (!token) {
-        alert("You must be logged in.");
-        return;
-    }
-
-    const video = videoList.find(v => v.id === videoId);
-    if (!video) {
-        alert("Video not found.");
-        return;
-    }
-
-    //range input
-    const startInput = prompt("Enter clip start time (in seconds):");
-    const endInput = prompt("Enter clip end time (in seconds):");
-
-    if (startInput === null || endInput === null) return;
-
-    const start = parseFloat(startInput);
-    const end = parseFloat(endInput);
-
-    if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
-        alert("Invalid time range.");
-        return;
-    }
-
-    try {
-        const res = await fetch(
-            `/teams/${teamId}/matches/${matchId}/videos/${videoId}/clip`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ start, end })
-            }
-        );
-
-        if (!res.ok) {
-            const text = await res.text();
-            alert("Clip failed: " + text);
+    const handleClipVideo = async (start, end) => {
+        if (!token) {
+            alert("You must be logged in.");
             return;
         }
 
-        const newClip = await res.json();
+        if (!clipTarget) {
+            alert("No video selected for clipping.");
+            return;
+        }
 
-        // add new clip to list
-        setVideoList(prev => [newClip, ...prev]);
+        const videoId = clipTarget.id;
 
-        // set as active
-        setVideoSrc(newClip.playback_url);
-        setVideoName(newClip.filename);
+        if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
+            alert("Invalid time range.");
+            return;
+        }
 
-    } catch (err) {
-        alert("Clip error: " + err);
-    }
+        try {
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos/${videoId}/clip`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ start, end })
+                }
+            );
+
+            if (!res.ok) {
+                const text = await res.text();
+                alert("Clip failed: " + text);
+                return;
+            }
+
+            const newClip = await res.json();
+
+            // add new clip to list
+            setVideoList(prev => [newClip, ...prev]);
+
+            // set as active
+            setVideoSrc(newClip.playback_url);
+            setVideoName(newClip.filename);
+
+            // close modal
+            setClipTarget(null);
+
+        } catch (err) {
+            alert("Clip error: " + err);
+        }
     };
 
 
@@ -185,11 +190,14 @@ export default function useVideos(teamId, matchId) {
         videoName,
         videoRef,
         loadingVideos,
+        clipTarget,
         setVideoSrc,
         setVideoName,
         fetchVideos,
         handleVideoUpload,
         handleDeleteVideo,
+        openClipModal,
+        closeClipModal,
         handleClipVideo
     };
 }
