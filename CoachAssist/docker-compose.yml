@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    volumes:
+      # Mount the database if using SQLite, and uploads folder
+      - ./backend/database.db:/app/backend/database.db
+      - ./backend/uploads:/app/backend/uploads
+    # Expose no ports to the host; only accessible to frontend via docker network
+
+  frontend:
+    build:
+      context: ./frontend/vite-project
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"        # HTTP
+      # - "443:443"    # Uncomment if using HTTPS
+    depends_on:
+      - backend
