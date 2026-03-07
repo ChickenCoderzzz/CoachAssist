@@ -22,10 +22,7 @@ from firebase_admin import credentials, storage
 from fastapi import HTTPException
 import uuid
 
-
-# =====================================================
-# ================= FIREBASE INITIALIZATION ===========
-# =====================================================
+# FIREBASE INITIALIZATION
 
 firebaseProjId = "coachassist-81c87"
 
@@ -39,10 +36,7 @@ if not firebase_admin._apps:
 
 bucket = storage.bucket()
 
-
-# =====================================================
-# ================= CONFIGURATION =====================
-# =====================================================
+# CONFIGURATION
 
 ALLOWED_IMAGE_TYPES = {
     "image/jpeg",
@@ -53,9 +47,7 @@ ALLOWED_IMAGE_TYPES = {
 MAX_FILE_SIZE_MB = 5
 
 
-# =====================================================
-# ================= UPLOAD FUNCTION ===================
-# =====================================================
+#  UPLOAD FUNCTION 
 
 def upload_photo_to_firebase(file_obj, user_id: int):
     """
@@ -121,10 +113,8 @@ def upload_photo_to_firebase(file_obj, user_id: int):
     return unique_name, blob.public_url
 
 
-# =====================================================
-# ================= DELETE FUNCTION ===================
-# =====================================================
 
+# DELETE FUNCTION 
 def delete_photo_from_firebase(storage_path: str):
     """
     Deletes a photo from Firebase Storage using its storage path.
