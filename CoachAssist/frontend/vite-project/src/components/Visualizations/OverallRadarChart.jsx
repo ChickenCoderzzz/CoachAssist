@@ -45,11 +45,7 @@ export default function OverallRadarChart({ data, expanded }) {
     );
   }
 
-  /*
-  ===============================
-  CUSTOM TOOLTIP
-  ===============================
-  */
+  /*CUSTOM TOOLTIP*/
 
   const CustomTooltip = ({ active, payload }) => {
 
@@ -93,9 +89,7 @@ export default function OverallRadarChart({ data, expanded }) {
 
 
   /*
-  ===============================
   CUSTOM LABEL RENDERING
-  ===============================
   Applies color coding for normalization
   */
 
@@ -142,11 +136,7 @@ export default function OverallRadarChart({ data, expanded }) {
   };
 
 
-  /*
-  ===============================
-  CHART SIZE CONTROL
-  ===============================
-  */
+  /*CHART SIZE CONTROL*/
 
   const chartWidth = expanded ? "900px" : "650px";
   const chartHeight = expanded ? "750px" : "550px";
@@ -162,9 +152,7 @@ export default function OverallRadarChart({ data, expanded }) {
       }}
     >
 
-      {/* ===============================
-         RADAR CHART
-      =============================== */}
+      {/*RADAR CHART*/}
 
       <div style={{ width: chartWidth, height: chartHeight }}>
 
@@ -215,9 +203,7 @@ export default function OverallRadarChart({ data, expanded }) {
       </div>
 
 
-      {/* ===============================
-         NORMALIZATION LEGEND
-      =============================== */}
+      {/*NORMALIZATION LEGEND*/}
 
       <div
         style={{

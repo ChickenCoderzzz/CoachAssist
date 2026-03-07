@@ -1,3 +1,10 @@
+/*
+OverallBarChart
+
+Displays the total distribution of selected stats.
+Each bar represents the total value of a stat across the selected games.
+*/
+
 // Import chart components from Recharts
 import {
   BarChart,
@@ -10,19 +17,9 @@ import {
   LabelList
 } from "recharts";
 
-/*
-OverallBarChart
-
-Displays the total distribution of selected stats.
-Each bar represents the total value of a stat across the selected games.
-*/
-
 export default function OverallBarChart({ data }) {
 
-/*
-If no stats are selected, show a message
-instead of rendering an empty chart.
-*/
+/*If no stats are selected, show a message instead of rendering an empty chart.*/
 if (!data || data.length === 0) {
   return (
     <div
@@ -53,10 +50,7 @@ if (!data || data.length === 0) {
 
           data={data}
 
-          /*
-          Tight margins so the chart fills
-          the white container more evenly.
-          */
+          /*Tight margins so the chart fills the white container more evenly.*/
           margin={{
             top: 10,
             right: 15,
@@ -82,9 +76,7 @@ if (!data || data.length === 0) {
 
             interval={0}
 
-            /*
-            Rotate labels slightly so longer stats fit
-            */
+            /*Rotate labels slightly so longer stats fit*/
             angle={-45}
 
             textAnchor="end"
@@ -104,9 +96,7 @@ if (!data || data.length === 0) {
           {/* Y Axis displays stat totals */}
           <YAxis
 
-            /*
-            Reduce reserved width to remove left whitespace
-            */
+            /*Reduce reserved width to remove left whitespace*/
             width={35}
 
             stroke="#333"
@@ -116,9 +106,7 @@ if (!data || data.length === 0) {
               fontSize: 12
             }}
 
-            /*
-            Automatically scale based on data
-            */
+            /*Automatically scale based on data*/
             domain={[0, "dataMax + 1"]}
 
           />

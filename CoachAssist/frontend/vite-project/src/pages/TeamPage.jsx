@@ -365,6 +365,7 @@ export default function TeamPage() {
                 />
               </div>
 
+              {/* Replace image option */}
               <label>Replace Team Logo (Optional)</label>
               <input
                 type="file"
