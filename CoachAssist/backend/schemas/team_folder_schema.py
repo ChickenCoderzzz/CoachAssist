@@ -27,7 +27,6 @@ class TeamCreateSchema(BaseModel):
     - image_url: Optional image for UI display (e.g., logo or banner)
     - color: Optional background color for default team logo
     """
-
     name: str
     description: Optional[str] = None
     image_url: Optional[str] = None

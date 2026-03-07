@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/edit_rosters.css";
 import { POSITION_GROUPS, UNIVERSAL_STATS } from "../constants/gameConstants";
+import VisTab from "../components/Visualizations/VisTab";
 
 //POSITION MAP
 //Defines wich positions belong to each unit
@@ -327,48 +328,68 @@ export default function EditRosterPage() {
         {/* RIGHT COLUMN */}
         <div className="history-panel">
 
+          {/* Only render history panel if a player is selected and history data is loaded */}
           {selectedHistoryPlayer && historyData && (
             <>
+
+              {/* Shows player identity and tab controls */}
               <div className="history-header">
                 <div className="player-header">
                   <h2>
                     #{selectedHistoryPlayer.jersey_number} {selectedHistoryPlayer.player_name}
                   </h2>
+
+                  {/* Convert position code to readable label */}
                   <div className="player-position">
                     {POSITION_LABELS[selectedHistoryPlayer.position]}
                   </div>
                 </div>
 
+                {/* Context description changes depending on selected history tab */}
                 <p className="history-description">
+
+                  {/* Metrics tab description */}
                   {activeHistoryTab === "metrics" &&
                     "Combined totals and per-game averages for selected games."}
 
+                  {/* Game-by-game stats description */}
                   {activeHistoryTab === "bygame" &&
                     "Game-by-game breakdown with averages for comparison."}
 
+                  {/* Observational notes description */}
                   {activeHistoryTab === "insights" &&
                     "Chronological observations from selected games."}
                 </p>
 
+                {/* HISTORY TAB NAVIGATION */}
+                {/* Allows user to switch between analysis views */}
                 <div className="history-tabs">
+
+                   {/* Aggregated stat totals and averages */}
                   <button
                     className={activeHistoryTab === "metrics" ? "active-tab" : ""}
                     onClick={() => setActiveHistoryTab("metrics")}
                   >
                     Player Metric Data
                   </button>
+
+                  {/* Game-by-game stat comparison */}
                   <button
                     className={activeHistoryTab === "bygame" ? "active-tab" : ""}
                     onClick={() => setActiveHistoryTab("bygame")}
                   >
                     Player Data By Game
                   </button>
+
+                  {/* Manual notes recorded during games */}
                   <button
                     className={activeHistoryTab === "insights" ? "active-tab" : ""}
                     onClick={() => setActiveHistoryTab("insights")}
                   >
                     Player Insights
                   </button>
+
+                  {/* Data visualization charts */}
                   <button
                     className={activeHistoryTab === "visuals" ? "active-tab" : ""}
                     onClick={() => setActiveHistoryTab("visuals")}
@@ -380,6 +401,9 @@ export default function EditRosterPage() {
                 {/* Game Filter */}
                 <div>
                   <div className="game-filter-container">
+
+
+                    {/* Toggle dropdown visibility */}
                     <button
                       className="game-filter-button"
                       onClick={() => setShowGameDropdown(!showGameDropdown)}
@@ -387,6 +411,7 @@ export default function EditRosterPage() {
                       Select Games ▼
                     </button>
 
+                    {/* Dropdown containing game selection options */}
                     {showGameDropdown && (
                       <div className="game-dropdown">
 
@@ -439,8 +464,11 @@ export default function EditRosterPage() {
                 </div>
               </div>
 
+              {/* HISTORY BODY */}
+              {/* Dynamically loads the active analysis tab */}
               <div className="history-body">
 
+                {/* METRIC SUMMARY TAB */}
                 {activeHistoryTab === "metrics" && (
                   <MetricsTab
                     historyData={historyData}
@@ -449,6 +477,7 @@ export default function EditRosterPage() {
                   />
                 )}
 
+                {/* GAME-BY-GAME DATA TAB */}
                 {activeHistoryTab === "bygame" && (
                   <ByGameTab
                     historyData={historyData}
@@ -458,10 +487,21 @@ export default function EditRosterPage() {
                   />
                 )}
 
+                {/* PLAYER NOTES TAB */}
                 {activeHistoryTab === "insights" && (
                   <InsightsTab
                     historyData={historyData}
                     selectedGameIds={selectedGameIds}
+                  />
+                )}
+
+                {/* DATA VISUALIZATION TAB */}
+                {/* Render data visualization components.*/}
+                {activeHistoryTab === "visuals" && (
+                  <VisTab
+                    historyData={historyData}
+                    selectedGameIds={selectedGameIds}
+                    selectedPlayer={selectedHistoryPlayer}
                   />
                 )}
 
@@ -685,38 +725,55 @@ function MetricsTab({ historyData, selectedGameIds, selectedPlayer }) {
   );
 }
 
+//BY GAME TAB
+//Displays a table showing player stats for each selected game
+//Also calculates and displays average stats across the selected games
 function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
+
+   //If no player is selected, do not render anything
   if (!selectedPlayer) return null;
 
+  //Get stat groups relevant to the player's position
+  //Example: QB may have passing stats while DL has sack stats
   const positionGroups =
     POSITION_GROUPS[selectedPlayer.position] || {};
 
+  //Combine universal stats with position-specific stats
+  //These are the columns that will appear in the table
   const allowedStats = [
     ...UNIVERSAL_STATS,
     ...Object.values(positionGroups).flat()
   ];
 
+  //Filter the games to only those selected in the game filter dropdown
+  //Then sort them chronologically
   const filteredGames = historyData.games
     .filter(game => selectedGameIds.includes(game.id))
     .sort((a, b) =>
       new Date(a.game_date) - new Date(b.game_date)
     );
 
+  //Track how many games are included
   const gameCount = filteredGames.length;
+
+  //Object to accumulate totals for average calculation
   const averages = {};
 
+  //Loop through each selected game to find stat record
   filteredGames.forEach(game => {
     const stats =
       historyData.stats_by_game.find(
         s => s.game_id === game.id
       ) || {};
 
+    //Add stats to totals used for averages
     allowedStats.forEach(stat => {
       averages[stat] =
         (averages[stat] || 0) + (stats[stat] || 0);
     });
   });
 
+   //Convert totals into averages
   allowedStats.forEach(stat => {
     averages[stat] =
       gameCount > 0
@@ -726,12 +783,20 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
 
   return (
     <div className="bygame-container">
+
+      {/* Table showing stats for each selected game */}
       <table className="history-table">
+
+        {/* Table header */}
+        {/* Styling changes depending on offense/defense/special unit */}
         <thead className={`history-header-${unit}`}>
           <tr>
+
+             {/* Game metadata columns */}
             <th className="date-col">Date</th>
             <th>Opponent</th>
 
+            {/* Dynamically generate stat columns */}
             {allowedStats.map(stat => (
               <th key={stat}>{formatLabel(stat)}</th>
             ))}
@@ -739,6 +804,8 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
         </thead>
 
         <tbody>
+          {/* GAME ROWS */}
+          {/* Display stats for each filtered game */}
           {filteredGames.map(game => {
             const stats =
               historyData.stats_by_game.find(
@@ -760,6 +827,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
           })}
 
           {/* AVERAGE ROW */}
+          {/* Displays the average stat values across all selected games */}
           {gameCount > 0 && (
             <tr
               style={{
@@ -779,8 +847,13 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
   );
 }
 
+
+//INSIGHTS TAB
+//Displays chronological observational notes recorded for the player during games
 function InsightsTab({ historyData, selectedGameIds }) {
 
+  //Filter notes to only those from selected games
+  //Then sort them by game date
   const filteredNotes = historyData.notes
     .filter(note =>
       selectedGameIds.includes(note.game_id)
@@ -791,17 +864,27 @@ function InsightsTab({ historyData, selectedGameIds }) {
 
   return (
     <div className="insights-container">
+        {/* Table showing notes recorded during games */}
       <table className="history-table">
+
+         {/* Table header */}
         <thead className="insights-header">
           <tr>
+            {/* Metadata columns */}
             <th className="insight-date">Date</th>
             <th className="insight-opponent">Opponent</th>
+
+            {/* Recorded observation */}
             <th className="insight-note">Note</th>
+
+            {/* Timestamp within the game */}
             <th className="insight-time">Time</th>
           </tr>
         </thead>
 
         <tbody>
+
+          {/* Render each note entry */}
           {filteredNotes.map(note => (
             <tr key={`${note.game_date}-${note.note}`}>
               <td className="insight-date">{note.game_date}</td>
