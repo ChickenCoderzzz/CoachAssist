@@ -784,6 +784,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
   return (
     <div className="bygame-container">
 
+      <div className="table-scroll-wrapper">
       {/* Table showing stats for each selected game */}
       <table className="history-table">
 
@@ -843,6 +844,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
           )}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

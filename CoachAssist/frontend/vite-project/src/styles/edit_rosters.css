@@ -308,6 +308,27 @@
 }
 
 /* ===============================
+   SCROLLABLE TABLE WRAPPER
+================================ */
+
+.table-scroll-wrapper {
+  width: 100%;
+  max-width: 1000px;        /* fixed visual width */
+  margin: 0 auto;           /* center horizontally */
+
+  overflow-x: auto;         /* horizontal scroll */
+  overflow-y: hidden;
+
+  border: 1px solid #000;
+  background: white;
+}
+
+/* Ensure table expands wider than wrapper */
+.table-scroll-wrapper table {
+  min-width: 1200px;        /* forces horizontal scroll */
+}
+
+/* ===============================
    GAME FILTER DROPDOWN
 ================================ */
 
@@ -465,7 +486,7 @@
 }
 
 .insight-opponent {
-  width: 140px;     /* smaller than before */
+  width: 140px;     
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
