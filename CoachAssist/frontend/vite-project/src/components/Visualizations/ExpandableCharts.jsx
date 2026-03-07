@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 /*
 ExpandableChart
 
@@ -21,6 +19,8 @@ Supports two usage styles:
 
 */
 
+import { useState } from "react";
+
 export default function ExpandableChart({ children, render }) {
 
   const [expanded, setExpanded] = useState(false);
@@ -31,7 +31,7 @@ export default function ExpandableChart({ children, render }) {
   return (
     <>
 
-      {/* ================= NORMAL VIEW ================= */}
+      {/*NORMAL VIEW*/}
 
       <div style={{ position: "relative" }}>
 
@@ -56,7 +56,7 @@ export default function ExpandableChart({ children, render }) {
       </div>
 
 
-      {/* ================= EXPANDED VIEW ================= */}
+      {/*EXPANDED VIEW*/}
 
       {expanded && (
 
