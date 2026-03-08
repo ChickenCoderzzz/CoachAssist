@@ -1,15 +1,3 @@
-// Import chart components from Recharts
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  Legend
-} from "recharts";
-
 /*
 SingleStatBarChart
 
@@ -33,6 +21,19 @@ Example data structure:
 Each stat becomes its own colored bar within the game group.
 */
 
+// Import chart components from Recharts
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend
+} from "recharts";
+
+
 // CoachAssist color palette for stats
 const COLORS = [
   "#4C6EF5", // blue
@@ -42,17 +43,14 @@ const COLORS = [
   "#E3B505"  // gold
 ];
 
-// Convert stat keys like passing_yards → Passing Yards
+// Convert stat keys like passing_yards to Passing Yards
 function formatLabel(key) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 export default function SingleStatBarChart({ data, stats }) {
 
-  /*
-  If no stats selected, still render the chart container
-  so the graph viewer does not disappear.
-  */
+  /*If no stats selected, still render the chart container so the graph viewer does not disappear.*/
 
   if (!stats || stats.length === 0) {
 
@@ -90,10 +88,7 @@ export default function SingleStatBarChart({ data, stats }) {
 
           data={data}
 
-          /*
-          Margin spacing to keep axes labels readable
-          and consistent with other charts.
-          */
+          /*Margin spacing to keep axes labels readable and consistent with other charts.*/
           margin={{
             top: 10,
             right: 15,
@@ -112,10 +107,7 @@ export default function SingleStatBarChart({ data, stats }) {
             stroke="#ddd"
           />
 
-          {/* ===============================
-             X Axis
-             Shows game opponent names
-          =============================== */}
+          {/*X Axis - Shows game opponent names*/}
 
           <XAxis
 
@@ -123,22 +115,15 @@ export default function SingleStatBarChart({ data, stats }) {
 
             interval={0}
 
-            /*
-            Rotate labels so longer opponent
-            names fit cleanly.
-            */
+            /*Rotate labels so longer opponent names fit cleanly.*/
             angle={-45}
 
             textAnchor="end"
 
-            /*
-            Horizontal adjustment
-            */
+            /*Horizontal adjustment*/
             dx={-20}
 
-            /*
-            Adds spacing between axis and labels
-            */
+            /*Adds spacing between axis and labels*/
             tickMargin={30}
 
             height={60}
@@ -150,10 +135,7 @@ export default function SingleStatBarChart({ data, stats }) {
 
           />
 
-          {/* ===============================
-             Y Axis
-             Shows stat values
-          =============================== */}
+          {/*Y Axis - Shows stat values*/}
 
           <YAxis
 
@@ -166,32 +148,22 @@ export default function SingleStatBarChart({ data, stats }) {
               fontSize: 12
             }}
 
-            /*
-            Automatically scales chart
-            based on largest value.
-            */
+            /*Automatically scales chart based on largest value.*/
             domain={[0, "dataMax + 1"]}
 
           />
 
-          {/* ===============================
-             Tooltip
-             Shows stat values when hovering
-          =============================== */}
+          {/*Tooltip - Shows stat values when hovering*/}
 
           <Tooltip
 
-            /*
-            Replace raw stat key with readable label
-            */
+            /*Replace raw stat key with readable label*/
             formatter={(value, name) => [
               value,
               formatLabel(name)
             ]}
 
-            /*
-            Display game name
-            */
+            /*Display game name*/
             labelFormatter={(label) => `Game: ${label}`}
 
             contentStyle={{
@@ -206,10 +178,7 @@ export default function SingleStatBarChart({ data, stats }) {
 
           />
 
-          {/* ===============================
-             Legend
-             Shows stat color mapping
-          =============================== */}
+          {/*Legend Shows stat color mapping*/}
 
           <Legend
             verticalAlign="bottom"
@@ -218,10 +187,7 @@ export default function SingleStatBarChart({ data, stats }) {
                 fontSize: 13
             }}
 
-            /*
-            Force legend text to remain black
-            while keeping colored icons.
-            */
+            /*Force legend text to remain black while keeping colored icons.*/
             formatter={(value) => (
                 <span style={{ color: "black" }}>
                 {value}
@@ -229,9 +195,7 @@ export default function SingleStatBarChart({ data, stats }) {
             )}
             />
 
-          {/* ===============================
-             Bars - One bar per stat per game
-          =============================== */}
+          {/*Bars - One bar per stat per game*/}
 
           {stats.map((stat, index) => (
 
@@ -245,15 +209,10 @@ export default function SingleStatBarChart({ data, stats }) {
 
               fill={COLORS[index % COLORS.length]}
 
-              /*
-              Rounded top corners
-              */
+              /*Rounded top corner*/
               radius={[4,4,0,0]}
 
-              /*
-              Slightly narrower bars
-              improves grouping visibility
-              */
+              /*Slightly narrower bars improves grouping visibility*/
               maxBarSize={45}
 
             />

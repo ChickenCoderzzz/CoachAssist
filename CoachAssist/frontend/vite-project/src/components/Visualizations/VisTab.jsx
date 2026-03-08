@@ -13,9 +13,7 @@ import SingleStatBarChart from "./SingleStatBarChart";
 import ExpandableChart from "./ExpandableCharts";
 
 /*
-================================
 NORMALIZATION GROUPS
-================================
 
 These determine how radar stats
 are normalized.
@@ -45,12 +43,10 @@ const CEILING_NORMALIZED_STATS = [
   "penalties"
 ];
 
-/* ===============================
+/* 
    RADAR STAT CEILINGS
-================================
 
-Used to normalize radar values so
-different stat types scale properly.
+Used to normalize radar values so different stat types scale properly.
 */
 
 const STAT_CEILINGS = {
@@ -74,7 +70,7 @@ const STAT_CEILINGS = {
 
 };
 
-// Convert stat keys like passing_yards → Passing Yards
+// Convert stat keys like passing_yards to Passing Yards
 function formatLabel(key) {
     return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
@@ -85,9 +81,7 @@ export default function VisualizationsTab({
     selectedPlayer
 }) {
 
-    /* ===============================
-       STATE
-    =============================== */
+    /* STATE */
 
     const [overallChart, setOverallChart] = useState("bar");
     const [singleChart, setSingleChart] = useState("line");
@@ -108,9 +102,7 @@ export default function VisualizationsTab({
 
     if (!selectedPlayer) return null;
 
-    /* ===============================
-       DETERMINE PLAYER STAT SET
-    =============================== */
+    /* DETERMINE PLAYER STAT SET*/
 
     const positionGroups = POSITION_GROUPS[selectedPlayer.position] || {};
 
@@ -119,9 +111,8 @@ export default function VisualizationsTab({
         ...Object.values(positionGroups).flat()
     ];
 
-    /* ===============================
+    /*
     SET DEFAULT STATS ON PLAYER CHANGE
-    ================================
 
     When switching players:
     • Reset overall stats → Performance Based Stats
@@ -133,13 +124,9 @@ export default function VisualizationsTab({
         if (allowedStats.length > 0) {
 
             /*
-            ===============================
             Default Overall Stats
-            ===============================
 
-            When switching players, reset the
-            Overall Stats view to performance
-            based stats.
+            When switching players, reset the Overall Stats view to performance based stats.
             */
 
             const performanceStats = allowedStats.filter(stat =>
@@ -150,9 +137,7 @@ export default function VisualizationsTab({
             setActiveStatSet("performance");
 
             /*
-            ===============================
             Default Stat Progress
-            ===============================
 
             When switching players, reset the Stat Progress view to the Top 5 stats based on total production.
             */
@@ -170,17 +155,13 @@ export default function VisualizationsTab({
         }
     }, [selectedPlayer]);
 
-    /* ===============================
-       FILTER SELECTED GAMES
-    =============================== */
+    /* FILTER SELECTED GAMES*/
 
     const filteredStats = historyData.stats_by_game.filter(stat =>
         selectedGameIds.includes(stat.game_id)
     );
 
-    /* ===============================
-       BUILD TOTALS
-    =============================== */
+    /* BUILD TOTALS*/
 
     const totals = {};
 
@@ -190,26 +171,18 @@ export default function VisualizationsTab({
         });
     });
 
-    /* ===============================
-    BUILD DATA FOR BAR & PIE CHARTS
-    ================================ */
+    /*BUILD DATA FOR BAR & PIE CHARTS*/
 
     const overallData = selectedStats.map(stat => ({
     stat: formatLabel(stat),
     value: totals[stat] || 0
     }));
 
-    /* ===============================
+    /* 
     BUILD RADAR DATA (NORMALIZED)
-    ================================
 
-    Radar charts normalize stats to a
-    0–100 scale so different stat types
-    can be compared visually.
-
-    Volume stats are normalized per snap
-    to avoid penalizing players with fewer
-    plays on the field.
+    Radar charts normalize stats to a 0–100 scale so different stat types can be compared visually.
+    Volume stats are normalized per snap to avoid penalizing players with fewer plays on the field.
     */
 
     const radarData = selectedStats.map(stat => {
@@ -219,9 +192,7 @@ export default function VisualizationsTab({
     let score;
     let normalizationType;
 
-    /*
-    SNAP BASED NORMALIZATION
-    */
+    /*SNAP BASED NORMALIZATION*/
 
     if (SNAP_NORMALIZED_STATS.includes(stat)) {
 
@@ -236,9 +207,7 @@ export default function VisualizationsTab({
 
     }
 
-    /*
-    CEILING NORMALIZATION
-    */
+    /* CEILING NORMALIZATION*/
 
     else {
 
@@ -267,9 +236,7 @@ export default function VisualizationsTab({
 
     });
 
-    /* ===============================
-       PER GAME DATA
-    =============================== */
+    /*PER GAME DATA*/
 
     const perGameData = historyData.games
     .filter(g => selectedGameIds.includes(g.id))
@@ -295,12 +262,11 @@ export default function VisualizationsTab({
 
     });
 
-    /* ===============================
-       STAT SET FUNCTIONS
-    =============================== */
+    /*STAT SET FUNCTIONS*/
 
     function selectPerformance() {
 
+        /*Filter out non-performance stats to get performance-based stats*/
         const filtered = allowedStats.filter(stat =>
             !["snaps_played", "penalties", "turnovers"].includes(stat)
         );
@@ -310,13 +276,14 @@ export default function VisualizationsTab({
 
     }
 
+    /*Select alls stats*/
     function selectAll() {
-
         setSelectedStats([...allowedStats]);
         setActiveStatSet("all");
 
     }
 
+    /*Select Top 5 stats*/
     function selectTop5() {
 
         const top = [...allowedStats]
@@ -330,6 +297,7 @@ export default function VisualizationsTab({
 
     }
 
+    /*Deselect all stats*/
     function deselectAll() {
 
         setSelectedStats([]);
@@ -337,6 +305,7 @@ export default function VisualizationsTab({
 
     }
 
+    /*Toggle player stat*/
     function toggleStat(stat) {
 
         setActiveStatSet(null);
@@ -358,53 +327,52 @@ export default function VisualizationsTab({
 
     }
 
+    /*Get top 5 progress stats*/
     function selectTop5Progress() {
 
-  const top = [...allowedStats]
-    .map(stat => ({ stat, value: totals[stat] || 0 }))
-    .sort((a,b) => b.value - a.value)
-    .slice(0,5)
-    .map(x => x.stat);
+        const top = [...allowedStats]
+            .map(stat => ({ stat, value: totals[stat] || 0 }))
+            .sort((a,b) => b.value - a.value)
+            .slice(0,5)
+            .map(x => x.stat);
 
-  setProgressStats(top);
+        setProgressStats(top);
 
-}
+        }
 
-function deselectAllProgress() {
+    /*Deselect all individual stats*/
+    function deselectAllProgress() {
+        setProgressStats([]);
+    }
 
-  setProgressStats([]);
+    /*Toggle individual stat*/
+    function toggleProgressStat(stat) {
 
-}
+    if (progressStats.includes(stat)) {
 
-function toggleProgressStat(stat) {
+        setProgressStats(
+        progressStats.filter(s => s !== stat)
+        );
 
-  if (progressStats.includes(stat)) {
+    } else {
 
-    setProgressStats(
-      progressStats.filter(s => s !== stat)
-    );
+        // limit to 5 stats
+        if (progressStats.length >= 5) return;
 
-  } else {
+        setProgressStats([
+        ...progressStats,
+        stat
+        ]);
 
-    // limit to 5 stats
-    if (progressStats.length >= 5) return;
+    }
 
-    setProgressStats([
-      ...progressStats,
-      stat
-    ]);
-
-  }
-
-}
+    }
 
     return (
 
         <div>
 
-            {/* ===============================
-               VIEW MODE TOGGLE
-            =============================== */}
+            {/*VIEW MODE TOGGLE*/}
 
             <div className="visualization-mode-toggle">
 
@@ -424,9 +392,7 @@ function toggleProgressStat(stat) {
 
             </div>
 
-            {/* ===============================
-               OVERALL VISUALIZATIONS
-            =============================== */}
+            {/*OVERALL VISUALIZATIONS*/}
 
             {viewMode === "overall" && (
 
@@ -461,9 +427,7 @@ function toggleProgressStat(stat) {
                                 }}
                             >
 
-                                {/* ===============================
-                                   STAT SET BUTTONS
-                                =============================== */}
+                                {/*STAT SET BUTTONS */}
 
                                 <div style={{ marginBottom: "10px" }}>
 
@@ -540,9 +504,7 @@ function toggleProgressStat(stat) {
 
                                 <hr />
 
-                                {/* ===============================
-                                   INDIVIDUAL STAT CHECKBOXES
-                                =============================== */}
+                                {/*INDIVIDUAL STAT CHECKBOXES*/}
 
                                 {allowedStats.map(stat => (
 
@@ -628,17 +590,13 @@ function toggleProgressStat(stat) {
 
             )}
 
-            {/* ===============================
-               SINGLE STAT VISUALIZATIONS
-            =============================== */}
+            {/*SINGLE STAT VISUALIZATIONS*/}
 
             {viewMode === "single" && (
 
                 <>
 
-                    {/* ===============================
-                    STAT PROGRESS VISUALIZATIONS
-                    =============================== */}
+                    {/*STAT PROGRESS VISUALIZATIONS*/}
 
                     {viewMode === "single" && (
 

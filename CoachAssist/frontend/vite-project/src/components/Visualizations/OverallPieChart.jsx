@@ -1,16 +1,8 @@
 /*
-================================
-NOTE ON EXPANDED VIEW
-================================
+This chart supports the "expanded" mode used by the ExpandableChart modal. 
+When expanded is true, the outerRadius and center position increase so the pie chart fills more of the available space.
 
-This chart supports the "expanded" mode used by the
-ExpandableChart modal. When expanded is true, the
-outerRadius and center position increase so the pie
-chart fills more of the available space.
-
-Due to how Recharts handles ResponsiveContainer and
-radius scaling, the visual size increase may appear
-smaller than expected depending on the modal layout.
+Due to how Recharts handles ResponsiveContainer and radius scaling, the visual size increase may appear smaller than expected depending on the modal layout.
 
 Future improvement:
 - Revisit modal sizing and container scaling so the
@@ -27,10 +19,7 @@ import {
   Cell
 } from "recharts";
 
-/*
-Color palette supporting up to 12 stat categories.
-Colors repeat if more stats are added.
-*/
+/*Color palette supporting up to 12 stat categories. Colors repeat if more stats are added.*/
 const COLORS = [
   "#4CAF50",
   "#2196F3",
@@ -49,8 +38,7 @@ const COLORS = [
 /*
 Custom Legend Renderer
 
-Creates a white box with a title and
-color indicators for each stat.
+Creates a white box with a title and color indicators for each stat.
 */
 function CustomLegend({ payload }) {
 
@@ -132,17 +120,11 @@ export default function OverallPieChart({ data, expanded }) {
     );
   }
 
-  /*
-  Increase radius when expanded so
-  the pie actually grows in fullscreen
-  */
+  /*Increase radius when expanded so the pie actually grows in fullscreen*/
 
   const radius = expanded ? 340 : 145;
 
-  /*
-  Move center slightly left when expanded
-  to leave room for legend
-  */
+  /*Move center slightly left when expanded to leave room for legend*/
 
   const centerX = expanded ? "40%" : "45%";
 

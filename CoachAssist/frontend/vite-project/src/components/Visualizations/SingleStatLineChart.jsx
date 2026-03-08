@@ -1,15 +1,3 @@
-// Import chart components from Recharts
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  Legend
-} from "recharts";
-
 /*
 SingleStatLineChart
 
@@ -30,6 +18,18 @@ Example data:
 Each stat appears as its own line.
 */
 
+// Import chart components from Recharts
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  Legend
+} from "recharts";
+
 // CoachAssist color palette
 const COLORS = [
   "#4C6EF5", // blue
@@ -46,13 +46,7 @@ function formatLabel(key) {
 
 export default function SingleStatLineChart({ data, stats }) {
 
-  /*
-  =====================================
-  If no stats selected
-
-  Show message instead of hiding viewer
-  =====================================
-  */
+  /*If no stats selected, show message instead of hiding viewer */
 
   if (!stats || stats.length === 0) {
 
@@ -80,14 +74,12 @@ export default function SingleStatLineChart({ data, stats }) {
 
 
   /*
-  =====================================
   Custom Tooltip
 
   Displays:
   - Opponent
   - Date
   - All stat values for that game
-  =====================================
   */
 
   function CustomTooltip({ active, payload }) {
@@ -150,10 +142,7 @@ export default function SingleStatLineChart({ data, stats }) {
 
           data={data}
 
-          /*
-          Same margin configuration used
-          in the grouped bar charts
-          */
+          /*Same margin configuration used in the grouped bar charts*/
           margin={{
             top: 10,
             right: 15,
@@ -172,9 +161,7 @@ export default function SingleStatLineChart({ data, stats }) {
             stroke="#ddd"
           />
 
-          {/* ===============================
-             X Axis (games)
-          =============================== */}
+          {/*X Axis (games)*/}
 
           <XAxis
 
@@ -199,9 +186,7 @@ export default function SingleStatLineChart({ data, stats }) {
 
           />
 
-          {/* ===============================
-             Y Axis (stat values)
-          =============================== */}
+          {/*Y Axis (stat values)*/}
 
           <YAxis
 
@@ -218,15 +203,11 @@ export default function SingleStatLineChart({ data, stats }) {
 
           />
 
-          {/* ===============================
-             Tooltip
-          =============================== */}
+          {/*Tooltip*/}
 
           <Tooltip content={<CustomTooltip />} />
 
-          {/* ===============================
-             Legend
-          =============================== */}
+          {/*Legend*/}
 
           <Legend
             verticalAlign="bottom"
@@ -241,9 +222,7 @@ export default function SingleStatLineChart({ data, stats }) {
             )}
             />
 
-          {/* ===============================
-             Render one line per stat
-          =============================== */}
+          {/*Render one line per stat*/}
 
           {stats.map((stat, index) => (
 

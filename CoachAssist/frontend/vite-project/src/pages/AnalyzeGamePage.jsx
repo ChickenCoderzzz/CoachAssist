@@ -168,6 +168,7 @@ export default function AnalyzeGamePage() {
         clipTarget,
         setVideoSrc, setVideoName,
         fetchVideos, handleVideoUpload, handleDeleteVideo,
+        handleRenameVideo,
         openClipModal, closeClipModal, handleClipVideo
     } = useVideos(teamId, matchId);
 
@@ -393,6 +394,7 @@ export default function AnalyzeGamePage() {
                         setVideoName={setVideoName}
                         handleDeleteVideo={handleDeleteVideo}
                         handleClipVideo={openClipModal}
+                        handleRenameVideo={handleRenameVideo}
                     />
                 ) : activeTab === "Game State" ? (
 

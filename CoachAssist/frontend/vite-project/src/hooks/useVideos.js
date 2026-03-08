@@ -183,7 +183,51 @@ export default function useVideos(teamId, matchId) {
         }
     };
 
+    const handleRenameVideo = async (videoId, newName = "") => {
+        if (!token) {
+            alert("You must be logged in.");
+            return;
+        }
 
+        let finalName = newName || prompt("Enter new video name:");
+        if (!finalName) return;
+
+        if (finalName.trim() === "") {
+            alert("Video name cannot be empty.");
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos/${videoId}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ filename: finalName })
+                }
+            );
+
+            if (!res.ok) {
+                alert("Failed to rename video");
+                return;
+            }
+
+            const updatedVideo = await res.json();
+            setVideoList(prev => 
+                prev.map(video => video.id === videoId ? updatedVideo : video)
+            );
+
+            if (videoSrc && videoList.find(v => v.id === videoId)?.playback_url === videoSrc) {
+                setVideoName(finalName);
+            }
+
+        } catch (err) {
+            alert("Rename error: " + err);
+        }
+    };
     return {
         videoList,
         videoSrc,
@@ -196,6 +240,7 @@ export default function useVideos(teamId, matchId) {
         fetchVideos,
         handleVideoUpload,
         handleDeleteVideo,
+        handleRenameVideo,
         openClipModal,
         closeClipModal,
         handleClipVideo
