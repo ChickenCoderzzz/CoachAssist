@@ -58,6 +58,10 @@ class ClipVideoSchema(BaseModel):
     start: float
     end: float
 
+#renaming schema
+class RenameVideoRequest(BaseModel):
+    filename: str
+
 # -------------------------
 # POST /videos/youtube
 # -------------------------
@@ -284,6 +288,50 @@ def delete_video(
 
     return {"message": "Video deleted successfully"}
 
+#renaming method
+@router.patch("/{video_id}")
+def rename_video(
+    team_id: int,
+    match_id: int,
+    video_id: int,
+    payload: RenameVideoRequest,
+    user=Depends(require_user)
+):
+    verify_match_ownership(team_id, match_id, user["id"])
+
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        cur.execute(
+            """
+            UPDATE videos
+            SET filename = %s
+            WHERE id = %s
+              AND user_id = %s
+              AND team_id = %s
+              AND match_id = %s
+            RETURNING id, filename, created_at
+            """,
+            (payload.filename, video_id, user["id"], team_id, match_id)
+        )
+
+        updated_video = cur.fetchone()
+
+        if not updated_video:
+            raise HTTPException(status_code=404, detail="Video not found")
+
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Failed to rename video: {str(e)}")
+
+    finally:
+        cur.close()
+        db.close()
+
+    return updated_video
 
 #clipping method
 @router.post("/{video_id}/clip")
