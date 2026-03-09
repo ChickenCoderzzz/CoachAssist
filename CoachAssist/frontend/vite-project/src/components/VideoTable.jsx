@@ -1,8 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 
 export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo, handleRenameVideo }) {
+    const [expandedId, setExpandedId] = useState(null);
+
+    const toggleExpand = (videoId) => {
+        setExpandedId(prev => prev === videoId ? null : videoId);
+    };
+
     return (
-        <div className="game-state-table-container player-table">
+        <div className="game-state-table-container player-table video-table">
             <div className="table-title-header">Video Library</div>
 
             {/* Table header row */}
@@ -15,41 +21,53 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
             <div className="player-table-body">
                 {videoList.length > 0 ? (
                     videoList.map((video) => (
-                        <div className="player-table-row" key={video.id}>
-                            <div>{video.filename}</div>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button
-                                    className="player-view-btn"
-                                    onClick={() => {
-                                        setVideoSrc(video.playback_url);
-                                        setVideoName(video.filename);
-                                    }}
-                                >
-                                    Play
-                                </button>
-                                <button
-                                    className="player-view-btn"
-                                    style={{ backgroundColor: '#dc3545' }}
-                                    onClick={() => handleDeleteVideo(video.id)}
-                                >
-                                    Delete
-                                </button>
-                                <button
-                                    className="player-view-btn"
-                                    style={{ backgroundColor: '#1291c4' }}
-                                    onClick={() => handleRenameVideo(video.id)}
-                                >
-                                    Rename
-                                </button>
-                                <button
-                                    className="player-view-btn"
-                                    style={{ backgroundColor: '#dc35ce' }}
-                                    onClick={() => handleClipVideo(video.id)}
-                                >
-                                    Clip
-                                </button>
+                        <React.Fragment key={video.id}>
+                            <div className="player-table-row">
+                                <div>{video.filename}</div>
+                                <div>
+                                    <button
+                                        className="video-toggle-btn"
+                                        onClick={() => toggleExpand(video.id)}
+                                    >
+                                        {expandedId === video.id ? "▼" : "▶"}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                            {expandedId === video.id && (
+                                <div className="video-action-row">
+                                    <button
+                                        className="player-view-btn"
+                                        onClick={() => {
+                                            setVideoSrc(video.playback_url);
+                                            setVideoName(video.filename);
+                                        }}
+                                    >
+                                        Play
+                                    </button>
+                                    <button
+                                        className="player-view-btn"
+                                        style={{ backgroundColor: '#dc3545' }}
+                                        onClick={() => handleDeleteVideo(video.id)}
+                                    >
+                                        Delete
+                                    </button>
+                                    <button
+                                        className="player-view-btn"
+                                        style={{ backgroundColor: '#1291c4' }}
+                                        onClick={() => handleRenameVideo(video.id)}
+                                    >
+                                        Rename
+                                    </button>
+                                    <button
+                                        className="player-view-btn"
+                                        style={{ backgroundColor: '#dc35ce' }}
+                                        onClick={() => handleClipVideo(video.id)}
+                                    >
+                                        Clip
+                                    </button>
+                                </div>
+                            )}
+                        </React.Fragment>
                     ))
                 ) : (
                     <div className="player-table-row">

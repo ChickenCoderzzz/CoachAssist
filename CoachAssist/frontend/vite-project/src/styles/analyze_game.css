@@ -487,6 +487,40 @@
     transform: translateY(-1px);
 }
 
+/* VIDEO TABLE OVERRIDES            */
+
+.video-table .player-table-header,
+.video-table .player-table-row {
+    grid-template-columns: 1fr 80px;
+}
+
+.video-table .player-table-row div:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.video-table .player-table-body {
+    max-height: none;
+    overflow-y: visible;
+}
+
+.video-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.video-action-row {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #000;
+    background: #f9f9f9;
+}
+
 /* EMPTY SPACE FILLER (OPTIONAL)    */
 
 .player-table-filler {

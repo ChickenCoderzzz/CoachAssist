@@ -86,12 +86,6 @@ export default function AnalyzeGamePage() {
         if (activeTab === "Special") unit = "special";
 
 
-        //videos tab, added by Peter Van Vooren
-        if (activeTab === "Videos") {
-            fetchVideos();
-            setPlayers(videoList);
-        }
-
         //If not a player-based tab, do nothing
         if (!unit) return;
 
@@ -167,7 +161,7 @@ export default function AnalyzeGamePage() {
         videoList, videoSrc, videoName, videoRef,
         uploading, clipTarget,
         setVideoSrc, setVideoName,
-        fetchVideos, handleVideoUpload, handleDeleteVideo,
+        handleVideoUpload, handleDeleteVideo,
         handleRenameVideo,
         openClipModal, closeClipModal, handleClipVideo
     } = useVideos(teamId, matchId);
