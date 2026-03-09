@@ -4,9 +4,9 @@ export default function useVideos(teamId, matchId) {
     const [videoList, setVideoList] = useState([]);
     const [videoSrc, setVideoSrc] = useState(null);
     const [videoName, setVideoName] = useState("");
-    const [loadingVideos, setLoadingVideos] = useState(true);
+    const [loadingVideos, setLoadingVideos] = useState(true); //videos being fetched
     const videoRef = useRef(null);
-
+    const [uploading, setUploading] = useState(false); // video uploading 
     // Clip modal state – holds the video object being clipped, or null
     const [clipTarget, setClipTarget] = useState(null);
 
@@ -64,19 +64,15 @@ export default function useVideos(teamId, matchId) {
 
     const handleVideoUpload = async (event) => {
         const file = event.target.files[0];
-        if (!file) {
-            alert("No file selected.");
-            return;
-        }
-        if (!token) {
-            alert("You must be logged in. (No token)");
-            return;
-        }
+        if (!file) return alert("No file selected.");
+        if (!token) return alert("You must be logged in.");
 
         const formData = new FormData();
         formData.append("file", file);
 
         try {
+            setUploading(true);
+
             const res = await fetch(
                 `/teams/${teamId}/matches/${matchId}/videos`,
                 {
@@ -95,12 +91,19 @@ export default function useVideos(teamId, matchId) {
             }
 
             const newVideo = await res.json();
+
+            // add the new video at the top
             setVideoList(prev => [newVideo, ...prev]);
             setVideoSrc(newVideo.playback_url);
             setVideoName(newVideo.filename);
 
+            //fetch the whole list again to ensure backend sync
+            await fetchVideos();
+            
         } catch (err) {
             alert("Upload error: " + err);
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -234,6 +237,7 @@ export default function useVideos(teamId, matchId) {
         videoName,
         videoRef,
         loadingVideos,
+        uploading,
         clipTarget,
         setVideoSrc,
         setVideoName,

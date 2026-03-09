@@ -165,7 +165,7 @@ export default function AnalyzeGamePage() {
     // Video logic (extracted to hook)
     const {
         videoList, videoSrc, videoName, videoRef,
-        clipTarget,
+        uploading, clipTarget,
         setVideoSrc, setVideoName,
         fetchVideos, handleVideoUpload, handleDeleteVideo,
         handleRenameVideo,
@@ -307,7 +307,9 @@ export default function AnalyzeGamePage() {
                                 id="video-upload"
                                 style={{ display: "none" }}
                                 onChange={handleVideoUpload}
+                                disabled={uploading}
                             />
+                            {uploading && <div>Uploading... ⏳</div>}
                             <button
                                 className="add-team-btn"
                                 onClick={() => document.getElementById("video-upload").click()}
