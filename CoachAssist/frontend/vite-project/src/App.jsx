@@ -20,6 +20,7 @@ import GameHistoryPage from "./pages/GameHistoryPage.jsx";
 // Shared UI component
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import GuidedTour from "./components/GuidedTour.jsx";
 
 function App() {
   // Get current location
@@ -41,6 +42,7 @@ function App() {
 
   return (
     <>
+      <GuidedTour />
       {!shouldHideNavbar && <Navbar />}
 
       <Routes>

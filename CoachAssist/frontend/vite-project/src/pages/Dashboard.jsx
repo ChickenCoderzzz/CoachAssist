@@ -117,7 +117,12 @@ export default function Dashboard() {
   return (
     <div style={{ paddingTop: "110px", paddingBottom: "60px" }}>
       {/* Page Title */}
-      <h1 style={{ marginLeft: "40px", marginBottom: "20px" }}>Teams</h1>
+      <h1
+        className="tutorial-dashboard-title"
+        style={{ marginLeft: "40px", marginBottom: "20px" }}
+      >
+        Teams
+      </h1>
 
       {/* Main Container */}
       <div
@@ -132,7 +137,10 @@ export default function Dashboard() {
       >
         {/* Controls */}
         <div style={{ marginBottom: "20px" }}>
-          <button className="add-team-btn" onClick={() => setShowCreate(true)}>
+          <button
+            className="add-team-btn tutorial-add-team-btn"
+            onClick={() => setShowCreate(true)}
+          >
             Add Team
           </button>
 

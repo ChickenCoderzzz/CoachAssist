@@ -4,6 +4,27 @@ import logo from "../assets/logo.png";
 export default function Navbar() {
   const navigate = useNavigate();
 
+  const clearCurrentPageTutorialKey = () => {
+    const path = window.location.pathname;
+
+    if (path === "/dashboard") {
+      localStorage.removeItem("coachassist_tutorial_dashboard_seen");
+      return true;
+    }
+
+    if (/^\/team\/[^/]+$/.test(path)) {
+      localStorage.removeItem("coachassist_tutorial_team_seen");
+      return true;
+    }
+
+    if (/^\/team\/[^/]+\/match\/[^/]+$/.test(path)) {
+      localStorage.removeItem("coachassist_tutorial_analyze_seen");
+      return true;
+    }
+
+    return false;
+  };
+
   return (
     <div
       style={{
@@ -51,7 +72,12 @@ export default function Navbar() {
           fontSize: "1.2rem",
           cursor: "pointer",
         }}
-        onClick={() => navigate("/tutorial")}
+        onClick={() => {
+          const cleared = clearCurrentPageTutorialKey();
+          if (cleared) {
+            window.location.reload();
+          }
+        }}
       >
         Tutorial
       </span>

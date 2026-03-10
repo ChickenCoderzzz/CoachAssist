@@ -8,3 +8,4 @@ pydantic
 email-validator
 firebase-admin
 python-multipart
+fpdf2

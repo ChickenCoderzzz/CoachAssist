@@ -251,7 +251,43 @@ export default function AnalyzeGamePage() {
     };
 
     const handleExport = () => {
-        console.log("Export Current Table clicked for:", activeTab);
+        const unitMap = {
+            Offensive: "offense",
+            Defensive: "defense",
+            Special: "special"
+        };
+
+        const unit = unitMap[activeTab];
+        if (!unit) {
+            alert("PDF export is only available for Offensive, Defensive, and Special tabs.");
+            return;
+        }
+
+        fetch(`/teams/${teamId}/players/export/pdf?unit=${unit}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+        })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || "Export failed");
+                }
+
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `team_${teamId}_${unit}_players.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch((err) => {
+                console.error("Export failed:", err);
+                alert("Failed to export PDF.");
+            });
     };
 
     const handleExit = () => {
@@ -287,7 +323,7 @@ export default function AnalyzeGamePage() {
                                 ← Back to Games
                             </button>
                         )}
-                        <div className="analyze-title" style={{ margin: 0, fontSize: '24px' }}>
+                        <div className="analyze-title tutorial-analyze-title" style={{ margin: 0, fontSize: '24px' }}>
                             {match ? `${match.name} vs ${match.opponent}` : "Analyze Game"}
                         </div>
                     </div>
@@ -490,7 +526,7 @@ export default function AnalyzeGamePage() {
                 <button className="action-btn save" onClick={handleSave}>
                     Save Changes and Exit
                 </button>
-                <button className="action-btn export" onClick={handleExport}>
+                <button className="action-btn export tutorial-export-btn" onClick={handleExport}>
                     Export Current Table
                 </button>
                 <button className="action-btn exit" onClick={handleExit}>
