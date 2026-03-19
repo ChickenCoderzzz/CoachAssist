@@ -9,6 +9,16 @@ import ClipVideoModal from "../components/ClipVideoModal";
 import useVideos from "../hooks/useVideos";
 import usePlayerInsights from "../hooks/usePlayerInsights";
 
+// Helper to convert time to seconds for sorting
+const timeToSeconds = (t) => {
+    if (!t) return 0;
+    if (t.includes(':')) {
+        const parts = t.split(':');
+        return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+    }
+    return parseInt(t, 10) || 0;
+};
+
 export default function AnalyzeGamePage() {
     const { teamId, matchId } = useParams();
     const navigate = useNavigate();
@@ -70,6 +80,11 @@ export default function AnalyzeGamePage() {
                 .then((data) => {
                     // Backend returns nested structure directly
                     if (data) {
+                        Object.keys(data).forEach(tab => {
+                            if (Array.isArray(data[tab])) {
+                                data[tab].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+                            }
+                        });
                         setAllTableData(data);
                     }
                 });
@@ -150,10 +165,43 @@ export default function AnalyzeGamePage() {
     };
 
     const handleTimeBlur = (id, value) => {
-        const formatted = formatTime(value);
-        if (formatted !== value) {
-            handleInputChange(id, 'time', formatted);
+        let formatted = formatTime(value);
+
+        if (videoRef?.current?.duration && !isNaN(videoRef.current.duration)) {
+            let totalSeconds = 0;
+            if (formatted.includes(":")) {
+                const parts = formatted.split(":");
+                totalSeconds = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0);
+            } else {
+                totalSeconds = parseInt(formatted, 10) || 0;
+            }
+
+            const maxDuration = Math.floor(videoRef.current.duration);
+            if (totalSeconds > maxDuration) {
+                alert("Timestamp cannot exceed the video duration.");
+                const m = Math.floor(maxDuration / 60);
+                const s = maxDuration % 60;
+                formatted = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }
         }
+
+        // Update the value AND sort the array so rows naturally order by timestamp
+        setAllTableData(prevData => {
+            const currentList = prevData[activeTab] || [];
+            const updatedList = currentList.map(row => {
+                if (row.id === id) {
+                    return { ...row, time: formatted };
+                }
+                return row;
+            });
+
+            updatedList.sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+
+            return {
+                ...prevData,
+                [activeTab]: updatedList
+            };
+        });
     };
 
     // Video logic (extracted to hook)
@@ -232,13 +280,21 @@ export default function AnalyzeGamePage() {
     }
 
     const handleSave = () => {
+        // Quick final sort before saving to ensure everything is perfect
+        const finalData = { ...allTableData };
+        Object.keys(finalData).forEach(tab => {
+            if (Array.isArray(finalData[tab])) {
+                finalData[tab].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+            }
+        });
+
         fetch(`/games/${matchId}/state`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
-            body: JSON.stringify(allTableData),
+            body: JSON.stringify(finalData),
         })
             .then((res) => {
                 if (res.ok) {
