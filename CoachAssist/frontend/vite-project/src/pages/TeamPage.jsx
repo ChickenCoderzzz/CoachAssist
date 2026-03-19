@@ -209,7 +209,7 @@ export default function TeamPage() {
               }}
             />
           </div>
-          <h1 style={{ marginBottom: "5px" }}>{team.name}</h1>
+          <h1 className="tutorial-team-title" style={{ marginBottom: "5px" }}>{team.name}</h1>
         </div>
         {team.description && (
           <p style={{ fontStyle: "italic" }}>{team.description}</p>
@@ -234,7 +234,7 @@ export default function TeamPage() {
         </button>
 
         <button
-          className="add-team-btn"
+          className="add-team-btn tutorial-edit-roster-btn"
           onClick={() => navigate(`/teams/${teamId}/roster`)}
         >
           Edit / View Roster
@@ -257,7 +257,7 @@ export default function TeamPage() {
         <h2>Games</h2>
 
         <div className="dashboard-controls">
-          <button className="add-team-btn" onClick={() => setShowCreate(true)}>
+          <button className="add-team-btn tutorial-add-game-btn" onClick={() => setShowCreate(true)}>
             Add Game
           </button>
 

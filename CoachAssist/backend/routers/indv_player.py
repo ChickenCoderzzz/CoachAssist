@@ -14,8 +14,11 @@ All routes are protected and require authentication.
 Users may only access players belonging to their own teams.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import List, Optional, Literal
+from io import BytesIO
+from datetime import datetime
+from fpdf import FPDF
 
 from backend.schemas.indv_player_schema import (
     PlayerCreate,
@@ -106,6 +109,90 @@ def get_players(
     cur.close()
 
     return players
+
+
+@router.get("/{team_id}/players/export/pdf")
+def export_players_pdf(
+    team_id: int,
+    unit: Optional[UnitType] = None,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    """
+    Export team players (optionally filtered by unit) as a simple PDF table.
+    """
+
+    user_id = user["id"]
+    verify_team_access(team_id, user_id, db)
+
+    cur = db.cursor()
+
+    query = """
+        SELECT id, team_id, player_name, jersey_number, unit, position
+        FROM indv_players
+        WHERE team_id = %s
+    """
+    params = [team_id]
+
+    if unit:
+        query += " AND unit = %s"
+        params.append(unit)
+
+    query += " ORDER BY jersey_number ASC, player_name ASC"
+    cur.execute(query, tuple(params))
+    players = cur.fetchall()
+    cur.close()
+
+    unit_label = unit.capitalize() if unit else "All"
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 10, f"Team {team_id} Player Table ({unit_label})", ln=True)
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 8, f"Generated: {timestamp}", ln=True)
+    pdf.ln(2)
+
+    # Header
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(20, 8, "#", border=1, align="C")
+    pdf.cell(80, 8, "Name", border=1)
+    pdf.cell(35, 8, "Unit", border=1)
+    pdf.cell(35, 8, "Position", border=1, ln=True)
+
+    # Rows
+    pdf.set_font("Helvetica", "", 10)
+    if not players:
+        pdf.cell(170, 8, "No players found for this selection.", border=1, ln=True)
+    else:
+        for p in players:
+            jersey = str(p.get("jersey_number", ""))
+            name = str(p.get("player_name", ""))[:38]
+            row_unit = str(p.get("unit", ""))
+            position = str(p.get("position", ""))
+
+            pdf.cell(20, 8, jersey, border=1, align="C")
+            pdf.cell(80, 8, name, border=1)
+            pdf.cell(35, 8, row_unit, border=1)
+            pdf.cell(35, 8, position, border=1, ln=True)
+
+    pdf_bytes = pdf.output(dest="S")
+    if isinstance(pdf_bytes, str):
+        pdf_bytes = pdf_bytes.encode("latin-1")
+    buffer = BytesIO(pdf_bytes)
+
+    filename_unit = unit if unit else "all"
+    filename = f"team_{team_id}_{filename_unit}_players.pdf"
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
 
 #ADD A PLAYER
 

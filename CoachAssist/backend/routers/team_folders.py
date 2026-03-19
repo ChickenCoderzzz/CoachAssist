@@ -99,6 +99,25 @@ def get_teams(user=Depends(require_user)):
 
     return {"teams": cur.fetchall()}
 
+# SEARCH TEAMS
+
+@router.get("/search")
+def search_teams(query: str, user=Depends(require_user)):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute(
+        """
+        SELECT id, name, description, image_url, color
+        FROM teams
+        WHERE user_id = %s
+          AND LOWER(name) LIKE LOWER(%s)
+        ORDER BY created_at DESC
+        """,
+        (user["id"], f"%{query}%")
+    )
+
+    return {"teams": cur.fetchall()}
 
 # GET SINGLE TEAM
 
