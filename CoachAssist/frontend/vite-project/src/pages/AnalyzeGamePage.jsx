@@ -457,6 +457,7 @@ export default function AnalyzeGamePage() {
                         <div className="table-header-row">
                             <div className="cell col-obs">Observation</div>
                             <div className="cell col-time">Time</div>
+                            <div className="cell col-play">Play</div>
                             <div className="scrollbar-spacer"></div>
                         </div>
 
@@ -477,6 +478,20 @@ export default function AnalyzeGamePage() {
                                             onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
                                             onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
                                         />
+                                    </div>
+                                    <div className="cell col-play">
+                                        <button 
+                                            className="play-row-btn"
+                                            onClick={() => {
+                                                if (videoRef.current && row.time) {
+                                                    videoRef.current.currentTime = timeToSeconds(row.time);
+                                                    videoRef.current.play();
+                                                }
+                                            }}
+                                            title="Play from timestamp"
+                                        >
+                                            ▶
+                                        </button>
                                     </div>
                                 </div>
                             ))}
