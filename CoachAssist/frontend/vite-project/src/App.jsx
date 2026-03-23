@@ -16,6 +16,7 @@ import AnalyzeGamePage from "./pages/AnalyzeGamePage.jsx";
 import TeamPage from "./pages/TeamPage.jsx";
 import EditRosterPage from "./pages/EditRosterPage";
 import GameHistoryPage from "./pages/GameHistoryPage.jsx";
+import PlayerAnalysisPage from "./pages/PlayerAnalysisPage.jsx";
 
 // Shared UI component
 import Navbar from "./components/Navbar.jsx";
@@ -118,6 +119,14 @@ function App() {
           element={
             <ProtectedRoute>
               <EditRosterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/analysis"
+          element={
+            <ProtectedRoute>
+              <PlayerAnalysisPage />
             </ProtectedRoute>
           }
         />

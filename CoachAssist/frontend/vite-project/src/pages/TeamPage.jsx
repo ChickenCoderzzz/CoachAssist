@@ -248,8 +248,13 @@ export default function TeamPage() {
           Game History
         </button>
 
-        {/* Placeholder future feature */}
-        <button className="add-team-btn">Strategy Analysis</button>
+        {/* Navigate to AI Analysis */}
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/team/${teamId}/analysis`)}
+        >
+          AI Analysis
+        </button>
       </div>
 
       {/* Games Container */}
