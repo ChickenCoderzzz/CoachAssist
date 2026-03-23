@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo, handleRenameVideo }) {
+export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo, handleRenameVideo, handleUpscaleVideo, upscalingIds = new Set(), handleUpscaleClick }) {
     const [expandedId, setExpandedId] = useState(null);
 
     const toggleExpand = (videoId) => {
@@ -20,7 +20,11 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
             {/* Video rows */}
             <div className="player-table-body">
                 {videoList.length > 0 ? (
-                    videoList.map((video) => (
+                    videoList.map((video) => {
+                        // Check if this video is currently being upscaled
+                        const isUpscaling = upscalingIds.has(video.id);
+                    
+                        return(
                         <React.Fragment key={video.id}>
                             <div className="player-table-row">
                                 <div>{video.filename}</div>
@@ -65,10 +69,19 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
                                     >
                                         Clip
                                     </button>
+                                    <button
+                                        className="player-view-btn"
+                                        style={{ backgroundColor: '#ab57ad' }}
+                                        onClick={() => handleUpscaleClick(video.id)}
+                                        disabled={isUpscaling}
+                                    >
+                                        {isUpscaling ? "Upscaling..." : "Upscale"}
+                                    </button>
                                 </div>
                             )}
                         </React.Fragment>
-                    ))
+                        );
+                    })
                 ) : (
                     <div className="player-table-row">
                         <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>

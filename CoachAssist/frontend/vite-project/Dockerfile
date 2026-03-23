@@ -8,7 +8,9 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies (use npm ci for reliable builds if package-lock is present)
-RUN npm install
+# removes node modules and reinstalls to ensure no conflicts
+# legacy-peer-deps is for the tutorial module, which needs an older version of react
+RUN npm ci --legacy-peer-deps
 
 # Copy application source code
 COPY . .

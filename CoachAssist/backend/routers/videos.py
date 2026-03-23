@@ -1,15 +1,21 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from backend.database import get_db
 from backend.routers.auth import require_user
 from backend.video_providers.youtube import create_youtube_video
 from fastapi import UploadFile, File
 from backend.video_providers.firebase_storage import upload_video_to_firebase, bucket
+from backend.upscaling_utils.realesrgan import REALSRCAN_BIN, REALSRCAN_DIR
 import subprocess
 import tempfile
 import os
 import uuid
+import logging
+import shutil
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 #old router
 #router = APIRouter(prefix="/videos")
@@ -44,6 +50,185 @@ def verify_match_ownership(team_id: int, match_id: int, user_id: int):
     if not result:
         raise HTTPException(status_code=404, detail="Match not found or unauthorized")
 
+
+def process_upscale_video_in_background(user_id: int, team_id: int, match_id: int, video_id: int):
+    db = get_db()
+    cur = db.cursor()
+    
+    logger.info(f"[UPSCALE] Starting upscale for user={user_id}, video={video_id}")
+
+    try:
+        cur.execute(
+            """
+            SELECT storage_path, filename
+            FROM videos
+            WHERE id = %s
+              AND user_id = %s
+              AND team_id = %s
+              AND match_id = %s
+            """,
+            (video_id, user_id, team_id, match_id)
+        )
+
+        video = cur.fetchone()
+        if not video or not video["storage_path"]:
+            logger.error(f"[UPSCALE] Video not found or missing storage_path: {video}")
+            return
+
+        logger.info(f"[UPSCALE] Found video: {video['filename']}, storage_path={video['storage_path']}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = os.path.join(tmpdir, "input.mp4")
+            frames_dir = os.path.join(tmpdir, "frames")
+            upscaled_dir = os.path.join(tmpdir, "upscaled")
+            output_path = os.path.join(tmpdir, "output.mp4")
+
+            os.makedirs(frames_dir, exist_ok=True)
+            os.makedirs(upscaled_dir, exist_ok=True)
+
+            logger.info(f"[UPSCALE] Created temp dirs: input={input_path}, frames={frames_dir}, upscaled={upscaled_dir}, output={output_path}")
+
+            # Step 1: Download from Firebase
+            try:
+                logger.info(f"[UPSCALE] Downloading video from Firebase: {video['storage_path']}")
+                blob = bucket.blob(video["storage_path"])
+                blob.download_to_filename(input_path)
+                logger.info(f"[UPSCALE] Successfully downloaded video ({os.path.getsize(input_path)} bytes)")
+            except Exception as e:
+                logger.error(f"[UPSCALE] Firebase download failed: {e}")
+                raise
+
+            # Step 2: Extract frames
+            try:
+                logger.info(f"[UPSCALE] Extracting frames from video...")
+                result = subprocess.run(
+                    ["ffmpeg", "-i", input_path, f"{frames_dir}/frame_%04d.png"],
+                    capture_output=True,
+                    text=True,
+                    check=False
+                )
+                if result.returncode != 0:
+                    logger.error(f"[UPSCALE] ffmpeg frame extraction failed: {result.stderr}")
+                    raise RuntimeError(f"ffmpeg frame extraction failed: {result.stderr}")
+                frame_count = len([f for f in os.listdir(frames_dir) if f.endswith('.png')])
+                logger.info(f"[UPSCALE] Successfully extracted {frame_count} frames")
+            except Exception as e:
+                logger.error(f"[UPSCALE] Frame extraction failed: {e}")
+                raise
+
+            # Step 3: Upscale frames
+            try:
+                logger.info(f"[UPSCALE] Upscaling {frame_count} frames using Real-ESRGAN (model: realesrgan-x4plus)...")
+                logger.info(f"[UPSCALE] REALSRCAN_BIN={REALSRCAN_BIN}, REALSRCAN_DIR={REALSRCAN_DIR}")
+                
+                if not os.path.exists(REALSRCAN_BIN):
+                    raise RuntimeError(f"Real-ESRGAN binary not found at {REALSRCAN_BIN}")
+                
+                result = subprocess.run([
+                    REALSRCAN_BIN,
+                    "-i", frames_dir,
+                    "-o", upscaled_dir,
+                    "-n", "realesrgan-x4plus",
+                    "-m", os.path.join(REALSRCAN_DIR, "models")
+                ], cwd=REALSRCAN_DIR, capture_output=True, text=True, check=False)
+                
+                if result.returncode != 0:
+                    logger.error(f"[UPSCALE] Real-ESRGAN failed: {result.stderr}")
+                    raise RuntimeError(f"Real-ESRGAN failed: {result.stderr}")
+                
+                upscaled_count = len([f for f in os.listdir(upscaled_dir) if f.endswith('.png')])
+                logger.info(f"[UPSCALE] Successfully upscaled {upscaled_count} frames")
+            except Exception as e:
+                logger.error(f"[UPSCALE] Upscaling failed: {e}")
+                raise
+
+            # Step 4: Rebuild video
+            try:
+                logger.info(f"[UPSCALE] Rebuilding video from upscaled frames...")
+                result = subprocess.run([
+                    "ffmpeg",
+                    "-framerate", "30",
+                    "-i", f"{upscaled_dir}/frame_%04d.png",
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    output_path
+                ], capture_output=True, text=True, check=False)
+                
+                if result.returncode != 0:
+                    logger.error(f"[UPSCALE] ffmpeg video rebuild failed: {result.stderr}")
+                    raise RuntimeError(f"ffmpeg video rebuild failed: {result.stderr}")
+                
+                output_size = os.path.getsize(output_path)
+                logger.info(f"[UPSCALE] Successfully rebuilt video ({output_size} bytes)")
+            except Exception as e:
+                logger.error(f"[UPSCALE] Video rebuild failed: {e}")
+                raise
+
+            # Step 5: Upload to Firebase
+            try:
+                
+                logger.info(f"[UPSCALE] Uploading upscaled video to Firebase...")
+                upscale_filename = f"upscaled_{uuid.uuid4().hex}.mp4"
+                storage_path = f"users/{user_id}/matches/{match_id}/{upscale_filename}"
+
+                blob_out = bucket.blob(storage_path)
+
+                blob_out.chunk_size = 5 * 1024 * 1024  # 5MB chunks
+
+                with open(output_path, "rb") as f:
+                    blob_out.upload_from_file(
+                        f,
+                        timeout=600  # increase timeout to 10 minutes
+                    )
+                    
+                blob_out.content_type = "video/mp4"
+                blob_out.patch()
+                logger.info(f"[UPSCALE] Successfully uploaded to Firebase: {storage_path}")
+            except Exception as e:
+                logger.error(f"[UPSCALE] Firebase upload failed: {e}")
+                raise
+
+            # Step 6: Insert database record
+            try:
+                logger.info(f"[UPSCALE] Inserting new video record into database...")
+                cur.execute(
+                    """
+                    INSERT INTO videos (
+                        user_id,
+                        team_id,
+                        match_id,
+                        provider,
+                        provider_video_id,
+                        storage_path,
+                        filename
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        team_id,
+                        match_id,
+                        "firebase",
+                        None,
+                        storage_path,
+                        f"Upscaled {video['filename']}"
+                    )
+                )
+                db.commit()
+                logger.info(f"[UPSCALE] Successfully inserted video record into database")
+            except Exception as e:
+                db.rollback()
+                logger.error(f"[UPSCALE] Database insert failed: {e}")
+                raise
+
+        logger.info(f"[UPSCALE] Upscaling completed successfully for video={video_id}")
+
+    except Exception as e:
+        logger.error(f"[UPSCALE] Upscaling failed for user={user_id}, video={video_id}: {e}", exc_info=True)
+
+    finally:
+        cur.close()
+        db.close()
 
 
 # -------------------------
@@ -445,3 +630,50 @@ def clip_video(
         db.close()
 
     return new_video
+
+
+#upscaling method
+@router.post("/{video_id}/upscale", status_code=202)
+def upscale_video(
+    team_id: int,
+    match_id: int,
+    video_id: int,
+    background_tasks: BackgroundTasks,
+    user=Depends(require_user)
+):
+    verify_match_ownership(team_id, match_id, user["id"])
+
+    # Pre-validation: ensure the video exists and is owned.
+    db = get_db()
+    cur = db.cursor()
+    try:
+        cur.execute(
+            """
+            SELECT id
+            FROM videos
+            WHERE id = %s
+              AND user_id = %s
+              AND team_id = %s
+              AND match_id = %s
+            """,
+            (video_id, user["id"], team_id, match_id)
+        )
+        existing_video = cur.fetchone()
+        if not existing_video:
+            raise HTTPException(404, "Video not found")
+    finally:
+        cur.close()
+        db.close()
+
+    background_tasks.add_task(
+        process_upscale_video_in_background,
+        user["id"],
+        team_id,
+        match_id,
+        video_id
+    )
+
+    return {
+        "status": "queued",
+        "message": "Upscaling started; this may take a few minutes. Video list will update once done."
+    }

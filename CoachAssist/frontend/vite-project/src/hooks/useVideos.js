@@ -7,6 +7,7 @@ export default function useVideos(teamId, matchId) {
     const [loadingVideos, setLoadingVideos] = useState(true); //videos being fetched
     const videoRef = useRef(null);
     const [uploading, setUploading] = useState(false); // video uploading 
+    const [upscalingIds, setUpscalingIds] = useState(new Set()); // ids of videos being upscaled
     // Clip modal state – holds the video object being clipped, or null
     const [clipTarget, setClipTarget] = useState(null);
 
@@ -35,7 +36,7 @@ export default function useVideos(teamId, matchId) {
 
             if (!res.ok) {
                 console.error("Failed to fetch videos", await res.text());
-                return;
+                return [];
             }
 
             const videos = await res.json();
@@ -49,8 +50,11 @@ export default function useVideos(teamId, matchId) {
                 setVideoSrc(null);
                 setVideoName("");
             }
+
+            return videos;
         } catch (err) {
             console.error("Error fetching videos:", err);
+            return [];
         } finally {
             setLoadingVideos(false);
         }
@@ -105,6 +109,21 @@ export default function useVideos(teamId, matchId) {
         } finally {
             setUploading(false);
         }
+    };
+
+    const pollUntilUpscaledVideoAppears = async (baselineIds, maxWaitMs = 5 * 60 * 1000, intervalMs = 5000) => {
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWaitMs) {
+            await new Promise(resolve => setTimeout(resolve, intervalMs));
+            const videos = await fetchVideos();
+            const hasNew = videos.some(v => !baselineIds.has(v.id));
+            if (hasNew) {
+                return true;
+            }
+        }
+
+        return false;
     };
 
     const handleDeleteVideo = async (videoId) => {
@@ -231,6 +250,89 @@ export default function useVideos(teamId, matchId) {
             alert("Rename error: " + err);
         }
     };
+
+    const handleUpscaleVideo = async (videoId) => {
+        if (!token) {
+            alert("You must be logged in.");
+            return;
+        }
+
+        try {
+            const res = await fetch(
+                `/teams/${teamId}/matches/${matchId}/videos/${videoId}/upscale`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+
+            if (res.status === 202) {
+                alert("Upscaling started. This may take a few minutes.");
+                return "queued";
+            }
+
+            if (!res.ok) {
+                const text = await res.text();
+                alert("Upscale failed: " + text);
+                return;
+            }
+
+            const newVideo = await res.json();
+
+            // Add upscaled video to list
+            setVideoList(prev => [newVideo, ...prev]);
+
+            // Optionally switch to the new video
+            setVideoSrc(newVideo.playback_url);
+            setVideoName(newVideo.filename);
+
+            // Refresh list to stay in sync
+            await fetchVideos();
+
+            return "done";
+        } catch (err) {
+            alert("Upscale error: " + err);
+            return;
+        }
+    };
+
+    const handleUpscaleClick = async (videoId) => {
+        // Add videoId to the Set (start loading)
+        setUpscalingIds(prev => {
+            const newSet = new Set(prev);
+            newSet.add(videoId);
+            return newSet;
+        });
+
+        const baselineIds = new Set(videoList.map(v => v.id));
+
+        try {
+            const result = await handleUpscaleVideo(videoId);
+
+            if (result === "queued") {
+                const completed = await pollUntilUpscaledVideoAppears(baselineIds);
+
+                if (completed) {
+                    alert("Upscaled video is now available.");
+                } else {
+                    alert("Upscale still processing. Please refresh the page in a few moments.");
+                }
+            }
+
+        } catch (err) {
+            console.error(err);
+        } finally {
+            // Remove videoId from the Set (stop loading)
+            setUpscalingIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(videoId);
+                return newSet;
+            });
+        }
+    };
+
     return {
         videoList,
         videoSrc,
@@ -238,6 +340,7 @@ export default function useVideos(teamId, matchId) {
         videoRef,
         loadingVideos,
         uploading,
+        upscalingIds,
         clipTarget,
         setVideoSrc,
         setVideoName,
@@ -247,6 +350,8 @@ export default function useVideos(teamId, matchId) {
         handleRenameVideo,
         openClipModal,
         closeClipModal,
-        handleClipVideo
+        handleClipVideo,
+        handleUpscaleVideo,
+        handleUpscaleClick
     };
 }
