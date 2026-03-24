@@ -1,0 +1,363 @@
+.saved-list,
+.saved-detail {
+  box-sizing: border-box;
+}
+
+.table-section .table-scroll-container {
+  flex: 1;
+}
+
+.player-analysis-page {
+  padding: 110px 40px;
+}
+
+/* TOP BUTTONS */
+.top-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.top-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 2px solid black;
+  background: #d6c27a;
+  cursor: pointer;
+}
+
+.top-btn.active {
+  background: #cdb56c;
+}
+
+.top-btn.back {
+  background: #b38f8f;
+}
+
+/* UNIT BUTTONS */
+.unit-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.unit-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 2px solid black;
+  background: #ccc;
+}
+
+.unit-btn.offense.active {
+  background: #8b5e50;
+  color: white;
+}
+
+.unit-btn.defense.active {
+  background: #5a6d7c;
+  color: white;
+}
+
+.unit-btn.special.active {
+  background: #6d5a7c;
+  color: white;
+}
+
+/* TABLE */
+.table-container {
+  display: flex;
+  justify-content: center;
+}
+
+.player-table {
+  width: 100%;
+  min-width: 800px; /* forces horizontal scroll */
+  border-collapse: collapse;
+}
+
+.player-table th,
+.player-table td {
+  border: 2px solid black;
+  padding: 10px;
+  text-align: center;
+}
+
+/* HEADERS */
+.table-header-offense {
+  background: #9b5548;
+  color: white;
+}
+
+.table-header-defense {
+  background: #4f63b6;
+  color: white;
+}
+
+.table-header-special {
+  background: #6a4ea3;
+  color: white;
+}
+
+.insights-header {
+  background: #d9a96c;
+}
+
+/* SCROLL BOX (KEY FEATURE) */
+.table-scroll-container {
+  max-height: 350px;
+  overflow-x: auto;
+  overflow-y: auto;
+  border: 2px solid black;
+  background: white;
+}
+
+/* LAYOUT */
+.analysis-container {
+  display: flex;
+  gap: 30px;
+  margin-top: 20px;
+  align-items: stretch;
+}
+
+.table-section {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* TEXT */
+.table-desc {
+  margin-bottom: 10px;
+  color: #666;
+}
+
+/* BUTTON */
+.analyze-btn {
+  padding: 6px 12px;
+  background: #9dba8a;
+  border: 1px solid black;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* AI BUTTON */
+.ai-button-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 25px;
+}
+
+.ai-button {
+  width: 60%;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 10px;
+  border: 2px solid black;
+  background: #9dba8a;
+  cursor: pointer;
+}
+
+.dropdown-container {
+  position: relative;
+  margin-top: 10px;
+}
+
+.dropdown-btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 2px solid black;
+  background: #ddd;
+  cursor: pointer;
+}
+
+.dropdown-menu {
+  position: absolute;
+  background: white;
+  border: 2px solid black;
+  max-height: 250px;
+  overflow-y: auto;
+  width: 260px;
+  padding: 10px;
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.dropdown-divider {
+  border-top: 1px solid #ccc;
+  margin: 8px 0;
+}
+
+/* ================= SAVED ANALYSIS ================= */
+
+.saved-container {
+  padding: 20px 0;
+  width: 100%;
+  max-width: none;
+  margin-left: 0;   /* align left like main page */
+}
+
+.saved-buttons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.saved-btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 2px solid black;
+  background: #d6c27a;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.saved-btn:hover {
+  background: #cdb56c;
+}
+
+/* ================= SAVED PLAYER VIEW ================= */
+
+.saved-item {
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid black;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #f4f4f4;
+}
+
+.saved-item:hover {
+  background: #e8e8e8;
+}
+
+.saved-item.active {
+  background: #d6c27a;
+}
+
+.saved-analysis-text {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.save-analysis-btn {
+  margin-top: 12px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 2px solid black;
+  background: #9dba8a;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.save-analysis-btn:hover {
+  background: #88a874;
+}
+
+.ai-analysis-text {
+  line-height: 1.6;
+}
+
+.ai-header {
+  font-weight: bold;
+  font-size: 18px;
+  margin-top: 14px;
+}
+
+.ai-numbered {
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.ai-line {
+  margin: 6px 0;
+}
+
+.saved-player-layout {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+  width: 100%;
+
+  height: 500px;         
+}
+
+.saved-list {
+  width: 20%;
+  height: 100%;          
+  overflow-y: scroll;      
+  overflow-x: hidden;
+  border: 2px solid black;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9f9f9;
+  flex-shrink: 0;
+}
+
+.saved-detail {
+  width: 80%;
+  height: 100%;         
+  overflow-y: auto;      
+  overflow-x: hidden;
+
+  border: 2px solid black;
+  border-radius: 10px;
+  padding: 20px;
+  background: #f9f9f9;
+}
+
+/* ================= GLOBAL BUTTON CONSISTENCY ================= */
+
+button {
+  font-family: inherit;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+/* CLICK FEEDBACK */
+button:active {
+  transform: scale(0.97);
+}
+
+/* HOVER */
+button:hover {
+  opacity: 0.9;
+}
+
+/* ACTIVE STATE (tabs) */
+.top-btn.active,
+.saved-btn.active,
+.unit-btn.active {
+  transform: scale(0.95);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* ANALYZE BUTTON */
+.analyze-btn {
+  padding: 6px 12px;
+  background: #9dba8a;
+  border: 2px solid black;
+  border-radius: 6px;
+  font-weight: bold;
+}
+
+/* DROPDOWN BUTTON */
+.dropdown-btn {
+  font-weight: bold;
+}
+
+/* SAVE BUTTON */
+.save-analysis-btn {
+  font-weight: bold;
+}

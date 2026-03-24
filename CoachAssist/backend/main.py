@@ -20,6 +20,7 @@ import os
 load_dotenv("backend/.env")
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # Import all route modules
 # Each router handles a specific domain of functionality
@@ -30,9 +31,19 @@ from backend.routers.videos import router as videos_router
 from backend.routers.player_insights import router as player_insights_router
 from backend.routers.games import router as games_router
 from backend.routers.player_history import router as player_history #Added by Wences Jacob Lorenzo
+from backend.routers.ai import router as ai_router #Added by Wences Jacob Lorenzo
+
 
 #Initialize FastAPI App
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # your frontend
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 #Register Routers
 #Routers define URL prefixes and tags
@@ -45,6 +56,7 @@ app.include_router(videos_router) # Game video management
 app.include_router(player_insights_router) # Player stats + notes per game
 app.include_router(games_router) # Game metadata management
 app.include_router(player_history) #Player history management (Added by Wences Jacob Lorenzo)
+app.include_router(ai_router)  # AI analysis (Gemini)  (Added by Wences Jacob Lorenzo)
 
 #Verify if backend is running
 @app.get("/")
