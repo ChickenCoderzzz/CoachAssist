@@ -100,7 +100,7 @@ export default function PlayerAnalysisPage() {
 
   useEffect(() => {
     if (mode === "saved-player") {
-      fetch("http://127.0.0.1:8000/ai/saved-player-analysis")
+      fetch(`http://127.0.0.1:8000/ai/saved-player-analysis/${teamId}`)
         .then(res => res.json())
         .then(data => setSavedList(data));
     }
@@ -213,6 +213,7 @@ export default function PlayerAnalysisPage() {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
+          team_id: teamId,
           player: {
             id: selectedPlayer.id,
             name: selectedPlayer.player_name,
@@ -231,6 +232,25 @@ export default function PlayerAnalysisPage() {
     } catch (err) {
       console.error(err);
       setSaveMessage("Error saving");
+    }
+  };
+
+  const deleteAnalysis = async (id) => {
+    try {
+      await fetch(`http://127.0.0.1:8000/ai/delete-player-analysis/${id}`, {
+        method: "DELETE"
+      });
+
+      // remove from UI immediately
+      setSavedList(prev => prev.filter(item => item.id !== id));
+
+      // if the deleted one is selected → clear right panel
+      if (selectedSaved?.id === id) {
+        setSelectedSaved(null);
+      }
+
+    } catch (err) {
+      console.error("DELETE ERROR:", err);
     }
   };
 
@@ -610,11 +630,36 @@ export default function PlayerAnalysisPage() {
               return true;
             })
             .map(item => (
-            <div
-              key={item.id}
-              className={`saved-item ${selectedSaved?.id === item.id ? "active" : ""}`}
-              onClick={() => setSelectedSaved(item)}
-            >
+              <div
+                key={item.id}
+                className={`saved-item ${selectedSaved?.id === item.id ? "active" : ""}`}
+                onClick={() => setSelectedSaved(item)}
+                style={{ position: "relative" }}
+              >
+
+                {/* DELETE BUTTON */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteAnalysis(item.id);
+                  }}
+                  style={{
+                    position: "absolute",
+                    top: "5px",
+                    right: "5px",
+                    background: "#ff4d4d",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: "22px",
+                    height: "22px",
+                    cursor: "pointer",
+                    fontSize: "12px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  ×
+                </button>
               #{item.jersey_number} {item.player_name}
               <br />
               {POSITION_NAMES[item.position] || item.position}
