@@ -34,6 +34,8 @@ const getUnit = (pos) => {
   return "other";
 };
 
+// Clean and classift AI-generated text so it can be rendered
+// with simple styling for headers, numbered items, and body lines
 const formatAnalysisText = (text) => {
   if (!text) return [];
 
@@ -90,12 +92,26 @@ export default function PlayerAnalysisPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // ================= FETCH PLAYERS =================
+  // Fetch players for the selected unit.
+  // Priority players are sorted to the top so this page stays consistent
+  // with Edit Roster and Analyze Game views.
   useEffect(() => {
     fetch(`/teams/${teamId}/players?unit=${unit}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(res => res.json())
-      .then(data => setPlayers(data));
+      .then(data => {
+          // Maintain consistent ordering with other pages
+          // (priority players appear first)
+        const sorted = [...(data || [])].sort((a, b) => {
+          if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
+            return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
+          }
+          return a.id - b.id;
+        });
+
+        setPlayers(sorted);
+      });
   }, [teamId, unit]);
 
   useEffect(() => {
@@ -107,6 +123,8 @@ export default function PlayerAnalysisPage() {
   }, [mode]);
 
   // ================= LOAD PLAYER =================
+  // Load the selected player's history data and default to all games selected
+  // so the analysis view is immediately populated.
   const analyzePlayer = async (player) => {
     setSelectedPlayer(player);
 
@@ -120,17 +138,23 @@ export default function PlayerAnalysisPage() {
   };
 
   // ================= HELPERS =================
+  // Only include games currently selected in the dropdown filter.
+  // This filtered list drives both the tables and the AI payload.
   const filteredGames =
     historyData?.games.filter(g =>
       selectedGameIds.includes(g.id)
     ) || [];
 
+  // Helper: return the stat record for one game.
+  // Falls back to an empty object so table rendering does not break.
   const getStatsForGame = (gameId) => {
     return historyData?.stats_by_game.find(
       s => s.game_id === gameId
     ) || {};
   };
 
+  // Helper: return all saved observation notes for one game.
+  // Used when building the insights table and AI payload.
   const getNotesForGame = (gameId) => {
     return historyData?.notes.filter(
       n => n.game_id === gameId
@@ -138,6 +162,8 @@ export default function PlayerAnalysisPage() {
   };
 
   // ================= STAT COLUMNS =================
+  // Build the stat columns dynamically based on the selected player's position.
+  // Combines universal stats with position-specific stat groups.
   const getStatColumns = () => {
     if (!selectedPlayer) return [];
 
@@ -152,23 +178,30 @@ export default function PlayerAnalysisPage() {
   };
 
   // ================= PAYLOAD =================
+  // Construct a filtered player-analysis payload and send it to the AI endpoint.
+  // Only the currently selected games are included in the request.
   const runAIAnalysis = async () => {
     const payload = {
       player: {
+        // Basic player identity used by the AI for context
         id: selectedPlayer.id,
         name: selectedPlayer.player_name,
         position: selectedPlayer.position
       },
+
+      // Include only the selected games, along with stats and recorded insights
       games: filteredGames.map(game => ({
         game_id: game.id,
         opponent: game.opponent,
         date: game.game_date,
+        // Build a stat object using the dynamic stat columns for this position
         stats: Object.fromEntries(
           getStatColumns().map(stat => [
             stat,
             getStatsForGame(game.id)[stat] ?? 0
           ])
         ),
+        // Build a stat object using the dynamic stat columns for this position
         insights: getNotesForGame(game.id).map(n => ({
           note: n.note,
           time: n.time,
@@ -179,8 +212,8 @@ export default function PlayerAnalysisPage() {
     };
 
     try {
-      setLoadingAI(true);     // ✅ start loading
-      setAiResult(null);      // ✅ clear previous result
+      setLoadingAI(true);     // start loading
+      setAiResult(null);      // clear previous result
 
       const res = await fetch("http://127.0.0.1:8000/ai/analyze-player", {
         method: "POST",
@@ -195,12 +228,12 @@ export default function PlayerAnalysisPage() {
 
       console.log("AI RESULT:", data);
 
-      setAiResult(data.analysis);   // ⭐ THIS is what shows it on screen
+      setAiResult(data.analysis);   
 
     } catch (err) {
       console.error(err);
     } finally {
-      setLoadingAI(false);  // ✅ stop loading
+      setLoadingAI(false);  // stop loading
     }
   };
 
@@ -235,6 +268,8 @@ export default function PlayerAnalysisPage() {
     }
   };
 
+  // Delete a saved player analysis entry and immediately update the UI
+  // so the saved list stays in sync without a page refresh.
   const deleteAnalysis = async (id) => {
     try {
       await fetch(`http://127.0.0.1:8000/ai/delete-player-analysis/${id}`, {
@@ -612,8 +647,10 @@ export default function PlayerAnalysisPage() {
                 }}
               />
             </div>
+          {/* Filter saved analyses by unit and search term before rendering */}
           {savedList
             .filter(item => {
+              // Map position to unit
               const unit = getUnit(item.position);
 
               if (filterUnit !== "all" && unit !== filterUnit) {

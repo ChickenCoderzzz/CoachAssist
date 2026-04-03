@@ -82,9 +82,46 @@ export default function EditRosterPage() {
         return res.json();
       })
       .then((data) => {
-        const sorted = [...data].sort((a, b) => a.id - b.id);
+        // Sort players so priority players (starred) appear at the top.
+        // If both players have same priority, fallback to ID ordering.
+        const sorted = [...data].sort((a, b) => {
+          if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
+            return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
+          }
+          return a.id - b.id;
+        });
         setPlayers(sorted);
       })
+  };
+
+  // PRIORITY TOGGLE
+  // Toggles a player's long-term priority (starred state).
+  // Sends a PUT request to update is_priority in backend.
+  const togglePriority = async (player) => {
+    try {
+      const res = await fetch(`/teams/players/${player.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          player_name: player.player_name,
+          jersey_number: Number(player.jersey_number),
+          position: player.position,
+          is_priority: !player.is_priority,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update priority");
+      }
+
+      fetchPlayers();
+    } catch (error) {
+      console.error("Error updating priority:", error);
+      alert("Unable to update player priority.");
+    }
   };
 
   //Re-fetch when unit changes
@@ -122,6 +159,7 @@ export default function EditRosterPage() {
         player_name: form.player_name.trim(),
         jersey_number: Number(form.jersey_number),
         position: form.position,
+        is_priorit: false,
       }),
     });
 
@@ -162,6 +200,7 @@ export default function EditRosterPage() {
         player_name: form.player_name.trim(),
         jersey_number: Number(form.jersey_number),
         position: form.position,
+        is_priority: editPlayer.is_priority ?? false,
       }),
     });
 
@@ -255,11 +294,12 @@ export default function EditRosterPage() {
           <table className={`roster-table ${unit}`}>
             <thead>
               <tr>
-                <th className="num-col">No.</th>
-                <th className="name-col">Name</th>
-                <th className="role-col">Role</th>
-                <th className="action-col"></th>
-              </tr>
+              <th className="num-col">No.</th>
+              <th className="name-col">Name</th>
+              <th className="role-col">Role</th>
+              <th className="priority-col">★</th>
+              <th className="action-col"></th>
+            </tr>
             </thead>
             <tbody>
               {players.map((p) => (
@@ -278,6 +318,16 @@ export default function EditRosterPage() {
                     title={POSITION_LABELS[p.position]}
                   >
                     {p.position}
+                  </td>
+
+                  <td className="priority-cell">
+                    <button
+                      className={`priority-star ${p.is_priority ? "active" : ""}`}
+                      title={p.is_priority ? "Remove Priority" : "Mark as Priority"}
+                      onClick={() => togglePriority(p)}
+                    >
+                      {p.is_priority ? "★" : "☆"}
+                    </button>
                   </td>
 
                   {/* Action Buttons */}

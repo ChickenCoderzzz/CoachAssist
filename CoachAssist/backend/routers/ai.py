@@ -26,7 +26,7 @@ class SaveAnalysisRequest(BaseModel):
     analysis: str
 
 
-# ================= AI =================
+# Promp AI model to analyze player
 @router.post("/analyze-player")
 async def analyze_player(data: PlayerAnalysisRequest):
     try:
@@ -56,7 +56,7 @@ async def analyze_player(data: PlayerAnalysisRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ================= SAVE =================
+# Save player analysis outputs
 @router.post("/save-player-analysis")
 def save_player_analysis(
     data: SaveAnalysisRequest,
@@ -91,7 +91,7 @@ def save_player_analysis(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ================= GET =================
+# Retrieve AI analysis outputs
 @router.get("/saved-player-analysis/{team_id}")
 def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
     try:
@@ -112,7 +112,8 @@ def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
     except Exception as e:
         print("FETCH ERROR:", e)
         return []
-    
+
+# Delete AI analysis outputs
 @router.delete("/delete-player-analysis/{analysis_id}")
 def delete_player_analysis(analysis_id: int, db=Depends(get_db)):
     try:

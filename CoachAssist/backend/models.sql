@@ -96,6 +96,30 @@ CREATE TABLE indv_players (
     unit VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add player priority to INDV_PLAYERS table
+ALTER TABLE indv_players
+ADD COLUMN is_priority BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- =========================
+-- SAVED_PLAYER_ANALYSIS TABLE
+-- =========================
+
+-- SAVED_PLAYER_ANALYSIS
+CREATE TABLE saved_player_analysis (
+  id SERIAL PRIMARY KEY,
+  player_id INT,
+  player_name TEXT,
+  position TEXT,
+  jersey_number INT,
+  analysis_text TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add team_id to SAVED_PLAYER_ANALYSIS table
+ALTER TABLE saved_player_analysis
+ADD COLUMN team_id INTEGER;
+
 --END OF SQL by Wences Jacob Lorenzo
 
 -- =========================
