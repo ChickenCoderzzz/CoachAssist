@@ -159,7 +159,7 @@ export default function EditRosterPage() {
         player_name: form.player_name.trim(),
         jersey_number: Number(form.jersey_number),
         position: form.position,
-        is_priorit: false,
+        is_priority: false,
       }),
     });
 
