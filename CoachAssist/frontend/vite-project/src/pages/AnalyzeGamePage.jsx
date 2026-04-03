@@ -108,9 +108,61 @@ export default function AnalyzeGamePage() {
             headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         })
             .then(res => res.json())
-            .then(data => setPlayers(data || []));
+            .then(data => {
+                // Ensure priority players appear at top of player table
+                const sorted = [...(data || [])].sort((a, b) => {
+                    if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
+                        return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
+                    }
+                    return a.id - b.id;
+                });
+
+                setPlayers(sorted);
+            });
     }, [activeTab, teamId]);
 
+    // PRIORITY TOGGLE (Game Analysis Page)
+    // Allows users to adjust player priority directly while analyzing game footage.
+    // Updates backend and re-sorts players immediately.
+    const togglePriority = async (player) => {
+        try {
+            const res = await fetch(`/teams/players/${player.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                    player_name: player.player_name,
+                    jersey_number: Number(player.jersey_number),
+                    position: player.position,
+                    is_priority: !player.is_priority,
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to update priority");
+            }
+
+            setPlayers((prevPlayers) => {
+                const updated = prevPlayers.map((p) =>
+                    p.id === player.id
+                        ? { ...p, is_priority: !p.is_priority }
+                        : p
+                );
+
+                return updated.sort((a, b) => {
+                    if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
+                        return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
+                    }
+                    return a.id - b.id;
+                });
+            });
+        } catch (error) {
+            console.error("Error updating priority:", error);
+            alert("Unable to update player priority.");
+        }
+    };
 
     // Update Match Details
     const handleUpdateMatch = () => {
@@ -568,6 +620,7 @@ export default function AnalyzeGamePage() {
                             <div>#</div>
                             <div>Name</div>
                             <div>Position</div>
+                            <div>★</div>
                             <div>Action</div>
                         </div>
 
@@ -578,6 +631,16 @@ export default function AnalyzeGamePage() {
                                     <div>{player.jersey_number}</div>
                                     <div>{player.player_name}</div>
                                     <div>{getFullPositionName(player.position)}</div>
+
+                                    <div>
+                                        <button
+                                            className={`priority-star ${player.is_priority ? "active" : ""}`}
+                                            title={player.is_priority ? "Remove Priority" : "Mark as Priority"}
+                                            onClick={() => togglePriority(player)}
+                                        >
+                                            {player.is_priority ? "★" : "☆"}
+                                        </button>
+                                    </div>
 
                                     {/* Open modal */}
                                     <div>

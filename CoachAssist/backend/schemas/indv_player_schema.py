@@ -51,6 +51,7 @@ class PlayerCreate(BaseModel):
     jersey_number: int
     unit: UnitType
     position: PositionType
+    is_priority: bool = False
 
 #=== PLAYER OUTPUT SCHEMA ===
 
@@ -67,6 +68,7 @@ class PlayerOut(BaseModel):
     jersey_number: int
     unit: UnitType
     position: PositionType
+    is_priority: bool
 
 #=== UPDATE PLAYER SCHEMA ===
 
@@ -82,3 +84,4 @@ class PlayerUpdate(BaseModel):
     jersey_number: Optional[int] = None
     unit: Optional[UnitType] = None
     position: Optional[PositionType] = None
+    is_priority: Optional[bool] = None

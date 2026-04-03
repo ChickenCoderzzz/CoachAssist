@@ -93,7 +93,7 @@ def get_players(
 
     #Base query
     query = """
-        SELECT id, team_id, player_name, jersey_number, unit, position
+        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
         FROM indv_players
         WHERE team_id = %s
     """
@@ -128,7 +128,7 @@ def export_players_pdf(
     cur = db.cursor()
 
     query = """
-        SELECT id, team_id, player_name, jersey_number, unit, position
+        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
         FROM indv_players
         WHERE team_id = %s
     """
@@ -227,16 +227,17 @@ def add_player(
         cur.execute(
             """
             INSERT INTO indv_players
-            (team_id, player_name, jersey_number, unit, position)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, team_id, player_name, jersey_number, unit, position
+            (team_id, player_name, jersey_number, unit, position, is_priority)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id, team_id, player_name, jersey_number, unit, position, is_priority
             """,
             (
                 player.team_id,
                 player.player_name,
                 player.jersey_number,
                 player.unit,
-                player.position
+                player.position,
+                player.is_priority
             )
         )
         new_player = cur.fetchone()
@@ -329,6 +330,7 @@ def get_player(
             p.jersey_number,
             p.unit,
             p.position
+            p.is_priority
         FROM indv_players p
         JOIN teams t ON p.team_id = t.id
         WHERE p.id = %s AND t.user_id = %s
@@ -405,6 +407,10 @@ def update_player(
         fields.append("position = %s")
         values.append(updates.position)
 
+    if updates.is_priority is not None:
+        fields.append("is_priority = %s")
+        values.append(updates.is_priority)
+
     if not fields:
         cur.close()
         raise HTTPException(
@@ -420,7 +426,7 @@ def update_player(
             UPDATE indv_players
             SET {", ".join(fields)}
             WHERE id = %s
-            RETURNING id, team_id, player_name, jersey_number, unit, position
+            RETURNING id, team_id, player_name, jersey_number, unit, position, is_priority
             """,
             tuple(values)
         )

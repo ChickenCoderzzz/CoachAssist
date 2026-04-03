@@ -33,6 +33,7 @@ class SignupSchema(BaseModel):
     password: str
     full_name: str 
 
+#Code by Wences Jacob Lorenzo
 class PendingSignupSchema(BaseModel):
     """
     Represents signup data before verification.
@@ -59,6 +60,7 @@ class LoginSchema(BaseModel):
     password: str
 
 #=== EMAIL VERIFICATION SCHEMAS ===
+#Following COde by Wences Jacob Lorenzo
 
 class VerifyEmailSchema(BaseModel):
     """
@@ -107,7 +109,7 @@ class VerifyProfilePasswordChangeSchema(BaseModel):
     - verification code sent to email
     - new password
     """
-    
+
     code: str
     new_password: str
 
