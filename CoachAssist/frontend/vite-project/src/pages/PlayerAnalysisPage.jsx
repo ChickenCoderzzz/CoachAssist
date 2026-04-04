@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/player_analysis.css";
-import { POSITION_GROUPS } from "../constants/gameConstants";
+import { POSITION_GROUPS, UNIVERSAL_STATS } from "../constants/gameConstants";
 
 const POSITION_NAMES = {
   QB: "Quarterback",
@@ -167,14 +167,28 @@ export default function PlayerAnalysisPage() {
   const getStatColumns = () => {
     if (!selectedPlayer) return [];
 
-    const roleStats =
-      POSITION_GROUPS[selectedPlayer.position]
-        ? Object.values(POSITION_GROUPS[selectedPlayer.position]).flat()
-        : [];
+    const positionGroups =
+      POSITION_GROUPS[selectedPlayer.position] || {};
 
-    const universalStats = ["snaps", "penalties", "turnovers"];
+    // MUST match your gameConstants EXACT group names
+    const orderedGroups = [
+      "Passing",
+      "Rushing",
+      "Receiving",
+      "Blocking",
+      "Snapping",
+      "Defense",
+      "Coverage",
+      "Kicking",
+      "Punting",
+      "Returns"
+    ];
 
-    return [...universalStats, ...roleStats];
+    const roleStats = orderedGroups.flatMap(group =>
+      positionGroups[group] || []
+    );
+
+    return [...UNIVERSAL_STATS, ...roleStats];
   };
 
   // ================= PAYLOAD =================
