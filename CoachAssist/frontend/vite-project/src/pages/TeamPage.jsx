@@ -255,6 +255,14 @@ export default function TeamPage() {
         >
           AI Analysis
         </button>
+
+        {/* Navigate to Calendar */}
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/team/${teamId}/calendar`)}
+        >
+          Calendar
+        </button>
       </div>
 
       {/* Games Container */}
