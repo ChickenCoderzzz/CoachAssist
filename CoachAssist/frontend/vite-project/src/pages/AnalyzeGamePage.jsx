@@ -600,7 +600,7 @@ export default function AnalyzeGamePage() {
                 ) : (
 
                     // PLAYER TABLE REPLACES GAME STATE TABLE
-                    <div className="game-state-table-container player-table">
+                    <div className="game-state-table-container analysis-side-table">
                         {/* Dynamic header color based on unit */}
                         <div
                             className={`table-title-header ${activeTab === "Offensive"
@@ -615,24 +615,22 @@ export default function AnalyzeGamePage() {
                             Player Table - {activeTab}
                         </div>
 
-                        {/* Table header row */}
-                        <div className="player-table-header">
-                            <div>#</div>
-                            <div>Name</div>
-                            <div>Position</div>
-                            <div>★</div>
-                            <div>Action</div>
+                        <div className="table-header-row analysis-player-header">
+                            <div className="cell col-player-number">#</div>
+                            <div className="cell col-player-name">Name</div>
+                            <div className="cell col-player-position">Position</div>
+                            <div className="cell col-player-priority">★</div>
+                            <div className="cell col-player-action">Action</div>
                         </div>
 
-                        {/* Player rows.*/}
-                        <div className="player-table-body">
-                            {filteredPlayers.map((player) => (
-                                <div className="player-table-row" key={player.id}>
-                                    <div>{player.jersey_number}</div>
-                                    <div>{player.player_name}</div>
-                                    <div>{getFullPositionName(player.position)}</div>
+                        <div className="table-scroll-area analysis-alt-table-scroll">
+                            {filteredPlayers.length > 0 ? filteredPlayers.map((player) => (
+                                <div className="table-row analysis-player-row" key={player.id}>
+                                    <div className="cell col-player-number">{player.jersey_number}</div>
+                                    <div className="cell col-player-name">{player.player_name}</div>
+                                    <div className="cell col-player-position">{getFullPositionName(player.position)}</div>
 
-                                    <div>
+                                    <div className="cell col-player-priority">
                                         <button
                                             className={`priority-star ${player.is_priority ? "active" : ""}`}
                                             title={player.is_priority ? "Remove Priority" : "Mark as Priority"}
@@ -642,8 +640,7 @@ export default function AnalyzeGamePage() {
                                         </button>
                                     </div>
 
-                                    {/* Open modal */}
-                                    <div>
+                                    <div className="cell col-player-action">
                                         <button
                                             className="player-view-btn"
                                             onClick={() => openPlayerModal(player)}
@@ -652,7 +649,11 @@ export default function AnalyzeGamePage() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="table-row analysis-player-row">
+                                    <div className="cell col-empty">No players found for this unit</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
