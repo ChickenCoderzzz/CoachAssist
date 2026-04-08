@@ -14,6 +14,58 @@ export default function TeamCalendarPage() {
 
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredId, setHoveredId] = useState(null);
+
+  const buildEventDates = (m) => {
+    const base = (m.game_date || "").slice(0, 10);
+    if (!base) return null;
+    const start = new Date(`${base}T18:00:00`);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const fmt = (d) =>
+      d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    return { start, end, startStr: fmt(start), endStr: fmt(end) };
+  };
+
+  const googleCalUrl = (m) => {
+    const dates = buildEventDates(m);
+    if (!dates) return "#";
+    const title = `${m.name || "Game"} vs ${m.opponent}`;
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: title,
+      dates: `${dates.startStr}/${dates.endStr}`,
+      details: `${title}${
+        m.team_score != null ? ` — Final: ${m.team_score}-${m.opponent_score}` : ""
+      }`,
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  };
+
+  const downloadIcs = (m) => {
+    const dates = buildEventDates(m);
+    if (!dates) return;
+    const title = `${m.name || "Game"} vs ${m.opponent}`;
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//CoachAssist//EN",
+      "BEGIN:VEVENT",
+      `UID:${m.id}@coachassist`,
+      `DTSTAMP:${dates.startStr}`,
+      `DTSTART:${dates.startStr}`,
+      `DTEND:${dates.endStr}`,
+      `SUMMARY:${title}`,
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const blob = new Blob([ics], { type: "text/calendar" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/\s+/g, "_")}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -142,6 +194,8 @@ export default function TeamCalendarPage() {
           {cells.map((cell, idx) => {
             const key = formatDateKey(cell.date);
             const dayMatches = matchesByDate[key] || [];
+            const col = idx % 7;
+            const alignRight = col >= 4;
             const cellClass = [
               "calendar-cell",
               cell.outside ? "outside-month" : "",
@@ -154,21 +208,61 @@ export default function TeamCalendarPage() {
                 {!cell.outside && dayMatches.map((m) => {
                   const result = getResult(m.team_score, m.opponent_score);
                   return (
-                    <button
+                    <div
                       key={m.id}
-                      className={`calendar-game ${result}`}
-                      onClick={() => navigate(`/team/${teamId}/match/${m.id}`)}
-                      title={`${m.name} vs ${m.opponent}${
-                        m.team_score != null ? ` (${m.team_score}-${m.opponent_score})` : ""
-                      }`}
+                      className="calendar-game-wrap"
+                      onMouseEnter={() => setHoveredId(m.id)}
+                      onMouseLeave={() => setHoveredId((id) => (id === m.id ? null : id))}
                     >
-                      vs {m.opponent}
-                      {m.team_score != null && (
-                        <span className="game-score-label">
-                          {" "}{m.team_score}–{m.opponent_score}
-                        </span>
+                      <button
+                        className={`calendar-game ${result}`}
+                        onClick={() => navigate(`/team/${teamId}/match/${m.id}`)}
+                      >
+                        vs {m.opponent}
+                        {m.team_score != null && (
+                          <span className="game-score-label">
+                            {" "}{m.team_score}–{m.opponent_score}
+                          </span>
+                        )}
+                      </button>
+                      {hoveredId === m.id && (
+                        <div
+                          className={`calendar-popover ${alignRight ? "align-right" : ""}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="popover-title">
+                            {m.name || "Game"} vs {m.opponent}
+                          </div>
+                          <div className="popover-row">
+                            <strong>Date:</strong> {key}
+                          </div>
+                          {m.team_score != null && (
+                            <div className="popover-row">
+                              <strong>Result:</strong>{" "}
+                              {result === "win" ? "W" : result === "loss" ? "L" : "—"}{" "}
+                              {m.team_score}–{m.opponent_score}
+                            </div>
+                          )}
+                          <div className="popover-actions">
+                            <a
+                              href={googleCalUrl(m)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="popover-btn"
+                            >
+                              Google Calendar
+                            </a>
+                            <button
+                              type="button"
+                              className="popover-btn"
+                              onClick={() => downloadIcs(m)}
+                            >
+                              Download .ics
+                            </button>
+                          </div>
+                        </div>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
