@@ -94,7 +94,7 @@ def get_player_insights(
 
         # Fetch Notes - By Wences Jacob Lorenzo
         cur.execute("""
-            SELECT id, category, note, time
+            SELECT id, category, note, time, quarter
             FROM player_notes
             WHERE player_id = %s AND game_id = %s
             ORDER BY created_at ASC
@@ -183,15 +183,17 @@ def update_player_insights(
                         game_id,
                         category,
                         note,
-                        time
+                        time,
+                        quarter
                     )
-                    VALUES (%s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s)
                 """, (
                     player_id,
                     game_id,
                     note.category if hasattr(note, "category") else "General",
                     note.note,
-                    note.time
+                    note.time,
+                    note.quarter
                 ))
 
             #db.commit()

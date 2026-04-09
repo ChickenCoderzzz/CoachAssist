@@ -11,7 +11,8 @@ export default function PlayerInsightsModal({
     deletePlayerNoteRow,
     savePlayerInsights,
     cancelPlayerModal,
-    isSavingPlayer
+    isSavingPlayer,
+    videoRef
 }) {
     return (
         <div className="player-modal-overlay">
@@ -26,7 +27,8 @@ export default function PlayerInsightsModal({
 
                 {/* Body */}
                 <div className="player-modal-body">
-
+                    
+                     
                     {/* LEFT SIDE - NOTES. Added by Wences Jacob Lorenzo */}
                     <div className="player-notes-wrapper">
 
@@ -36,10 +38,14 @@ export default function PlayerInsightsModal({
 
                         <div className="player-notes-container">
 
+                            <div className="notes-scroll-container"> 
+
                             {/* Table Header */}
                             <div className="notes-header">
                                 <div>Observation</div>
                                 <div>Time</div>
+                                <div>Quarter</div>
+                                <div>Play</div>
                                 <div></div>
                             </div>
 
@@ -49,42 +55,80 @@ export default function PlayerInsightsModal({
                                     <div className="notes-row" key={row.id}>
 
                                         {/* Observation */}
-                                        <div className="note-cell">
+                                            <div className="note-cell">
+                                                <input
+                                                    value={row.note}
+                                                    onChange={(e) =>
+                                                        updatePlayerNote(row.id, "note", e.target.value)
+                                                    }
+                                                />
+                                                {row.note && (
+                                                    <span className="note-tooltip">
+                                                        {row.note}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+
+                                            {/* Time */}
                                             <input
-                                                value={row.note}
+                                                value={row.time}
                                                 onChange={(e) =>
-                                                    updatePlayerNote(row.id, "note", e.target.value)
+                                                    updatePlayerNote(row.id, "time", e.target.value)
                                                 }
                                             />
-                                            {row.note && (
-                                                <span className="note-tooltip">
-                                                    {row.note}
-                                                </span>
-                                            )}
-                                        </div>
 
-                                        {/* Time */}
-                                        <input
-                                            value={row.time}
-                                            onChange={(e) =>
-                                                updatePlayerNote(row.id, "time", e.target.value)
-                                            }
-                                        />
-
-                                        {/* Delete */}
-                                        <div className="delete-cell">
-                                            <button
-                                                className="delete-btn"
-                                                onClick={() => deletePlayerNoteRow(row.id)}
+                                            {/* Quarter */}
+                                            <select
+                                                value={row.quarter || ""}
+                                                onChange={(e) =>
+                                                    updatePlayerNote(row.id, "quarter", e.target.value)
+                                                }
                                             >
-                                                ✕
-                                            </button>
-                                        </div>
+                                                <option value="">Select</option>
+                                                <option value="Q1">Q1</option>
+                                                <option value="Q2">Q2</option>
+                                                <option value="Q3">Q3</option>
+                                                <option value="Q4">Q4</option>
+                                            </select>
+
+                                            {/* Play */}
+                                            <div>
+                                                <button
+                                                    className="play-row-btn"
+                                                    onClick={() => {
+                                                        if (videoRef?.current && row.time) {
+                                                            const parts = row.time.split(":");
+                                                            const seconds =
+                                                                parts.length === 2
+                                                                    ? parseInt(parts[0]) * 60 + parseInt(parts[1])
+                                                                    : parseInt(row.time);
+
+                                                            videoRef.current.currentTime = seconds || 0;
+                                                            videoRef.current.play();
+                                                        }
+                                                    }}
+                                                >
+                                                    ▶
+                                                </button>
+                                            </div>
+
+                                            {/* Delete */}
+                                            <div className="delete-cell">
+                                                <button
+                                                    className="delete-btn"
+                                                    onClick={() => deletePlayerNoteRow(row.id)}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
 
                                     </div>
                                 ))}
                             </div>
 
+                            </div>
+                            
                             {/* Add Row */}
                             <button
                                 className="add-row-btn"
@@ -95,6 +139,7 @@ export default function PlayerInsightsModal({
 
                         </div>
                     </div>
+                    
 
                     {/* RIGHT SIDE - STATS */}
                     <div className="player-stats-container">

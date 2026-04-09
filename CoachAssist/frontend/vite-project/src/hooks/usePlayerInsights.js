@@ -45,7 +45,12 @@ export default function usePlayerInsights(matchId) {
                     ...(data.stats || {})
                 });
 
-                setPlayerNotes(data.notes || []); //Added by Wences Jacob Lorenzo
+                const normalized = (data.notes || []).map(note => ({
+                    ...note,
+                    quarter: note.quarter || ""
+                }));
+
+                setPlayerNotes(normalized);
             })
             .catch(err => {
                 console.error("Failed to load player insights:", err);
@@ -71,7 +76,8 @@ export default function usePlayerInsights(matchId) {
             id: Date.now(),
             category: "General",
             note: "",
-            time: ""
+            time: "",
+            quarter: ""
         };
 
         setPlayerNotes(prev => [...prev, newRow]);
@@ -87,6 +93,13 @@ export default function usePlayerInsights(matchId) {
     // SAVE PLAYER INSIGHTS
     const savePlayerInsights = async () => {
         if (!selectedPlayer) return;
+
+        for (const row of playerNotes) {
+            if (!row.quarter) {
+                alert("All player notes must have a quarter (Q1–Q4).");
+                return; //  STOP saving
+            }
+        }
 
         try {
             setIsSavingPlayer(true);
