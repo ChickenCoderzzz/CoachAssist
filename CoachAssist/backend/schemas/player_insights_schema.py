@@ -95,6 +95,7 @@ class PlayerNoteRow(BaseModel):
     category: Optional[str] = "General"
     note: str
     time: Optional[str] = None
+    quarter: Optional[str] = None
 
 #=== Combined Update Schema ===
 

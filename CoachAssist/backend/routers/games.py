@@ -14,6 +14,7 @@ class GameStateRow(BaseModel):
     id: Optional[int]
     text: str
     time: str
+    quarter: Optional[str] = None #Added by Wences Jacob Lorenzo
 
 class GameStateUpdate(BaseModel):
     category: str
@@ -48,7 +49,7 @@ def get_game_state(
     cur = db.cursor()
     
     cur.execute("""
-        SELECT id, category, observation as text, time 
+        SELECT id, category, observation as text, time, quarter
         FROM game_states 
         WHERE game_id = %s
     """, (game_id,))
@@ -69,7 +70,8 @@ def get_game_state(
             result[category].append({
                 "id": row["id"],
                 "text": row["text"],
-                "time": row["time"]
+                "time": row["time"],
+                "quarter": row["quarter"] #Added by Wences Jacob Lorenzo
             })
             
     return result
@@ -88,14 +90,15 @@ def update_game_state(
         
         cur.execute("DELETE FROM game_states WHERE game_id = %s", (game_id,))
         
-        insert_query = """
-            INSERT INTO game_states (game_id, category, observation, time)
-            VALUES (%s, %s, %s, %s)
+        #Edited by Wences Jacob Lorenzo
+        insert_query = """ 
+            INSERT INTO game_states (game_id, category, observation, time, quarter)
+            VALUES (%s, %s, %s, %s, %s)
         """
         
         for category, rows in state_data.items():
             for row in rows:
-                cur.execute(insert_query, (game_id, category, row.text, row.time))
+                cur.execute(insert_query, (game_id, category, row.text, row.time, row.quarter)) #Wences Jacob Lorenzo
         
         db.commit()
         return {"message": "Game state updated successfully"}
