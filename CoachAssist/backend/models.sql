@@ -230,6 +230,29 @@ CREATE TABLE player_notes (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- =========================
+-- TEAM MEMBERS (Sharing)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS team_members (
+    id SERIAL PRIMARY KEY,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(10) NOT NULL DEFAULT 'viewer'
+        CHECK (role IN ('owner', 'editor', 'viewer')),
+    invited_email VARCHAR(100) NOT NULL,
+    status VARCHAR(10) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted')),
+    invite_code VARCHAR(6),
+    invited_at TIMESTAMP DEFAULT NOW(),
+    accepted_at TIMESTAMP,
+    UNIQUE(team_id, invited_email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(invited_email);
+
 -- PLAYERS (Football)
 CREATE TABLE IF NOT EXISTS players (
     id SERIAL PRIMARY KEY,

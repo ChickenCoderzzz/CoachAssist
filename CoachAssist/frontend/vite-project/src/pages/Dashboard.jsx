@@ -169,17 +169,25 @@ export default function Dashboard() {
               className="team-card"
               onClick={() => navigate(`/team/${team.id}`)}
             >
-              {/* Delete Button */}
-              <button
-                className="team-delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTeamToDelete(team);
-                }}
-              >
-                X
-              </button>
+              {/* Delete Button (owner only) */}
+              {(!team.user_role || team.user_role === "owner") && (
+                <button
+                  className="team-delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTeamToDelete(team);
+                  }}
+                >
+                  X
+                </button>
+              )}
 
+              {/* Role Badge for shared teams */}
+              {team.user_role && team.user_role !== "owner" && (
+                <div className={`shared-badge ${team.user_role}`}>
+                  {team.user_role.charAt(0).toUpperCase() + team.user_role.slice(1)}
+                </div>
+              )}
 
               {/* Team Image */}
               <div

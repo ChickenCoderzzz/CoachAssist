@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 from backend.video_providers.youtube import create_youtube_video
 from fastapi import UploadFile, File
 from backend.video_providers.firebase_storage import upload_video_to_firebase, bucket
@@ -25,30 +26,24 @@ router = APIRouter(
     tags=["Match Videos"]
 )
 
-#verify that the match is owned by the requester and is avaliable to store videos under
-def verify_match_ownership(team_id: int, match_id: int, user_id: int):
+#verify that the user has access to the match's team
+def verify_match_ownership(team_id: int, match_id: int, user_id: int, required_role: str = "viewer"):
     db = get_db()
-    cur = db.cursor()
+    try:
+        require_team_role(team_id, user_id, db, required_role)
 
-    cur.execute(
-        """
-        SELECT m.id
-        FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE m.id = %s
-          AND m.team_id = %s
-          AND t.user_id = %s
-        """,
-        (match_id, team_id, user_id)
-    )
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id FROM matches WHERE id = %s AND team_id = %s",
+            (match_id, team_id)
+        )
+        result = cur.fetchone()
+        cur.close()
 
-    result = cur.fetchone()
-
-    cur.close()
-    db.close()
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Match not found or unauthorized")
+        if not result:
+            raise HTTPException(status_code=404, detail="Match not found")
+    finally:
+        db.close()
 
 
 def process_upscale_video_in_background(user_id: int, team_id: int, match_id: int, video_id: int):
@@ -314,12 +309,11 @@ def list_videos(
         """
         SELECT id, provider, provider_video_id, storage_path, filename, created_at
         FROM videos
-        WHERE user_id = %s
-          AND team_id = %s
+        WHERE team_id = %s
           AND match_id = %s
         ORDER BY created_at DESC
         """,
-        (user["id"], team_id, match_id)
+        (team_id, match_id)
     )
 
     rows = cur.fetchall()
@@ -359,8 +353,8 @@ def upload_video(
     file: UploadFile = File(...),
     user=Depends(require_user)
 ):
-    #verify that the team,match,and user are correct
-    verify_match_ownership(team_id, match_id, user["id"])
+    #verify that the user has editor access
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -419,7 +413,7 @@ def delete_video(
     video_id: int,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -482,7 +476,7 @@ def rename_video(
     payload: RenameVideoRequest,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -527,7 +521,7 @@ def clip_video(
     payload: ClipVideoSchema,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     if payload.end <= payload.start:
         raise HTTPException(400, "Invalid time range")
@@ -641,9 +635,9 @@ def upscale_video(
     background_tasks: BackgroundTasks,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
-    # Pre-validation: ensure the video exists and is owned.
+    # Pre-validation: ensure the video exists.
     db = get_db()
     cur = db.cursor()
     try:

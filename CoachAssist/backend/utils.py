@@ -189,3 +189,44 @@ def send_password_reset_email(to_email: str, code: str):
 
     #Potentially unneeded:
     #oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+
+#=== EMAIL SENDING (Team Invite) ===
+
+def send_team_invite_email(to_email: str, team_name: str, inviter_name: str, code: str):
+    """
+    Sends a team invitation email with an invite code.
+
+    Used when a team owner invites a new member.
+    """
+
+    print("=== INVITE EMAIL SEND START ===")
+
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = "CoachAssist Team Invitation"
+        msg["From"] = os.getenv("EMAIL_FROM")
+        msg["To"] = to_email
+
+        msg.set_content(
+            f"{inviter_name} invited you to join '{team_name}' on CoachAssist.\n\n"
+            f"Your invite code is: {code}\n\n"
+            "Log in to CoachAssist and enter this code to accept the invitation."
+        )
+
+        with smtplib.SMTP_SSL(
+            os.getenv("SMTP_HOST"),
+            int(os.getenv("SMTP_PORT"))
+        ) as server:
+            server.set_debuglevel(1)
+            server.login(
+                os.getenv("SMTP_USER"),
+                os.getenv("SMTP_PASSWORD")
+            )
+            server.send_message(msg)
+
+        print("=== INVITE EMAIL SENT SUCCESSFULLY ===")
+
+    except Exception as e:
+        print("!!! INVITE EMAIL FAILED !!!")
+        print(e)

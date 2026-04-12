@@ -27,6 +27,7 @@ from backend.schemas.indv_player_schema import (
 )
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 
 #Router for team-related player endpoints
 router = APIRouter(
@@ -38,33 +39,14 @@ router = APIRouter(
 UnitType = Literal["offense", "defense", "special"]
 
 
-#HELPER: ensure logged-in user owns the team
+#HELPER: ensure logged-in user has access to the team
 
-def verify_team_access(team_id: int, user_id: int, db):
+def verify_team_access(team_id: int, user_id: int, db, required_role: str = "viewer"):
     """
-    Ensures that the authenticated user owns the team
-    they are attempting to access.
-
-    Prevents horizontal privilege escalation.
+    Ensures that the authenticated user has at least the required role
+    for the team they are attempting to access.
     """
-
-    cur = db.cursor()
-    cur.execute(
-        """
-        SELECT id
-        FROM teams
-        WHERE id = %s AND user_id = %s
-        """,
-        (team_id, user_id)
-    )
-    team = cur.fetchone()
-    cur.close()
-
-    if not team:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have access to this team"
-        )
+    require_team_role(team_id, user_id, db, required_role)
 
 # GET ALL PLAYERS FOR A TEAM (optional unit filter)
 
@@ -86,8 +68,7 @@ def get_players(
 
     user_id = user["id"]
 
-    #Ensures user owns the team
-    verify_team_access(team_id, user_id, db)
+    verify_team_access(team_id, user_id, db, "viewer")
 
     cur = db.cursor()
 
@@ -123,7 +104,7 @@ def export_players_pdf(
     """
 
     user_id = user["id"]
-    verify_team_access(team_id, user_id, db)
+    verify_team_access(team_id, user_id, db, "viewer")
 
     cur = db.cursor()
 
@@ -213,7 +194,7 @@ def add_player(
     """
 
     user_id = user["id"]
-    verify_team_access(team_id, user_id, db)
+    verify_team_access(team_id, user_id, db, "editor")
 
     #Ensure URL team_id matches body team_id
     if team_id != player.team_id:
@@ -275,30 +256,20 @@ def delete_player(
     user_id = user["id"]
     cur = db.cursor()
 
-    # Ensure player belongs to team owned by user
-    cur.execute(
-        """
-        SELECT p.id
-        FROM indv_players p
-        JOIN teams t ON p.team_id = t.id
-        WHERE p.id = %s AND t.user_id = %s
-        """,
-        (player_id, user_id)
-    )
+    # Get player and verify team access
+    cur.execute("SELECT id, team_id FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 
     if not player:
         cur.close()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found or access denied"
+            detail="Player not found"
         )
 
-    #Delete player
-    cur.execute(
-        "DELETE FROM indv_players WHERE id = %s",
-        (player_id,)
-    )
+    require_team_role(player["team_id"], user_id, db, "editor")
+
+    cur.execute("DELETE FROM indv_players WHERE id = %s", (player_id,))
     db.commit()
     cur.close()
 
@@ -323,19 +294,11 @@ def get_player(
 
     cur.execute(
         """
-        SELECT
-            p.id,
-            p.team_id,
-            p.player_name,
-            p.jersey_number,
-            p.unit,
-            p.position
-            p.is_priority
-        FROM indv_players p
-        JOIN teams t ON p.team_id = t.id
-        WHERE p.id = %s AND t.user_id = %s
+        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
+        FROM indv_players
+        WHERE id = %s
         """,
-        (player_id, user_id)
+        (player_id,)
     )
 
     player = cur.fetchone()
@@ -344,8 +307,10 @@ def get_player(
     if not player:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found or access denied"
+            detail="Player not found"
         )
+
+    require_team_role(player["team_id"], user_id, db, "viewer")
 
     return player
 
@@ -368,24 +333,17 @@ def update_player(
     user_id = user["id"]
     cur = db.cursor()
 
-    #Ensure player belongs to team owned by user
-    cur.execute(
-        """
-        SELECT p.id
-        FROM indv_players p
-        JOIN teams t ON p.team_id = t.id
-        WHERE p.id = %s AND t.user_id = %s
-        """,
-        (player_id, user_id)
-    )
+    cur.execute("SELECT id, team_id FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 
     if not player:
         cur.close()
         raise HTTPException(
             status_code=404,
-            detail="Player not found or access denied"
+            detail="Player not found"
         )
+
+    require_team_role(player["team_id"], user_id, db, "editor")
 
     #Build dynamic update query based on provided fields
     fields = []

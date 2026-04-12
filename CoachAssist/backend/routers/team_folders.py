@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from backend.database import get_db
 from backend.schemas.match_schema import MatchCreateSchema
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role, require_game_role
 from backend.video_providers.photo_handler import (
     upload_photo_to_firebase,
     delete_photo_from_firebase
@@ -70,6 +71,16 @@ async def create_team(
     )
 
     row = cur.fetchone()
+
+    # Auto-create owner membership row
+    cur.execute(
+        """
+        INSERT INTO team_members (team_id, user_id, role, invited_email, status, accepted_at)
+        VALUES (%s, %s, 'owner', %s, 'accepted', NOW())
+        """,
+        (row["id"], user["id"], user["email"])
+    )
+
     db.commit()
 
     return {"team": dict(row)}
@@ -80,7 +91,7 @@ async def create_team(
 @router.get("/")
 def get_teams(user=Depends(require_user)):
     """
-    Returns all teams belonging to the authenticated user.
+    Returns all teams the user owns or is a member of.
     Ordered by newest first.
     """
 
@@ -89,12 +100,14 @@ def get_teams(user=Depends(require_user)):
 
     cur.execute(
         """
-        SELECT id, name, description, image_url, color
-        FROM teams
-        WHERE user_id = %s
-        ORDER BY created_at DESC
+        SELECT DISTINCT t.id, t.name, t.description, t.image_url, t.color, t.created_at,
+            CASE WHEN t.user_id = %s THEN 'owner' ELSE tm.role END AS user_role
+        FROM teams t
+        LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.user_id = %s AND tm.status = 'accepted'
+        WHERE t.user_id = %s OR (tm.user_id = %s AND tm.status = 'accepted')
+        ORDER BY t.created_at DESC
         """,
-        (user["id"],)
+        (user["id"], user["id"], user["id"], user["id"])
     )
 
     return {"teams": cur.fetchall()}
@@ -108,13 +121,15 @@ def search_teams(query: str, user=Depends(require_user)):
 
     cur.execute(
         """
-        SELECT id, name, description, image_url, color
-        FROM teams
-        WHERE user_id = %s
-          AND LOWER(name) LIKE LOWER(%s)
-        ORDER BY created_at DESC
+        SELECT DISTINCT t.id, t.name, t.description, t.image_url, t.color, t.created_at,
+            CASE WHEN t.user_id = %s THEN 'owner' ELSE tm.role END AS user_role
+        FROM teams t
+        LEFT JOIN team_members tm ON t.id = tm.team_id AND tm.user_id = %s AND tm.status = 'accepted'
+        WHERE (t.user_id = %s OR (tm.user_id = %s AND tm.status = 'accepted'))
+          AND LOWER(t.name) LIKE LOWER(%s)
+        ORDER BY t.created_at DESC
         """,
-        (user["id"], f"%{query}%")
+        (user["id"], user["id"], user["id"], user["id"], f"%{query}%")
     )
 
     return {"teams": cur.fetchall()}
@@ -124,26 +139,31 @@ def search_teams(query: str, user=Depends(require_user)):
 @router.get("/{team_id}")
 def get_team(team_id: int, user=Depends(require_user)):
     """
-    Retrieves a single team if it belongs to the user.
+    Retrieves a single team if the user has access.
     """
 
     db = get_db()
-    cur = db.cursor()
 
+    user_role = require_team_role(team_id, user["id"], db, "viewer")
+
+    cur = db.cursor()
     cur.execute(
         """
         SELECT id, name, description, image_url, color
         FROM teams
-        WHERE id = %s AND user_id = %s
+        WHERE id = %s
         """,
-        (team_id, user["id"])
+        (team_id,)
     )
 
     row = cur.fetchone()
     if not row:
         return {"error": "Team not found"}, 404
 
-    return {"team": dict(row)}
+    team = dict(row)
+    team["user_role"] = user_role
+
+    return {"team": team}
 
 
 # DELETE TEAM (also deletes image from Firebase)
@@ -151,17 +171,20 @@ def get_team(team_id: int, user=Depends(require_user)):
 @router.delete("/{team_id}")
 def delete_team(team_id: int, user=Depends(require_user)):
     """
-    Deletes a team owned by the authenticated user.
+    Deletes a team. Only the team owner can delete.
     Also removes associated Firebase image if present.
     """
 
     db = get_db()
+
+    require_team_role(team_id, user["id"], db, "owner")
+
     cur = db.cursor()
 
     # Get image_path first
     cur.execute(
-        "SELECT image_path FROM teams WHERE id = %s AND user_id = %s",
-        (team_id, user["id"])
+        "SELECT image_path FROM teams WHERE id = %s",
+        (team_id,)
     )
     existing = cur.fetchone()
 
@@ -169,8 +192,8 @@ def delete_team(team_id: int, user=Depends(require_user)):
         delete_photo_from_firebase(existing["image_path"])
 
     cur.execute(
-        "DELETE FROM teams WHERE id = %s AND user_id = %s",
-        (team_id, user["id"])
+        "DELETE FROM teams WHERE id = %s",
+        (team_id,)
     )
 
     db.commit()
@@ -199,11 +222,14 @@ async def update_team(
     """
 
     db = get_db()
+
+    require_team_role(team_id, user["id"], db, "owner")
+
     cur = db.cursor()
 
     cur.execute(
-        "SELECT image_path FROM teams WHERE id = %s AND user_id = %s",
-        (team_id, user["id"])
+        "SELECT image_path FROM teams WHERE id = %s",
+        (team_id,)
     )
     existing = cur.fetchone()
 
@@ -229,10 +255,10 @@ async def update_team(
                 color = %s,
                 image_url = NULL,
                 image_path = NULL
-            WHERE id = %s AND user_id = %s
+            WHERE id = %s
             RETURNING id, name, description, image_url, color
             """,
-            (name, description, color, team_id, user["id"])
+            (name, description, color, team_id)
         )
 
     # =====================================================
@@ -254,10 +280,10 @@ async def update_team(
                 color = %s,
                 image_url = %s,
                 image_path = %s
-            WHERE id = %s AND user_id = %s
+            WHERE id = %s
             RETURNING id, name, description, image_url, color
             """,
-            (name, description, color, image_url, image_path, team_id, user["id"])
+            (name, description, color, image_url, image_path, team_id)
         )
 
     # =====================================================
@@ -271,10 +297,10 @@ async def update_team(
             SET name = %s,
                 description = %s,
                 color = %s
-            WHERE id = %s AND user_id = %s
+            WHERE id = %s
             RETURNING id, name, description, image_url, color
             """,
-            (name, description, color, team_id, user["id"])
+            (name, description, color, team_id)
         )
 
     row = cur.fetchone()
@@ -303,15 +329,10 @@ def create_match(
     """
 
     db = get_db()
-    cur = db.cursor()
 
-    # Verify team ownership
-    cur.execute(
-        "SELECT id FROM teams WHERE id = %s AND user_id = %s",
-        (team_id, user["id"])
-    )
-    if not cur.fetchone():
-        raise HTTPException(status_code=404, detail="Team not found or unauthorized")
+    require_team_role(team_id, user["id"], db, "editor")
+
+    cur = db.cursor()
 
     # Check duplicate date
     cur.execute(
@@ -370,17 +391,19 @@ def get_matches(team_id: int, user=Depends(require_user)):
     """
 
     db = get_db()
+
+    require_team_role(team_id, user["id"], db, "viewer")
+
     cur = db.cursor()
 
     cur.execute(
         """
         SELECT m.*
         FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE t.id = %s AND t.user_id = %s
+        WHERE m.team_id = %s
         ORDER BY m.game_date DESC
         """,
-        (team_id, user["id"])
+        (team_id,)
     )
 
     return {"matches": cur.fetchall()}
@@ -396,16 +419,14 @@ def get_match(match_id: int, user=Depends(require_user)):
     """
 
     db = get_db()
+
+    require_game_role(match_id, user["id"], db, "viewer")
+
     cur = db.cursor()
 
     cur.execute(
-        """
-        SELECT m.*
-        FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE m.id = %s AND t.user_id = %s
-        """,
-        (match_id, user["id"])
+        "SELECT * FROM matches WHERE id = %s",
+        (match_id,)
     )
 
     row = cur.fetchone()
@@ -424,18 +445,12 @@ def delete_match(match_id: int, user=Depends(require_user)):
     """
 
     db = get_db()
+
+    require_game_role(match_id, user["id"], db, "editor")
+
     cur = db.cursor()
 
-    cur.execute(
-        """
-        DELETE FROM matches
-        USING teams
-        WHERE matches.team_id = teams.id
-          AND matches.id = %s
-          AND teams.user_id = %s
-        """,
-        (match_id, user["id"])
-    )
+    cur.execute("DELETE FROM matches WHERE id = %s", (match_id,))
 
     db.commit()
     return {"message": "Match deleted"}
@@ -455,6 +470,9 @@ def update_match(
     """
 
     db = get_db()
+
+    require_game_role(match_id, user["id"], db, "editor")
+
     cur = db.cursor()
 
     cur.execute(
@@ -466,11 +484,8 @@ def update_match(
             team_score = %s,
             opponent_score = %s,
             description = %s
-        FROM teams
-        WHERE matches.team_id = teams.id
-          AND matches.id = %s
-          AND teams.user_id = %s
-        RETURNING matches.*
+        WHERE id = %s
+        RETURNING *
         """,
         (
             data.name,
@@ -479,8 +494,7 @@ def update_match(
             data.team_score,
             data.opponent_score,
             data.description,
-            match_id,
-            user["id"]
+            match_id
         )
     )
 
