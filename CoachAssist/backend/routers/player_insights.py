@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg2.extras import RealDictCursor
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_game_role
 from backend.schemas.player_insights_schema import PlayerInsightsUpdate
 
 router = APIRouter(
@@ -26,32 +27,11 @@ router = APIRouter(
 
 # HELPER: Verify Game Ownership (Team Security)
 
-def verify_game_access(game_id: int, user_id: int, db):
+def verify_game_access(game_id: int, user_id: int, db, required_role: str = "viewer"):
     """
-    Ensures that the authenticated user owns the team
-    associated with the requested game.
-
-    Prevents unauthorized access to:
-    - Player stats
-    - Player notes
-    - Game analysis data
+    Ensures the user has at least the required role for the game's team.
     """
-
-    with db.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
-            SELECT m.id
-            FROM matches m
-            JOIN teams t ON m.team_id = t.id
-            WHERE m.id = %s AND t.user_id = %s
-        """, (game_id, user_id))
-
-        game = cur.fetchone()
-
-        if not game:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this game"
-            )
+    require_game_role(game_id, user_id, db, required_role)
 
 # GET PLAYER INSIGHTS (Stats + Notes)
 
@@ -133,7 +113,7 @@ def update_player_insights(
     """
 
     user_id = user["id"]
-    verify_game_access(game_id, user_id, db)
+    verify_game_access(game_id, user_id, db, "editor")
 
     with db.cursor(cursor_factory=RealDictCursor) as cur:
         try:
