@@ -15,9 +15,14 @@ const TEAM_COLOR_OPTIONS = [ //Colormap
   "#5F5F5F"  // dark grey
 ];
 
+function isOwnTeam(team) {
+  return !team.user_role || team.user_role === "owner";
+}
+
 export default function Dashboard() {
   const [teams, setTeams] = useState([]); //Team list state
   const [search, setSearch] = useState(""); //Search input state
+  const [teamFilter, setTeamFilter] = useState("all"); // all | own | shared
   const [showCreate, setShowCreate] = useState(false); //Team creation modal state
   const [teamToDelete, setTeamToDelete] = useState(null); //Delete confirmation modal state
 
@@ -114,6 +119,13 @@ export default function Dashboard() {
     });
   };
 
+  const filteredTeams = teams.filter((team) => {
+    if (teamFilter === "all") return true;
+    const own = isOwnTeam(team);
+    if (teamFilter === "own") return own;
+    return !own;
+  });
+
   return (
     <div style={{ paddingTop: "110px", paddingBottom: "60px" }}>
       {/* Page Title */}
@@ -135,8 +147,8 @@ export default function Dashboard() {
           margin: "0 auto",
         }}
       >
-        {/* Controls */}
-        <div style={{ marginBottom: "20px" }}>
+        {/* Controls: Add + Search left, filter right on same row */}
+        <div className="dashboard-controls">
           <button
             className="add-team-btn tutorial-add-team-btn"
             onClick={() => setShowCreate(true)}
@@ -144,14 +156,42 @@ export default function Dashboard() {
             Add Team
           </button>
 
-          {/* Search Input */}
           <input
             type="text"
             placeholder="Search for Team"
             value={search}
             onChange={(e) => handleSearch(e.target.value)}
-            style={{ padding: "8px", width: "250px", marginLeft: "15px" }}
           />
+
+          <div className="dashboard-team-filter-wrap">
+            <div
+              className="dashboard-team-filter"
+              role="group"
+              aria-label="Filter teams by ownership"
+            >
+              <button
+                type="button"
+                className={teamFilter === "all" ? "active" : ""}
+                onClick={() => setTeamFilter("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                className={teamFilter === "own" ? "active" : ""}
+                onClick={() => setTeamFilter("own")}
+              >
+                My teams
+              </button>
+              <button
+                type="button"
+                className={teamFilter === "shared" ? "active" : ""}
+                onClick={() => setTeamFilter("shared")}
+              >
+                Shared
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Team grid */}
@@ -162,8 +202,16 @@ export default function Dashboard() {
             </p>
           )}
 
+          {teams.length > 0 && filteredTeams.length === 0 && (
+            <p style={{ fontStyle: "italic" }}>
+              {teamFilter === "own"
+                ? "You don't have any teams you own yet."
+                : "No shared teams yet. When someone invites you, they'll appear here."}
+            </p>
+          )}
+
           {/* Team Cards */}
-          {teams.map((team) => (
+          {filteredTeams.map((team) => (
             <div
               key={team.id}
               className="team-card"

@@ -17,17 +17,60 @@
   max-width: 1300px;
 }
 
-/* Controls row (Add + Search) */
+/* Controls row: Add + Search, filter on same line (filter flush right) */
 .dashboard-controls {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 15px;
+  width: 100%;
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 .dashboard-controls input {
   padding: 8px;
   width: 250px;
+}
+
+.dashboard-team-filter-wrap {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Dashboard: My teams vs Shared filter */
+.dashboard-team-filter {
+  display: inline-flex;
+  border: 2px solid #000;
+  border-radius: 8px;
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.dashboard-team-filter button {
+  padding: 8px 14px;
+  margin: 0;
+  border: none;
+  border-right: 2px solid #000;
+  background: #e8e8e8;
+  color: #222;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dashboard-team-filter button:last-child {
+  border-right: none;
+}
+
+.dashboard-team-filter button:hover {
+  background: #ddd;
+}
+
+.dashboard-team-filter button.active {
+  background: #222;
+  color: #fff;
+  font-weight: 700;
 }
 
 /*TEAM CARD*/
