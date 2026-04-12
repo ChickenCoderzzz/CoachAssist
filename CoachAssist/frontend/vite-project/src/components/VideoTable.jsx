@@ -1,12 +1,26 @@
 import React, { useState } from "react";
 
-export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo, handleRenameVideo, handleUpscaleVideo, upscalingIds = new Set(), handleUpscaleClick }) {
+export default function VideoTable({ videoList, setVideoSrc, setVideoName, handleDeleteVideo, handleClipVideo, handleRenameVideo, handleUpscaleVideo, upscaleJobs= {}, handleUpscaleClick }) {
     const [expandedId, setExpandedId] = useState(null);
 
     const toggleExpand = (videoId) => {
         setExpandedId(prev => prev === videoId ? null : videoId);
     };
 
+
+    function formatStep(step) {
+    const map = {
+        downloading: "Downloading",
+        extracting_frames: "Extracting",
+        upscaling_frames: "Upscaling",
+        rebuilding_video: "Rebuilding",
+        uploading: "Uploading",
+        "updating records": "Finalizing",
+        completed: "Done"
+    };
+
+    return map[step] || step;
+    }
     return (
         <div className="game-state-table-container analysis-side-table video-table">
             <div className="table-title-header">Video Library</div>
@@ -20,7 +34,9 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
                 {videoList.length > 0 ? (
                     videoList.map((video) => {
                         // Check if this video is currently being upscaled
-                        const isUpscaling = upscalingIds.has(video.id);
+                        const job = upscaleJobs[video.id];
+                        const isFailed = job?.status === "failed";
+                        const isUpscaling = job && job.status !== "done" && job.status !== "failed";
                     
                         return(
                         <React.Fragment key={video.id}>
@@ -70,13 +86,38 @@ export default function VideoTable({ videoList, setVideoSrc, setVideoName, handl
                                                 Clip
                                             </button>
                                             <button
-                                                className="player-view-btn"
-                                                style={{ backgroundColor: '#ab57ad' }}
-                                                onClick={() => handleUpscaleClick(video.id)}
-                                                disabled={isUpscaling}
+                                            className="player-view-btn"
+                                            style={{
+                                                backgroundColor: isUpscaling ? '#e6eaee' : '#ab57ad',
+                                                position: "relative",
+                                                overflow: "hidden"
+                                            }}
+                                            onClick={() => handleUpscaleClick(video.id)}
+                                            disabled={isUpscaling}
                                             >
-                                                {isUpscaling ? "Upscaling..." : "Upscale"}
-                                            </button>
+                                            {isUpscaling ? (
+                                                <>
+                                                    {formatStep(job?.step)} ({job?.progress ?? 0}%)
+
+                                                    {/* Progress bar fill */}
+                                                    <div
+                                                        style={{
+                                                            position: "absolute",
+                                                            bottom: 0,
+                                                            left: 0,
+                                                            height: "4px",
+                                                            width: `${job?.progress ?? 0}%`,
+                                                            backgroundColor: "#00ffcc",
+                                                            transition: "width 0.3s ease"
+                                                        }}
+                                                    />
+                                                </>
+                                            ) : isFailed ? (
+                                                "Retry Upscale"
+                                            ) : (
+                                                "Upscale"
+                                            )}
+                                        </button>
                                         </div>
                                     </div>
                                 </div>

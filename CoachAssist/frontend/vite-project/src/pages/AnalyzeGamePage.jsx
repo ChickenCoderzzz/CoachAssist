@@ -270,7 +270,7 @@ export default function AnalyzeGamePage() {
     const {
         videoList, videoSrc, videoName, videoRef,
         uploading, clipTarget,
-        upscalingIds,
+        upscaleJobs,
         setVideoSrc, setVideoName,
         handleVideoUpload, handleDeleteVideo,
         handleRenameVideo,
@@ -575,7 +575,7 @@ export default function AnalyzeGamePage() {
                         handleRenameVideo={handleRenameVideo}
                         handleUpscaleVideo={handleUpscaleVideo}
                         handleUpscaleClick={handleUpscaleClick}
-                        upscalingIds={upscalingIds}
+                        upscaleJobs={upscaleJobs}
                     />
                 ) : activeTab === "Game State" ? (
 
