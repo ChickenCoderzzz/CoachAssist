@@ -120,6 +120,18 @@ CREATE TABLE saved_player_analysis (
 ALTER TABLE saved_player_analysis
 ADD COLUMN team_id INTEGER;
 
+-- SAVED_GAME_ANALYSIS
+CREATE TABLE saved_game_analysis (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL,
+  game_id INTEGER,
+  game_name TEXT,
+  opponent TEXT,
+  game_date DATE,
+  analysis_text TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 --END OF SQL by Wences Jacob Lorenzo
 
 -- =========================
