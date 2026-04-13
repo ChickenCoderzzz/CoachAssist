@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_game_role
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -14,28 +15,14 @@ class GameStateRow(BaseModel):
     id: Optional[int]
     text: str
     time: str
+    quarter: Optional[str] = None #Added by Wences Jacob Lorenzo
 
 class GameStateUpdate(BaseModel):
     category: str
     data: List[GameStateRow]
 
-def verify_game_access(game_id: int, user_id: int, db):
-    cur = db.cursor()
-    cur.execute("""
-        SELECT m.id
-        FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE m.id = %s AND t.user_id = %s
-    """, (game_id, user_id))
-    
-    match = cur.fetchone()
-    cur.close()
-    
-    if not match:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Access denied to this game"
-        )
+def verify_game_access(game_id: int, user_id: int, db, required_role: str = "viewer"):
+    require_game_role(game_id, user_id, db, required_role)
 
 
 @router.get("/{game_id}/state")
@@ -48,7 +35,7 @@ def get_game_state(
     cur = db.cursor()
     
     cur.execute("""
-        SELECT id, category, observation as text, time 
+        SELECT id, category, observation as text, time, quarter
         FROM game_states 
         WHERE game_id = %s
     """, (game_id,))
@@ -69,7 +56,8 @@ def get_game_state(
             result[category].append({
                 "id": row["id"],
                 "text": row["text"],
-                "time": row["time"]
+                "time": row["time"],
+                "quarter": row["quarter"] #Added by Wences Jacob Lorenzo
             })
             
     return result
@@ -81,21 +69,22 @@ def update_game_state(
     db=Depends(get_db), 
     user=Depends(require_user)
 ):
-    verify_game_access(game_id, user["id"], db)
+    verify_game_access(game_id, user["id"], db, "editor")
     cur = db.cursor()
-    
+
     try:
-        
+
         cur.execute("DELETE FROM game_states WHERE game_id = %s", (game_id,))
         
-        insert_query = """
-            INSERT INTO game_states (game_id, category, observation, time)
-            VALUES (%s, %s, %s, %s)
+        #Edited by Wences Jacob Lorenzo
+        insert_query = """ 
+            INSERT INTO game_states (game_id, category, observation, time, quarter)
+            VALUES (%s, %s, %s, %s, %s)
         """
         
         for category, rows in state_data.items():
             for row in rows:
-                cur.execute(insert_query, (game_id, category, row.text, row.time))
+                cur.execute(insert_query, (game_id, category, row.text, row.time, row.quarter)) #Wences Jacob Lorenzo
         
         db.commit()
         return {"message": "Game state updated successfully"}

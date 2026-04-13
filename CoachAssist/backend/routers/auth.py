@@ -205,6 +205,16 @@ def verify_email(data: VerifyEmailSchema):
         )
     )
 
+    # Auto-resolve pending team invites for this email
+    cur.execute(
+        """
+        UPDATE team_members
+        SET user_id = (SELECT id FROM users WHERE email = %s)
+        WHERE invited_email = %s AND status = 'pending' AND user_id IS NULL
+        """,
+        (pending["email"], pending["email"])
+    )
+
     #Remove from pending table
     cur.execute("DELETE FROM pending_users WHERE id=%s", (pending["id"],))
 

@@ -79,12 +79,22 @@ export default function AnalyzeGamePage() {
                 .then((res) => res.json())
                 .then((data) => {
                     // Backend returns nested structure directly
+                    //Edited by Wences Jacob Lorenzo
                     if (data) {
                         Object.keys(data).forEach(tab => {
                             if (Array.isArray(data[tab])) {
+
+                                //  Ensure every row has a quarter field
+                                data[tab] = data[tab].map(row => ({
+                                    ...row,
+                                    quarter: row.quarter || ""
+                                }));
+
+                                //  Keep your existing sorting
                                 data[tab].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
                             }
                         });
+
                         setAllTableData(data);
                     }
                 });
@@ -260,7 +270,7 @@ export default function AnalyzeGamePage() {
     const {
         videoList, videoSrc, videoName, videoRef,
         uploading, clipTarget,
-        upscalingIds,
+        upscaleJobs,
         setVideoSrc, setVideoName,
         handleVideoUpload, handleDeleteVideo,
         handleRenameVideo,
@@ -297,13 +307,24 @@ export default function AnalyzeGamePage() {
 
     // Logic to add a new row
     const handleAddRow = () => {
-        const newRow = { id: Date.now(), text: "", time: "" };
+        const newRow = { id: Date.now(), text: "", time: "", quarter: "" }; //Edit by Wences Jacob Lorenzo
 
         setAllTableData(prevData => {
             const currentList = prevData[activeTab] || [];
             return {
                 ...prevData,
                 [activeTab]: [...currentList, newRow]
+            };
+        });
+    };
+
+    const handleDeleteRow = (id) => {
+        setAllTableData(prevData => {
+            const currentList = prevData[activeTab] || [];
+
+            return {
+                ...prevData,
+                [activeTab]: currentList.filter(row => row.id !== id)
             };
         });
     };
@@ -334,6 +355,21 @@ export default function AnalyzeGamePage() {
     }
 
     const handleSave = () => {
+
+        //  VALIDATION 
+        for (const tab in allTableData) {
+            const rows = allTableData[tab];
+
+            if (Array.isArray(rows)) {
+                for (const row of rows) {
+                    if (!row.quarter) {
+                        alert("All insights must have a quarter (Q1–Q4) before saving.");
+                        return; // STOP saving completely
+                    }
+                }
+            }
+        }
+
         // Quick final sort before saving to ensure everything is perfect
         const finalData = { ...allTableData };
         Object.keys(finalData).forEach(tab => {
@@ -539,7 +575,7 @@ export default function AnalyzeGamePage() {
                         handleRenameVideo={handleRenameVideo}
                         handleUpscaleVideo={handleUpscaleVideo}
                         handleUpscaleClick={handleUpscaleClick}
-                        upscalingIds={upscalingIds}
+                        upscaleJobs={upscaleJobs}
                     />
                 ) : activeTab === "Game State" ? (
 
@@ -547,10 +583,13 @@ export default function AnalyzeGamePage() {
                     <div className="game-state-table-container">
                         <div className="table-title-header">{tableHeaderTitle}</div>
 
+                        {/*Edited by Wences Jacob Lorenzo*/}
                         <div className="table-header-row">
                             <div className="cell col-obs">Observation</div>
                             <div className="cell col-time">Time</div>
+                            <div className="cell col-quarter">Quarter</div>
                             <div className="cell col-play">Play</div>
+                            <div className="cell col-delete"></div> {/* NEW */}
                             <div className="scrollbar-spacer"></div>
                         </div>
 
@@ -564,6 +603,7 @@ export default function AnalyzeGamePage() {
                                             onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
                                         />
                                     </div>
+
                                     <div className="cell col-time">
                                         <input
                                             className="table-input center"
@@ -572,6 +612,22 @@ export default function AnalyzeGamePage() {
                                             onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
                                         />
                                     </div>
+
+                                    {/* NEW: Quarter dropdown. Added by Wences Jacob Lorenzo */}
+                                    <div className="cell col-quarter">
+                                        <select
+                                            className="table-input center"
+                                            value={row.quarter || ""}
+                                            onChange={(e) => handleInputChange(row.id, "quarter", e.target.value)}
+                                        >
+                                            <option value="">Select</option>
+                                            <option value="Q1">Q1</option>
+                                            <option value="Q2">Q2</option>
+                                            <option value="Q3">Q3</option>
+                                            <option value="Q4">Q4</option>
+                                        </select>
+                                    </div>
+
                                     <div className="cell col-play">
                                         <button 
                                             className="play-row-btn"
@@ -584,6 +640,16 @@ export default function AnalyzeGamePage() {
                                             title="Play from timestamp"
                                         >
                                             ▶
+                                        </button>
+                                    </div>
+
+                                    <div className="cell col-delete">
+                                        <button
+                                            className="delete-btn"
+                                            onClick={() => handleDeleteRow(row.id)}
+                                            title="Delete row"
+                                        >
+                                            ✕
                                         </button>
                                     </div>
                                 </div>
@@ -600,7 +666,7 @@ export default function AnalyzeGamePage() {
                 ) : (
 
                     // PLAYER TABLE REPLACES GAME STATE TABLE
-                    <div className="game-state-table-container player-table">
+                    <div className="game-state-table-container analysis-side-table">
                         {/* Dynamic header color based on unit */}
                         <div
                             className={`table-title-header ${activeTab === "Offensive"
@@ -615,24 +681,22 @@ export default function AnalyzeGamePage() {
                             Player Table - {activeTab}
                         </div>
 
-                        {/* Table header row */}
-                        <div className="player-table-header">
-                            <div>#</div>
-                            <div>Name</div>
-                            <div>Position</div>
-                            <div>★</div>
-                            <div>Action</div>
+                        <div className="table-header-row analysis-player-header">
+                            <div className="cell col-player-number">#</div>
+                            <div className="cell col-player-name">Name</div>
+                            <div className="cell col-player-position">Position</div>
+                            <div className="cell col-player-priority">★</div>
+                            <div className="cell col-player-action">Action</div>
                         </div>
 
-                        {/* Player rows.*/}
-                        <div className="player-table-body">
-                            {filteredPlayers.map((player) => (
-                                <div className="player-table-row" key={player.id}>
-                                    <div>{player.jersey_number}</div>
-                                    <div>{player.player_name}</div>
-                                    <div>{getFullPositionName(player.position)}</div>
+                        <div className="table-scroll-area analysis-alt-table-scroll">
+                            {filteredPlayers.length > 0 ? filteredPlayers.map((player) => (
+                                <div className="table-row analysis-player-row" key={player.id}>
+                                    <div className="cell col-player-number">{player.jersey_number}</div>
+                                    <div className="cell col-player-name">{player.player_name}</div>
+                                    <div className="cell col-player-position">{getFullPositionName(player.position)}</div>
 
-                                    <div>
+                                    <div className="cell col-player-priority">
                                         <button
                                             className={`priority-star ${player.is_priority ? "active" : ""}`}
                                             title={player.is_priority ? "Remove Priority" : "Mark as Priority"}
@@ -642,8 +706,7 @@ export default function AnalyzeGamePage() {
                                         </button>
                                     </div>
 
-                                    {/* Open modal */}
-                                    <div>
+                                    <div className="cell col-player-action">
                                         <button
                                             className="player-view-btn"
                                             onClick={() => openPlayerModal(player)}
@@ -652,7 +715,11 @@ export default function AnalyzeGamePage() {
                                         </button>
                                     </div>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="table-row analysis-player-row">
+                                    <div className="cell col-empty">No players found for this unit</div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -771,6 +838,7 @@ export default function AnalyzeGamePage() {
                     savePlayerInsights={savePlayerInsights}
                     cancelPlayerModal={cancelPlayerModal}
                     isSavingPlayer={isSavingPlayer}
+                    videoRef={videoRef}
                 />
             )}
 

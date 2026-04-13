@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 from backend.video_providers.youtube import create_youtube_video
 from fastapi import UploadFile, File
 from backend.video_providers.firebase_storage import upload_video_to_firebase, bucket
@@ -25,38 +26,48 @@ router = APIRouter(
     tags=["Match Videos"]
 )
 
-#verify that the match is owned by the requester and is avaliable to store videos under
-def verify_match_ownership(team_id: int, match_id: int, user_id: int):
+#verify that the user has access to the match's team
+def verify_match_ownership(team_id: int, match_id: int, user_id: int, required_role: str = "viewer"):
     db = get_db()
-    cur = db.cursor()
+    try:
+        require_team_role(team_id, user_id, db, required_role)
 
-    cur.execute(
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id FROM matches WHERE id = %s AND team_id = %s",
+            (match_id, team_id)
+        )
+        result = cur.fetchone()
+        cur.close()
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Match not found")
+    finally:
+        db.close()
+
+def update_job(cur, job_id, status=None, progress=None, step=None):
+    try:
+        cur.execute(
         """
-        SELECT m.id
-        FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE m.id = %s
-          AND m.team_id = %s
-          AND t.user_id = %s
+        UPDATE upscale_jobs
+        SET status = COALESCE(%s, status),
+            progress = COALESCE(%s, progress),
+            step = COALESCE(%s, step)
+        WHERE id = %s
         """,
-        (match_id, team_id, user_id)
+        (status, progress, step, job_id)
     )
+    except Exception as e:
+        logger.error(f"[UPSCALE] Update failed for job={job_id}: {e}", exc_info=True)
 
-    result = cur.fetchone()
-
-    cur.close()
-    db.close()
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Match not found or unauthorized")
-
-
-def process_upscale_video_in_background(user_id: int, team_id: int, match_id: int, video_id: int):
+def process_upscale_video_in_background(user_id: int, team_id: int, match_id: int, video_id: int, job_id: int):
     db = get_db()
     cur = db.cursor()
     
     logger.info(f"[UPSCALE] Starting upscale for user={user_id}, video={video_id}")
-
+    #update job to reflect that it has begun
+    update_job(cur, job_id, status="processing", progress=5, step="downloading")
+    db.commit()
     try:
         cur.execute(
             """
@@ -72,6 +83,8 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
 
         video = cur.fetchone()
         if not video or not video["storage_path"]:
+            update_job(cur, job_id, status="failed", step="video not found")
+            db.commit()
             logger.error(f"[UPSCALE] Video not found or missing storage_path: {video}")
             return
 
@@ -91,13 +104,16 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
             # Step 1: Download from Firebase
             try:
                 logger.info(f"[UPSCALE] Downloading video from Firebase: {video['storage_path']}")
+                
                 blob = bucket.blob(video["storage_path"])
                 blob.download_to_filename(input_path)
                 logger.info(f"[UPSCALE] Successfully downloaded video ({os.path.getsize(input_path)} bytes)")
             except Exception as e:
                 logger.error(f"[UPSCALE] Firebase download failed: {e}")
                 raise
-
+            # update job to reflect that the current stage is frame extraction
+            update_job(cur, job_id, progress=20, step="extracting_frames")
+            db.commit()
             # Step 2: Extract frames
             try:
                 logger.info(f"[UPSCALE] Extracting frames from video...")
@@ -115,7 +131,9 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
             except Exception as e:
                 logger.error(f"[UPSCALE] Frame extraction failed: {e}")
                 raise
-
+            # update job to reflect that the current stage is upscaling frames
+            update_job(cur, job_id, progress=40, step="upscaling_frames")
+            db.commit()
             # Step 3: Upscale frames
             try:
                 logger.info(f"[UPSCALE] Upscaling {frame_count} frames using Real-ESRGAN (model: realesrgan-x4plus)...")
@@ -141,7 +159,9 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
             except Exception as e:
                 logger.error(f"[UPSCALE] Upscaling failed: {e}")
                 raise
-
+            # update job to reflect that the current stage is rebuilding the video
+            update_job(cur, job_id, progress=70, step="rebuilding_video")
+            db.commit()
             # Step 4: Rebuild video
             try:
                 logger.info(f"[UPSCALE] Rebuilding video from upscaled frames...")
@@ -163,7 +183,9 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
             except Exception as e:
                 logger.error(f"[UPSCALE] Video rebuild failed: {e}")
                 raise
-
+            # update job to reflect that the current stage is reuploading video
+            update_job(cur, job_id, progress=80, step="uploading")
+            db.commit()
             # Step 5: Upload to Firebase
             try:
                 
@@ -187,7 +209,9 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
             except Exception as e:
                 logger.error(f"[UPSCALE] Firebase upload failed: {e}")
                 raise
-
+            # update job to reflect that the current stage is updating the database records
+            update_job(cur, job_id, progress=90, step="updating records")
+            db.commit()
             # Step 6: Insert database record
             try:
                 logger.info(f"[UPSCALE] Inserting new video record into database...")
@@ -220,11 +244,14 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 db.rollback()
                 logger.error(f"[UPSCALE] Database insert failed: {e}")
                 raise
-
+        update_job(cur, job_id, status="done", progress=100, step="completed")
+        db.commit()
         logger.info(f"[UPSCALE] Upscaling completed successfully for video={video_id}")
 
     except Exception as e:
         logger.error(f"[UPSCALE] Upscaling failed for user={user_id}, video={video_id}: {e}", exc_info=True)
+        db.commit()
+        update_job(cur, job_id, status="failed", step=str(e)[:100])
 
     finally:
         cur.close()
@@ -314,12 +341,11 @@ def list_videos(
         """
         SELECT id, provider, provider_video_id, storage_path, filename, created_at
         FROM videos
-        WHERE user_id = %s
-          AND team_id = %s
+        WHERE team_id = %s
           AND match_id = %s
         ORDER BY created_at DESC
         """,
-        (user["id"], team_id, match_id)
+        (team_id, match_id)
     )
 
     rows = cur.fetchall()
@@ -359,8 +385,8 @@ def upload_video(
     file: UploadFile = File(...),
     user=Depends(require_user)
 ):
-    #verify that the team,match,and user are correct
-    verify_match_ownership(team_id, match_id, user["id"])
+    #verify that the user has editor access
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -419,7 +445,7 @@ def delete_video(
     video_id: int,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -482,7 +508,7 @@ def rename_video(
     payload: RenameVideoRequest,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     db = get_db()
     cur = db.cursor()
@@ -527,7 +553,7 @@ def clip_video(
     payload: ClipVideoSchema,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
     if payload.end <= payload.start:
         raise HTTPException(400, "Invalid time range")
@@ -641,12 +667,14 @@ def upscale_video(
     background_tasks: BackgroundTasks,
     user=Depends(require_user)
 ):
-    verify_match_ownership(team_id, match_id, user["id"])
+    verify_match_ownership(team_id, match_id, user["id"], "editor")
 
-    # Pre-validation: ensure the video exists and is owned.
+    # Pre-validation: ensure the video exists.
     db = get_db()
     cur = db.cursor()
+
     try:
+        # Validate video exists
         cur.execute(
             """
             SELECT id
@@ -658,22 +686,101 @@ def upscale_video(
             """,
             (video_id, user["id"], team_id, match_id)
         )
-        existing_video = cur.fetchone()
-        if not existing_video:
+        if not cur.fetchone():
             raise HTTPException(404, "Video not found")
+        
+        # Check for existing active upscaling job
+        cur.execute(
+            """
+            SELECT id
+            FROM upscale_jobs
+            WHERE video_id = %s
+            AND user_id = %s
+            AND status IN ('queued', 'processing')
+            LIMIT 1
+            """,
+            (video_id, user["id"])
+        )
+
+        existing_job = cur.fetchone()
+
+        if existing_job:
+            cur.close()
+            db.close()
+            return {
+                "status": "already_running",
+                "job_id": existing_job["id"]
+            }
+        
+        # create upscaling job to track progress
+        cur.execute(
+            """
+            INSERT INTO upscale_jobs (
+                video_id,
+                user_id,
+                team_id,
+                match_id,
+                status,
+                progress,
+                step
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                video_id,
+                user["id"],
+                team_id,
+                match_id,
+                "queued",
+                0,
+                "queued"
+            )
+        )
+
+        job_id = cur.fetchone()["id"]
+        db.commit()
+
     finally:
         cur.close()
         db.close()
 
+    #start background task
     background_tasks.add_task(
         process_upscale_video_in_background,
         user["id"],
         team_id,
         match_id,
-        video_id
+        video_id,
+        job_id   
     )
 
     return {
         "status": "queued",
-        "message": "Upscaling started; this may take a few minutes. Video list will update once done."
+        "job_id": job_id
     }
+
+#upscaling job status endpoint
+@router.get("/{job_id}/upscale-status")
+def get_upscale_status(job_id: int, user=Depends(require_user)):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute(
+        """
+        SELECT status, progress, step
+        FROM upscale_jobs
+        WHERE id = %s AND user_id = %s
+        """,
+        (job_id, user["id"])
+    )
+
+    job = cur.fetchone()
+
+    cur.close()
+    db.close()
+
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    return job

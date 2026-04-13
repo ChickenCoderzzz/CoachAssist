@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 from google import genai
 from psycopg2.extras import RealDictCursor
 import os
@@ -75,7 +76,7 @@ def verify_game_access(team_id: int, game_id: int, user_id: int, db):
 
 # Promp AI model to analyze player
 @router.post("/analyze-player")
-async def analyze_player(data: PlayerAnalysisRequest):
+async def analyze_player(data: PlayerAnalysisRequest, user=Depends(require_user)):
     try:
         prompt = f"""
         You are a football performance analyst.
@@ -107,10 +108,11 @@ async def analyze_player(data: PlayerAnalysisRequest):
 @router.post("/save-player-analysis")
 def save_player_analysis(
     data: SaveAnalysisRequest,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    user=Depends(require_user)
 ):
     try:
-        print("SAVE HIT")
+        require_team_role(data.team_id, user["id"], db, "editor")
 
         with db.cursor() as cur:
             cur.execute("""
@@ -140,8 +142,10 @@ def save_player_analysis(
 
 # Retrieve AI analysis outputs
 @router.get("/saved-player-analysis/{team_id}")
-def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
+def get_saved_player_analysis(team_id: int, db=Depends(get_db), user=Depends(require_user)):
     try:
+        require_team_role(team_id, user["id"], db, "viewer")
+
         with db.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT *
@@ -162,7 +166,7 @@ def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
 
 # Delete AI analysis outputs
 @router.delete("/delete-player-analysis/{analysis_id}")
-def delete_player_analysis(analysis_id: int, db=Depends(get_db)):
+def delete_player_analysis(analysis_id: int, db=Depends(get_db), user=Depends(require_user)):
     try:
         with db.cursor() as cur:
             cur.execute("""

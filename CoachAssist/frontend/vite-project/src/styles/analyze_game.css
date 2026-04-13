@@ -47,10 +47,14 @@
 /* Main Content: Video + Table */
 .analyze-content {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 20px;
     margin-bottom: 30px;
     align-items: stretch;
+}
+
+.analyze-content > * {
+    min-width: 0;
 }
 
 /* Old Video Player container 
@@ -68,6 +72,7 @@
     position: relative;
     width: 100%;
     max-width: 800px;
+    min-width: 0;
     padding-top: 56.25%;
     /* 16:9 container */
     background: #000;
@@ -217,8 +222,10 @@
     background-color: #fff;
     display: flex;
     flex-direction: column;
+    width: 100%;
     height: 100%;
     max-height: 100%;
+    min-width: 0;
     /* Ensure it doesn't overflow parent */
     /* BORDERS: Outer Top/Left. Cells will provide Bottom/Right. 
        Standardized to 2px for consistency */
@@ -269,20 +276,36 @@
     text-align: center;
 }
 
+.col-delete {
+    width: 50px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .play-row-btn {
     background: #10b981;
     color: white;
     border: 2px solid #000;
     border-radius: 6px;
-    padding: 4px 12px;
-    font-size: 0.9rem;
+
+    width: 24px;        /*  smaller */
+    height: 24px;       /*  smaller */
+
+    padding: 0;
+    font-size: 0.65rem; /* smaller triangle */
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin: auto;       /*  centers inside grid cell */
+
     cursor: pointer;
     box-shadow: 1px 1px 0px #000;
     transition: transform 0.1s, box-shadow 0.1s;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0 auto;
+    transform: translateY(2px);
 }
 
 .play-row-btn:active {
@@ -339,8 +362,12 @@
 }
 
 .col-play {
-    border-right: none;
+    border-right: 2px solid #000;   /*  restore border */
     justify-content: center;
+}
+
+.col-delete {
+    border-right: none;   /*  last column */
 }
 
 /* INPUTS inside cells */
@@ -455,70 +482,76 @@
     background: #6a4ea3;
 }
 
-/* HEADER ROW                        */
-
-.player-table-header {
-    display: grid;
-    grid-template-columns: 80px 1fr 260px 80px 130px;
-    background: #f1f1f1;
-    font-weight: bold;
-    border-bottom: 2px solid #000;
-    align-items: stretch;
-    box-sizing: border-box;
-    padding-right: 14px;
+.analysis-side-table {
+    min-height: 0;
 }
 
-.player-table-header div {
-    padding: 12px 10px;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    border-right: 2px solid #000;
-}
-
-.player-table-header div:last-child {
-    border-right: none;
-}
-
-/* SCROLL AREA                       */
-
-.player-table-body {
-    max-height: 350px;
-    overflow-y: auto;
+.analysis-alt-table-scroll {
     scrollbar-gutter: stable;
 }
 
-/* TABLE ROWS                        */
-
-.player-table-row {
-    display: grid;
-    grid-template-columns: 80px 1fr 260px 80px 130px;
-    border-bottom: 1px solid #000;
-    align-items: stretch;
-    box-sizing: border-box;
+.analysis-player-header,
+.analysis-player-row,
+.analysis-video-header,
+.analysis-video-row,
+.video-action-table-row {
+    width: 100%;
 }
 
-.player-table-row div {
-    padding: 12px 10px;
-    display: flex;
-    align-items: center;
-    box-sizing: border-box;
-    border-right: 2px solid #000;
+.col-player-number {
+    width: 58px;
+    flex-shrink: 0;
+    justify-content: center;
 }
 
-.player-table-row div:last-child {
-    border-right: none;
+.col-player-name {
+    flex: 1.2;
+    min-width: 0;
 }
 
-.player-table-header div:nth-child(4),
-.player-table-row div:nth-child(4) {
+.col-player-position {
+    flex: 1;
+    min-width: 0;
+}
+
+.col-player-priority {
+    width: 58px;
+    flex-shrink: 0;
     justify-content: center;
     text-align: center;
 }
 
-.player-table-header div:nth-child(5),
-.player-table-row div:nth-child(5) {
+.col-player-action {
+    width: 96px;
+    flex-shrink: 0;
     justify-content: center;
+    border-right: none;
+}
+
+.col-video-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.col-video-action {
+    width: 72px;
+    flex-shrink: 0;
+    justify-content: center;
+    border-right: none;
+}
+
+.col-player-name,
+.col-player-position,
+.col-video-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.col-empty {
+    width: 100%;
+    justify-content: center;
+    border-right: none;
 }
 
 /* VIEW BUTTON                       */
@@ -531,6 +564,7 @@
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.15s ease;
+    box-sizing: border-box;
 }
 
 .player-view-btn:hover {
@@ -540,22 +574,6 @@
 
 /* VIDEO TABLE OVERRIDES            */
 
-.video-table .player-table-header,
-.video-table .player-table-row {
-    grid-template-columns: 1fr 80px;
-}
-
-.video-table .player-table-row div:first-child {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.video-table .player-table-body {
-    max-height: none;
-    overflow-y: visible;
-}
-
 .video-toggle-btn {
     background: none;
     border: none;
@@ -564,12 +582,23 @@
     padding: 4px 8px;
 }
 
-.video-action-row {
-    display: flex;
-    gap: 10px;
+.video-action-cell {
+    width: 100%;
+    border-right: none;
     padding: 10px 14px;
-    border-bottom: 1px solid #000;
     background: #f9f9f9;
+}
+
+.video-action-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 10px;
+    width: 100%;
+}
+
+.video-action-grid .player-view-btn {
+    width: 100%;
+    min-width: 0;
 }
 
 /* EMPTY SPACE FILLER (OPTIONAL)    */
@@ -654,16 +683,18 @@
     background-color: #b91c1c;
 }
 
-/* LEFT SIDE - NOTES TABLE                  */
+/* LEFT SIDE - NOTES TABLE */
 
+/* Wrapper (LEFT PANEL = 50%) */
 .player-notes-wrapper {
-    flex: 1;
+    flex: 0 0 50%;       /* ✅ FIXED half width */
+    max-width: 50%;
     display: flex;
     flex-direction: column;
-    min-height: 0;
-    /* critical */
+    min-width: 0;        /* ✅ CRITICAL: prevents overflow pushing layout */
 }
 
+/* Title */
 .player-observations-title {
     color: #fff;
     font-weight: bold;
@@ -671,7 +702,7 @@
     margin-bottom: 8px;
 }
 
-/* Notes container */
+/* Main container */
 .player-notes-container {
     flex: 1;
     display: flex;
@@ -680,19 +711,28 @@
     color: #000;
     border: 2px solid #000;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: hidden;    /* ✅ keeps layout contained */
+    min-height: 0;
+}
+
+/* SCROLL CONTAINER (horizontal + vertical) */
+.notes-scroll-container {
+    flex: 1;
+    overflow-x: auto;    /* ✅ horizontal scroll */
+    overflow-y: auto;    /* ✅ vertical scroll */
+    width: 100%;
     min-height: 0;
 }
 
 /* Header row */
 .notes-header {
     display: grid;
-    grid-template-columns: 1fr 120px 50px;
+    grid-template-columns: 1fr 120px 120px 90px 60px;
+    min-width: 700px;    /* ✅ forces horizontal scroll */
     background-color: #fdba74;
     font-weight: bold;
     border-bottom: 2px solid #000;
-    padding-right: 17px;
-    /* match scrollbar width */
+    padding-right: 17px; /* scrollbar alignment */
     box-sizing: border-box;
 }
 
@@ -705,22 +745,16 @@
     border-right: none;
 }
 
-/* Scroll area */
+/* Body wrapper */
 .notes-body {
-    flex: 1;
-    /* takes remaining space */
-    overflow-y: auto;
-    /* scroll only here */
-    min-height: 0;
-    position: relative;
-    padding-bottom: 10px;
-    scrollbar-gutter: stable;
+    display: block;      /* ✅ no separate scroll */
 }
 
-/* Row layout */
+/* Rows */
 .notes-row {
     display: grid;
-    grid-template-columns: 1fr 120px 50px;
+    grid-template-columns: 1fr 120px 120px 90px 60px;
+    min-width: 700px;    /* must match header */
     border-bottom: 1px solid #000;
 }
 
@@ -742,9 +776,11 @@
     text-overflow: ellipsis;
 }
 
-/* Time input */
-.notes-row input[type="text"],
-.notes-row input:not(.note-cell input) {
+/* Time + Quarter inputs */
+.notes-row input,
+.notes-row select {
+    width: 100%;
+    min-width: 80px;
     padding: 6px;
     border: none;
     border-right: 2px solid #000;
@@ -752,17 +788,33 @@
     text-align: center;
 }
 
-/* Delete column */
-.delete-btn {
-    border-left: 2px solid #000;
-    background: #fff;
-    color: red;
-    font-weight: bold;
-    cursor: pointer;
-    width: 100%;
+/* Play button alignment */
+.play-row-btn {
+    display: block;
+    margin: 0 auto;
 }
 
-/* Add row button (stays visible at bottom) */
+/* Delete column */
+.delete-btn {
+    background: #fff;
+    color: red;
+    border: 2px solid #000;
+    border-radius: 6px;
+
+    width: 22px;
+    height: 22px;
+
+    font-size: 0.7rem;
+    font-weight: bold;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    cursor: pointer;
+}
+
+/* Add row button */
 .add-row-btn {
     padding: 12px;
     font-weight: bold;
@@ -770,6 +822,11 @@
     border-top: 2px solid #000;
     cursor: pointer;
     width: 100%;
+}
+
+/* Optional: scrollbar styling */
+.notes-scroll-container::-webkit-scrollbar {
+    height: 6px;
 }
 
 /* TOOLTIP (DOWNWARD VERSION)               */
@@ -859,4 +916,38 @@
 .priority-star.active {
   opacity: 1;
   font-weight: bold;
+}
+
+/* Quarter Column Added */
+.col-quarter {
+    width: 100px;
+}
+
+/* ===== VISIBLE SCROLLBAR (PLAYER NOTES TABLE) ===== */
+
+/* Horizontal + Vertical scrollbar styling */
+.notes-scroll-container {
+    scrollbar-width: auto;              /* Firefox */
+    scrollbar-color: #888 #e0e0e0;      /* thumb | track */
+}
+
+/* Chrome, Edge, Safari */
+.notes-scroll-container::-webkit-scrollbar {
+    height: 10px;   /* horizontal */
+    width: 10px;    /* vertical */
+}
+
+.notes-scroll-container::-webkit-scrollbar-track {
+    background: #e0e0e0;
+    border-radius: 6px;
+}
+
+.notes-scroll-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+    border: 2px solid #e0e0e0; /* makes it stand out */
+}
+
+.notes-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
