@@ -14,6 +14,24 @@ export default function PlayerInsightsModal({
     isSavingPlayer,
     videoRef
 }) {
+
+    const [selectedQuarter, setSelectedQuarter] = React.useState("Q1");
+
+    const QUARTERS = ["Q1", "Q2", "Q3", "Q4", "overall"];
+    const isOverall = selectedQuarter === "overall";
+
+    const computedOverall = Object.values(playerStats || {}).reduce((acc, quarterStats) => {
+        if (!quarterStats) return acc;
+
+        Object.entries(quarterStats).forEach(([key, value]) => {
+            if (typeof value === "number") {
+                acc[key] = (acc[key] || 0) + value;
+            }
+        });
+
+        return acc;
+    }, {});
+
     return (
         <div className="player-modal-overlay">
             <div className="player-modal">
@@ -144,6 +162,20 @@ export default function PlayerInsightsModal({
                     {/* RIGHT SIDE - STATS */}
                     <div className="player-stats-container">
 
+                        <div className="quarter-selector" style={{ marginBottom: "10px" }}>
+                            <label style={{ marginRight: "8px" }}>Quarter:</label>
+                            <select
+                                value={selectedQuarter}
+                                onChange={(e) => setSelectedQuarter(e.target.value)}
+                            >
+                                {QUARTERS.map(q => (
+                                    <option key={q} value={q}>
+                                        {q === "overall" ? "Overall Game" : q}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
                         {/* GENERAL */}
                         <div className="player-stats-section">
                             <div className="player-stats-title">General</div>
@@ -158,13 +190,22 @@ export default function PlayerInsightsModal({
                                         </label>
                                         <input
                                             type="number"
-                                            value={playerStats[stat] || 0}
-                                            onChange={(e) =>
+                                            value={
+                                                isOverall
+                                                    ? computedOverall[stat] || 0
+                                                    : playerStats[selectedQuarter]?.[stat] || 0
+                                            }
+                                            onChange={(e) => {
+                                                if (isOverall) return;
+
                                                 setPlayerStats({
                                                     ...playerStats,
-                                                    [stat]: parseInt(e.target.value) || 0
-                                                })
-                                            }
+                                                    [selectedQuarter]: {
+                                                        ...(playerStats[selectedQuarter] || {}),
+                                                        [stat]: parseInt(e.target.value) || 0
+                                                    }
+                                                });
+                                            }}
                                         />
                                     </div>
                                 ))}
@@ -191,13 +232,22 @@ export default function PlayerInsightsModal({
                                                 </label>
                                                 <input
                                                     type="number"
-                                                    value={playerStats[stat] || 0}
-                                                    onChange={(e) =>
+                                                    value={
+                                                        isOverall
+                                                            ? computedOverall[stat] || 0
+                                                            : playerStats[selectedQuarter]?.[stat] || 0
+                                                    }
+                                                    onChange={(e) => {
+                                                        if (isOverall) return;
+
                                                         setPlayerStats({
                                                             ...playerStats,
-                                                            [stat]: parseInt(e.target.value) || 0
-                                                        })
-                                                    }
+                                                            [selectedQuarter]: {
+                                                                ...(playerStats[selectedQuarter] || {}),
+                                                                [stat]: parseInt(e.target.value) || 0
+                                                            }
+                                                        });
+                                                    }}
                                                 />
                                             </div>
                                         ))}

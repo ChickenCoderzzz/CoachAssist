@@ -97,11 +97,24 @@ async def analyze_player(data: PlayerAnalysisRequest, user=Depends(require_user)
             contents=prompt
         )
 
-        return {"analysis": response.text}
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
 
     except Exception as e:
         print("AI ERROR:", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"analysis": "An error occurred while generating analysis."}
 
 
 # Save player analysis outputs
@@ -219,12 +232,25 @@ async def analyze_game(
             contents=prompt
         )
 
-        return {"analysis": response.text}
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
     except HTTPException:
         raise
     except Exception as e:
         print("GAME AI ERROR:", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"analysis": "An error occurred while generating analysis."}
 
 
 @router.post("/save-game-analysis")

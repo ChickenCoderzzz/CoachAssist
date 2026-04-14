@@ -135,7 +135,9 @@ export default function PlayerAnalysisPage() {
 
   useEffect(() => {
     if (mode === "saved-player") {
-      fetch(`http://127.0.0.1:8000/ai/saved-player-analysis/${teamId}`)
+      fetch(`http://127.0.0.1:8000/ai/saved-player-analysis/${teamId}`, {
+        headers: authHeaders,
+      })
         .then((res) => res.json())
         .then((data) => {
           setSavedList(data || []);
@@ -186,7 +188,7 @@ export default function PlayerAnalysisPage() {
     historyData?.games.filter((g) => selectedGameIds.includes(g.id)) || [];
 
   const getStatsForGame = (gameId) => {
-    return historyData?.stats_by_game.find((s) => s.game_id === gameId) || {};
+    return historyData?.stats_by_game?.[gameId] || {};
   };
 
   const getNotesForGame = (gameId) => {
@@ -253,8 +255,20 @@ export default function PlayerAnalysisPage() {
         body: JSON.stringify({ payload }),
       });
 
-      const data = await res.json();
-      setAiResult(data.analysis);
+      let data = {};
+
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        setAiResult("Failed to generate analysis.");
+        return;
+      }
+
+      setAiResult(data?.analysis || "No analysis available.");
     } catch (err) {
       console.error(err);
     } finally {
@@ -294,6 +308,7 @@ export default function PlayerAnalysisPage() {
     try {
       await fetch(`http://127.0.0.1:8000/ai/delete-player-analysis/${id}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
 
       setSavedList((prev) => prev.filter((item) => item.id !== id));
@@ -450,8 +465,20 @@ export default function PlayerAnalysisPage() {
         }),
       });
 
-      const data = await res.json();
-      setGameAiResult(data.analysis);
+      let data = {};
+
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        setGameAiResult("Failed to generate analysis.");
+        return;
+      }
+
+      setGameAiResult(data?.analysis || "No analysis available.");
     } catch (err) {
       console.error("GAME AI ERROR:", err);
     } finally {

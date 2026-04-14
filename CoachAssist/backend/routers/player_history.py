@@ -83,11 +83,31 @@ def get_player_history(
             SELECT *
             FROM player_stats
             WHERE player_id = %s
+            AND quarter != 'overall'
             """,
             (player_id,)
         )
 
-        stats = cur.fetchall()
+        raw_stats = cur.fetchall()
+
+        stats_by_game = {}
+
+        for row in raw_stats:
+            game_id = row["game_id"]
+
+            if game_id not in stats_by_game:
+                stats_by_game[game_id] = {}
+
+            for key, value in row.items():
+                if key in ["id", "player_id", "game_id", "quarter", "created_at"]:
+                    continue
+
+                if value is None:
+                    continue
+
+                stats_by_game[game_id][key] = (
+                    stats_by_game[game_id].get(key, 0) + value
+                )
 
         # Get Player Notes
         cur.execute(
@@ -105,6 +125,6 @@ def get_player_history(
 
     return {
         "games": games,
-        "stats_by_game": stats,
+        "stats_by_game": stats_by_game,
         "notes": notes
     }
