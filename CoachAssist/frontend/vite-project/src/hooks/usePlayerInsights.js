@@ -23,25 +23,34 @@ export default function usePlayerInsights(matchId) {
             .then(data => {
 
                 // Build default stat structure
-                let defaults = {};
+                const buildEmptyStats = () => {
+                    let base = {};
 
-                // Universal stats
-                UNIVERSAL_STATS.forEach(stat => {
-                    defaults[stat] = 0;
-                });
-
-                // Position-specific stats
-                const groups = POSITION_GROUPS[player.position];
-                if (groups) {
-                    Object.values(groups).forEach(group => {
-                        group.forEach(stat => {
-                            defaults[stat] = 0;
-                        });
+                    UNIVERSAL_STATS.forEach(stat => {
+                        base[stat] = 0;
                     });
-                }
+
+                    const groups = POSITION_GROUPS[player.position];
+                    if (groups) {
+                        Object.values(groups).forEach(group => {
+                            group.forEach(stat => {
+                                base[stat] = 0;
+                            });
+                        });
+                    }
+
+                    return base;
+                };
+
+                const defaultStats = {
+                    Q1: buildEmptyStats(),
+                    Q2: buildEmptyStats(),
+                    Q3: buildEmptyStats(),
+                    Q4: buildEmptyStats()
+                };
 
                 setPlayerStats({
-                    ...defaults,
+                    ...defaultStats,
                     ...(data.stats || {})
                 });
 
@@ -104,6 +113,8 @@ export default function usePlayerInsights(matchId) {
         try {
             setIsSavingPlayer(true);
 
+            const { overall, ...filteredStats } = playerStats;
+
             const res = await fetch(
                 `/games/${matchId}/players/${selectedPlayer.id}`,
                 {
@@ -113,7 +124,7 @@ export default function usePlayerInsights(matchId) {
                         Authorization: `Bearer ${localStorage.getItem("token")}`
                     },
                     body: JSON.stringify({
-                        stats: playerStats,
+                        stats: filteredStats,
                         notes: playerNotes
                     })
                 }

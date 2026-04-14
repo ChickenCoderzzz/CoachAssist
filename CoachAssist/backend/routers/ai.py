@@ -88,6 +88,33 @@ async def analyze_player(data: PlayerAnalysisRequest, user=Depends(require_user)
         3. Key Weaknesses
         4. Actionable Improvement Suggestions
 
+        Use BOTH:
+        - Total stats per game (totals)
+        - Quarter-by-quarter breakdowns (quarters)
+
+        When analyzing, focus on:
+
+        - Trends across quarters (e.g., improvement or decline from Q1 to Q4)
+        - Consistency vs variability within each game
+        - Signs of fatigue (strong early performance but weaker later quarters)
+        - Strong or weak halves (Q1–Q2 vs Q3–Q4)
+        - Notable spikes or drop-offs in specific quarters
+        - How performance aligns with notes/insights
+
+        For each game:
+        - Briefly summarize overall performance
+        - Highlight any important quarter-level patterns
+
+        Then provide:
+        - Overall trends across all games
+        - The player’s strongest areas
+        - The player’s weakest areas
+        - Specific, actionable coaching suggestions
+
+        - Pay special attention to selected quarters if provided
+
+        Keep the analysis concise but insightful.
+
         Data:
         {data.payload}
         """
@@ -97,11 +124,24 @@ async def analyze_player(data: PlayerAnalysisRequest, user=Depends(require_user)
             contents=prompt
         )
 
-        return {"analysis": response.text}
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
 
     except Exception as e:
         print("AI ERROR:", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"analysis": "An error occurred while generating analysis."}
 
 
 # Save player analysis outputs
@@ -195,7 +235,8 @@ async def analyze_game(
         prompt = f"""
         You are an American football coaching analyst.
 
-        Analyze the following game data and provide a concise, practical report with these sections:
+        Analyze the following game data and provide:
+
         1. Overall Game Summary
         2. Offensive Strengths and Weaknesses
         3. Defensive Strengths and Weaknesses
@@ -204,11 +245,20 @@ async def analyze_game(
         6. Most Important Coaching Takeaways
         7. Actionable Recommendations for the Next Game
 
-        Requirements:
-        - Use clear coaching language
-        - Call out patterns from observations, player stats, and notes
-        - Mention game context (opponent, score, date) when relevant
-        - Keep recommendations specific and implementable
+        Use BOTH:
+        - Overall game data
+        - Quarter-specific data (if available)
+
+        Focus on:
+        - Momentum shifts between quarters
+        - Strong vs weak halves (Q1–Q2 vs Q3–Q4)
+        - Key turning points by quarter
+        - Situational performance (early vs late game)
+        - How notes and stats align within specific quarters
+
+        - Pay special attention to selected quarters if provided
+
+        Keep analysis concise, practical, and coaching-focused.
 
         Game Data:
         {data.payload}
@@ -219,12 +269,25 @@ async def analyze_game(
             contents=prompt
         )
 
-        return {"analysis": response.text}
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
     except HTTPException:
         raise
     except Exception as e:
         print("GAME AI ERROR:", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"analysis": "An error occurred while generating analysis."}
 
 
 @router.post("/save-game-analysis")

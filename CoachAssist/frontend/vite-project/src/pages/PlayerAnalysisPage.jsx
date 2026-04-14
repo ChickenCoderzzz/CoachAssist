@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "../styles/player_analysis.css";
 import { POSITION_GROUPS } from "../constants/gameConstants";
@@ -82,7 +82,10 @@ export default function PlayerAnalysisPage() {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [historyData, setHistoryData] = useState(null);
   const [selectedGameIds, setSelectedGameIds] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedQuarters, setSelectedQuarters] = useState(["all"]);
+  const [showGameDropdown, setShowGameDropdown] = useState(false);
+  const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
+  const [expandedGames, setExpandedGames] = useState({});
   const [aiResult, setAiResult] = useState(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -103,6 +106,8 @@ export default function PlayerAnalysisPage() {
   const [selectedGameState, setSelectedGameState] = useState(null);
   const [selectedGameUnits, setSelectedGameUnits] = useState({ offense: [], defense: [], special: [] });
   const [gameAiResult, setGameAiResult] = useState(null);
+  const [gameSelectedQuarters, setGameSelectedQuarters] = useState(["all"]);
+  const [showGameQuarterDropdown, setShowGameQuarterDropdown] = useState(false);
   const [gameLoadingAI, setGameLoadingAI] = useState(false);
   const [gameSaveMessage, setGameSaveMessage] = useState("");
 
@@ -135,7 +140,9 @@ export default function PlayerAnalysisPage() {
 
   useEffect(() => {
     if (mode === "saved-player") {
-      fetch(`http://127.0.0.1:8000/ai/saved-player-analysis/${teamId}`)
+      fetch(`http://127.0.0.1:8000/ai/saved-player-analysis/${teamId}`, {
+        headers: authHeaders,
+      })
         .then((res) => res.json())
         .then((data) => {
           setSavedList(data || []);
@@ -178,19 +185,62 @@ export default function PlayerAnalysisPage() {
     });
 
     const data = await res.json();
+    console.log("FULL historyData:", data);
+  console.log("ALL stats_by_game:", data.stats_by_game);
     setHistoryData(data);
     setSelectedGameIds((data.games || []).map((g) => g.id));
   };
 
   const filteredGames =
-    historyData?.games.filter((g) => selectedGameIds.includes(g.id)) || [];
+    (historyData?.games || []).filter((g) =>
+      selectedGameIds.includes(g.id)
+    );
 
   const getStatsForGame = (gameId) => {
-    return historyData?.stats_by_game.find((s) => s.game_id === gameId) || {};
+    if (!Array.isArray(historyData?.stats_by_game)) return {};
+
+    const includeAll =
+      selectedQuarters.length === 0 ||
+      selectedQuarters.includes("all");
+
+    const filtered = historyData.stats_by_game.filter(
+      (s) =>
+        s &&
+        typeof s === "object" &&
+        Number(s.game_id) === Number(gameId) &&
+        (includeAll || selectedQuarters.includes(s?.quarter || ""))
+    );
+
+    const combined = {};
+
+    filtered.forEach((qStat) => {
+      if (!qStat || typeof qStat !== "object") return;
+
+      Object.entries(qStat).forEach(([key, value]) => {
+        if (
+          ["id", "player_id", "game_id", "quarter", "created_at"].includes(key)
+        )
+          return;
+
+        combined[key] =
+          (combined[key] || 0) + Number(value || 0);
+      });
+    });
+
+    return combined;
   };
 
   const getNotesForGame = (gameId) => {
-    return historyData?.notes.filter((n) => n.game_id === gameId) || [];
+    return (historyData?.notes || []).filter((n) => {
+      const includeAll =
+        selectedQuarters.length === 0 ||
+        selectedQuarters.includes("all");
+
+      return (
+        Number(n.game_id) === Number(gameId) &&
+        (includeAll || selectedQuarters.includes(n?.quarter || ""))
+      );
+    });
   };
 
   const getStatColumns = () => {
@@ -212,7 +262,7 @@ export default function PlayerAnalysisPage() {
     ];
 
     const roleStats = orderedGroups.flatMap((group) => positionGroups[group] || []);
-    const universalStats = ["snaps", "penalties", "turnovers"];
+    const universalStats = ["snaps_played", "penalties", "turnovers"];
     
     return [...universalStats, ...roleStats];
   };
@@ -228,9 +278,35 @@ export default function PlayerAnalysisPage() {
         game_id: game.id,
         opponent: game.opponent,
         date: game.game_date,
-        stats: Object.fromEntries(
-          getStatColumns().map((stat) => [stat, getStatsForGame(game.id)[stat] ?? 0])
-        ),
+        totals: getStatsForGame(game.id),
+        quarters: (
+          selectedQuarters.includes("all")
+            ? ["Q1", "Q2", "Q3", "Q4"]
+            : selectedQuarters
+        ).reduce((acc, q) => {
+          const quarterStats = historyData.stats_by_game
+            .filter(
+              (s) =>
+                Number(s.game_id) === Number(game.id) &&
+                s.quarter === q
+            )
+            .reduce((qAcc, row) => {
+              Object.entries(row).forEach(([key, val]) => {
+                if (
+                  ["id", "player_id", "game_id", "quarter", "created_at"].includes(key)
+                )
+                  return;
+
+                qAcc[key] = (qAcc[key] || 0) + Number(val || 0);
+              });
+              return qAcc;
+            }, {});
+
+          if (Object.keys(quarterStats).length > 0) {
+            acc[q] = quarterStats;
+          }
+          return acc;
+        }, {}),
         insights: getNotesForGame(game.id).map((n) => ({
           note: n.note,
           time: n.time,
@@ -239,6 +315,7 @@ export default function PlayerAnalysisPage() {
         })),
       })),
     };
+    console.log("AI PAYLOAD:", JSON.stringify(payload, null, 2));
 
     try {
       setLoadingAI(true);
@@ -253,8 +330,20 @@ export default function PlayerAnalysisPage() {
         body: JSON.stringify({ payload }),
       });
 
-      const data = await res.json();
-      setAiResult(data.analysis);
+      let data = {};
+
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        setAiResult("Failed to generate analysis.");
+        return;
+      }
+
+      setAiResult(data?.analysis || "No analysis available.");
     } catch (err) {
       console.error(err);
     } finally {
@@ -294,6 +383,7 @@ export default function PlayerAnalysisPage() {
     try {
       await fetch(`http://127.0.0.1:8000/ai/delete-player-analysis/${id}`, {
         method: "DELETE",
+        headers: authHeaders,
       });
 
       setSavedList((prev) => prev.filter((item) => item.id !== id));
@@ -308,13 +398,50 @@ export default function PlayerAnalysisPage() {
 
   // ================= GAME ANALYSIS HELPERS =================
   const aggregateUnitStats = (unitData) => {
+    const includeAll =
+      gameSelectedQuarters.length === 0 ||
+      gameSelectedQuarters.includes("all");
+
     return unitData.reduce(
       (acc, entry) => {
-        const stats = entry.stats || {};
+        // 🔥 Normalize stats safely
+        const stats = (() => {
+          if (!entry.stats) return {};
+
+          // If array → merge all objects
+          if (Array.isArray(entry.stats)) {
+            return entry.stats.reduce((sAcc, obj) => {
+              if (!obj || typeof obj !== "object") return sAcc;
+
+              Object.entries(obj).forEach(([k, v]) => {
+                sAcc[k] = (sAcc[k] || 0) + Number(v || 0);
+              });
+
+              return sAcc;
+            }, {});
+          }
+
+          // If already object
+          if (typeof entry.stats === "object") {
+            return entry.stats;
+          }
+
+          return {};
+        })();
+
+        // 🔥 Normalize notes safely
+        const notes = Array.isArray(entry.notes) ? entry.notes : [];
+
         acc.penalties += Number(stats.penalties || 0);
         acc.turnovers += Number(stats.turnovers || 0);
         acc.touchdowns += Number(stats.touchdowns || 0);
-        acc.notes += (entry.notes || []).length;
+
+        acc.notes += notes.filter(
+          (n) =>
+            includeAll ||
+            gameSelectedQuarters.includes(n?.quarter || "")
+        ).length;
+
         return acc;
       },
       { penalties: 0, turnovers: 0, touchdowns: 0, notes: 0 }
@@ -328,11 +455,21 @@ export default function PlayerAnalysisPage() {
       const jersey = entry?.player?.jersey_number ?? "—";
       const notes = entry?.notes || [];
 
-      return notes.map((noteRow) => ({
-        playerName,
-        jersey,
-        note: noteRow?.note || "",
-      }));
+      const includeAll =
+        gameSelectedQuarters.length === 0 ||
+        gameSelectedQuarters.includes("all");
+
+      return notes
+        .filter((noteRow) =>
+          includeAll ||
+          gameSelectedQuarters.includes(noteRow.quarter)
+        )
+        .map((noteRow) => ({
+          playerName,
+          jersey,
+          note: noteRow?.note || "",
+          quarter: noteRow?.quarter,
+        }));
     });
   };
 
@@ -342,6 +479,10 @@ export default function PlayerAnalysisPage() {
     setGameSaveMessage("");
     setGameDataError("");
     setGameDataLoading(true);
+
+    const includeAll =
+      gameSelectedQuarters.length === 0 ||
+      gameSelectedQuarters.includes("all");
 
     try {
       const [matchRes, gameStateRes] = await Promise.all([
@@ -383,8 +524,20 @@ export default function PlayerAnalysisPage() {
                 position: p.position,
                 jersey_number: p.jersey_number,
               },
-              stats: insightData.stats || {},
-              notes: insightData.notes || [],
+
+              stats: Array.isArray(insightData.stats)
+                ? insightData.stats[0] || {}
+                : (typeof insightData.stats === "object" && insightData.stats !== null
+                    ? insightData.stats
+                    : {}),
+
+              notes: Array.isArray(insightData.notes)
+                ? insightData.notes.filter(
+                    (n) =>
+                      includeAll ||
+                      gameSelectedQuarters.includes(n?.quarter || "")
+                  )
+                : [],
             };
           })
         );
@@ -404,7 +557,36 @@ export default function PlayerAnalysisPage() {
   };
 
   const buildGamePayload = () => {
+    const includeAll =
+      gameSelectedQuarters.length === 0 ||
+      gameSelectedQuarters.includes("all");
+
     const game = selectedMatchMeta || selectedMatch;
+
+    //  Helper to filter stats
+    const filterStats = (statsObj) => {
+      return Object.fromEntries(
+        Object.entries(statsObj || {}).filter(([key]) => {
+          if (key === "overall") return true;
+
+          return (
+            includeAll ||
+            gameSelectedQuarters.includes(key)
+          );
+        })
+      );
+    };
+
+    //  Helper to filter notes
+    const filterNotes = (notesArr) => {
+      return (notesArr || []).filter(
+        (n) =>
+          n &&
+          (n.quarter === null || // keep general notes
+            includeAll ||
+            gameSelectedQuarters.includes(n.quarter))
+      );
+    };
 
     return {
       game: {
@@ -416,10 +598,38 @@ export default function PlayerAnalysisPage() {
         opponent_score: game?.opponent_score,
         description: game?.description,
       },
+
+      //  Filtered game state
       game_state: {
-        "Game State": selectedGameState?.["Game State"] || [],
+        "Game State": (selectedGameState?.["Game State"] || []).filter(
+          (g) =>
+            includeAll ||
+            gameSelectedQuarters.includes(g?.quarter || "")
+        ),
       },
-      units: selectedGameUnits,
+
+      //  Filtered units
+      units: {
+        offense: (selectedGameUnits.offense || []).map((p) => ({
+          ...p,
+          stats: filterStats(p.stats),
+          notes: filterNotes(p.notes),
+        })),
+
+        defense: (selectedGameUnits.defense || []).map((p) => ({
+          ...p,
+          stats: filterStats(p.stats),
+          notes: filterNotes(p.notes),
+        })),
+
+        special: (selectedGameUnits.special || []).map((p) => ({
+          ...p,
+          stats: filterStats(p.stats),
+          notes: filterNotes(p.notes),
+        })),
+      },
+
+      //  Summary metrics (already filtered upstream via notes logic)
       summary_metrics: {
         offense: aggregateUnitStats(selectedGameUnits.offense || []),
         defense: aggregateUnitStats(selectedGameUnits.defense || []),
@@ -436,6 +646,7 @@ export default function PlayerAnalysisPage() {
       setGameAiResult(null);
 
       const payload = buildGamePayload();
+      console.log("AI PAYLOAD (GAME):", JSON.stringify(payload, null, 2));
 
       const res = await fetch("http://127.0.0.1:8000/ai/analyze-game", {
         method: "POST",
@@ -450,8 +661,20 @@ export default function PlayerAnalysisPage() {
         }),
       });
 
-      const data = await res.json();
-      setGameAiResult(data.analysis);
+      let data = {};
+
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        setGameAiResult("Failed to generate analysis.");
+        return;
+      }
+
+      setGameAiResult(data?.analysis || "No analysis available.");
     } catch (err) {
       console.error("GAME AI ERROR:", err);
     } finally {
@@ -604,11 +827,11 @@ export default function PlayerAnalysisPage() {
               </button>
 
               <div className="dropdown-container">
-                <button className="dropdown-btn" onClick={() => setShowDropdown(!showDropdown)}>
+                <button className="dropdown-btn" onClick={() => setShowGameDropdown(!showGameDropdown)}>
                   Select Games ▼
                 </button>
 
-                {showDropdown && (
+                {showGameDropdown && (
                   <div className="dropdown-menu">
                     <label className="dropdown-item">
                       <input
@@ -647,6 +870,51 @@ export default function PlayerAnalysisPage() {
                 )}
               </div>
 
+              <div className="dropdown-container">
+                <button
+                  className="dropdown-btn"
+                  onClick={() => setShowQuarterDropdown(prev => !prev)}
+                >
+                  Select Quarters ▼
+                </button>
+
+                {showQuarterDropdown && (
+                  <div className="dropdown-menu">
+                    <label className="dropdown-item">
+                      <input
+                        type="checkbox"
+                        checked={selectedQuarters.includes("all")}
+                        onChange={() => {
+                          setSelectedQuarters(["all"]);
+                        }}
+                      />
+                      All Quarters
+                    </label>
+
+                    <div className="dropdown-divider" />
+
+                    {["Q1", "Q2", "Q3", "Q4"].map((q) => (
+                      <label key={q} className="dropdown-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedQuarters.includes(q)}
+                          onChange={() => {
+                            setSelectedQuarters((prev) => {
+                              if (prev.includes("all")) return [q];
+
+                              return prev.includes(q)
+                                ? prev.filter((x) => x !== q)
+                                : [...prev, q];
+                            });
+                          }}
+                        />
+                        {q}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="analysis-container">
                 <div className="table-section">
                   <h3>Player Data By Game</h3>
@@ -656,6 +924,7 @@ export default function PlayerAnalysisPage() {
                     <table className="player-table white-bg">
                       <thead className={`table-header-${unit}`}>
                         <tr>
+                          <th></th>
                           <th>Date</th>
                           <th>Opponent</th>
                           {getStatColumns().map((stat) => (
@@ -669,14 +938,76 @@ export default function PlayerAnalysisPage() {
                       <tbody>
                         {filteredGames.map((game) => {
                           const stats = getStatsForGame(game.id);
+                          console.log("GAME ID:", game.id);
+                          console.log(
+                            "FILTERED STATS:",
+                            historyData.stats_by_game.filter(
+                              (s) =>
+                                Number(s.game_id) === Number(game.id) &&
+                                (selectedQuarters.includes("all") ||
+                                  selectedQuarters.includes(s?.quarter || ""))
+                            )
+                          );
+                          console.log("COMBINED STATS:", stats);
                           return (
-                            <tr key={game.id}>
-                              <td>{game.game_date}</td>
-                              <td>{game.opponent}</td>
-                              {getStatColumns().map((stat) => (
-                                <td key={stat}>{stats[stat] ?? 0}</td>
-                              ))}
-                            </tr>
+                            <React.Fragment key={game.id}>
+                              {/* MAIN GAME ROW */}
+                              <tr>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      setExpandedGames((prev) => ({
+                                        ...prev,
+                                        [game.id]: !prev[game.id],
+                                      }))
+                                    }
+                                  >
+                                    {expandedGames[game.id] ? "−" : "+"}
+                                  </button>
+                                </td>
+
+                                <td>{game.game_date}</td>
+                                <td>{game.opponent}</td>
+
+                                {getStatColumns().map((stat) => (
+                                  <td key={stat}>{stats[stat] ?? 0}</td>
+                                ))}
+                              </tr>
+
+                              {/* QUARTER ROWS */}
+                              {expandedGames[game.id] &&
+                                ["Q1", "Q2", "Q3", "Q4"].map((q) => {
+                                  const quarterStats = historyData.stats_by_game
+                                    .filter(
+                                      (s) =>
+                                        Number(s.game_id) === Number(game.id) &&
+                                        s.quarter === q
+                                    )
+                                    .reduce((acc, row) => {
+                                      Object.entries(row).forEach(([key, val]) => {
+                                        if (
+                                          ["id", "player_id", "game_id", "quarter", "created_at"].includes(key)
+                                        )
+                                          return;
+
+                                        acc[key] = (acc[key] || 0) + Number(val || 0);
+                                      });
+                                      return acc;
+                                    }, {});
+
+                                  return (
+                                    <tr key={`${game.id}-${q}`} style={{ background: "#f9f9f9" }}>
+                                      <td></td>
+                                      <td style={{ paddingLeft: "15px" }}>{q}</td>
+                                      <td></td>
+
+                                      {getStatColumns().map((stat) => (
+                                        <td key={stat}>{quarterStats[stat] ?? 0}</td>
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
@@ -694,6 +1025,7 @@ export default function PlayerAnalysisPage() {
                         <tr>
                           <th>Date</th>
                           <th>Opponent</th>
+                          <th>Quarter</th>
                           <th>Note</th>
                           <th>Time</th>
                         </tr>
@@ -702,9 +1034,10 @@ export default function PlayerAnalysisPage() {
                       <tbody>
                         {filteredGames.map((game) =>
                           getNotesForGame(game.id).map((note, i) => (
-                            <tr key={`${game.id}-${i}`}>
+                            <tr key={`${game.id}-${note.quarter}-${note.time}-${i}`}>
                               <td>{game.game_date}</td>
                               <td>{game.opponent}</td>
+                              <td>{note.quarter || "—"}</td>
                               <td>{note.note}</td>
                               <td>{note.time}</td>
                             </tr>
@@ -845,6 +1178,53 @@ export default function PlayerAnalysisPage() {
                   <h3 className="game-analysis-title">
                     {selectedMatchMeta?.name} vs {selectedMatchMeta?.opponent}
                   </h3>
+                  <div className="dropdown-container">
+                    <button
+                      className="dropdown-btn"
+                      onClick={() => setShowGameQuarterDropdown(prev => !prev)}
+                    >
+                      Select Quarters ▼
+                    </button>
+
+                    {showGameQuarterDropdown && (
+                      <div className="dropdown-menu">
+                        <label className="dropdown-item">
+                          <input
+                            type="checkbox"
+                            checked={gameSelectedQuarters.includes("all")}
+                            onChange={() =>
+                              setGameSelectedQuarters(
+                                gameSelectedQuarters.includes("all")
+                                  ? ["Q1", "Q2", "Q3", "Q4"]
+                                  : ["all"]
+                              )
+                            }
+                          />
+                          All Quarters
+                        </label>
+
+                        <div className="dropdown-divider" />
+
+                        {["Q1", "Q2", "Q3", "Q4"].map((q) => (
+                          <label key={q} className="dropdown-item">
+                            <input
+                              type="checkbox"
+                              checked={gameSelectedQuarters.includes(q)}
+                              onChange={() => {
+                                setGameSelectedQuarters((prev) => {
+                                  if (prev.includes("all")) return [q];
+                                  return prev.includes(q)
+                                    ? prev.filter((x) => x !== q)
+                                    : [...prev, q];
+                                });
+                              }}
+                            />
+                            {q}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <p className="table-desc game-analysis-meta">
                     Date: {selectedMatchMeta?.game_date || "—"} | Score: {selectedMatchMeta?.team_score ?? "—"} - {selectedMatchMeta?.opponent_score ?? "—"}
                   </p>
@@ -865,6 +1245,7 @@ export default function PlayerAnalysisPage() {
                           <table className="player-table white-bg">
                             <thead className="insights-header">
                               <tr>
+                                <th>Quarter</th>
                                 <th>Observation</th>
                                 <th>Time</th>
                               </tr>
@@ -872,11 +1253,23 @@ export default function PlayerAnalysisPage() {
                             <tbody>
                               {(selectedGameState?.["Game State"] || []).length === 0 ? (
                                 <tr>
-                                  <td colSpan={2}>No entries.</td>
+                                  <td colSpan={3}>No entries.</td>
                                 </tr>
                               ) : (
-                                (selectedGameState?.["Game State"] || []).map((r) => (
-                                  <tr key={r.id ?? `game-state-${r.text}-${r.time}`}>
+                                (selectedGameState?.["Game State"] || [])
+                                  .filter((r) => {
+                                    const includeAll =
+                                      gameSelectedQuarters.length === 0 ||
+                                      gameSelectedQuarters.includes("all");
+
+                                    return (
+                                      includeAll ||
+                                      gameSelectedQuarters.includes(r.quarter || "")
+                                    );
+                                  })
+                                  .map((r) => (
+                                  <tr key={`${r.id ?? "gs"}-${r.quarter}-${r.time}-${r.text}`}>
+                                    <td>{r.quarter || "—"}</td>
                                     <td>{r.text}</td>
                                     <td>{r.time || "—"}</td>
                                   </tr>
@@ -1007,7 +1400,14 @@ export default function PlayerAnalysisPage() {
                     <div className="unit-note-player">
                       #{entry.jersey} {entry.playerName}
                     </div>
-                    <div className="unit-note-text">- {entry.note}</div>
+                    <div className="unit-note-text">
+                      - {entry.note}
+                      {entry.quarter && (
+                        <span style={{ marginLeft: "6px", fontSize: "12px", color: "#666" }}>
+                          <strong>[{entry.quarter}]</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))
               )}

@@ -13,7 +13,7 @@ position-based stat tracking.
 """
 
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 #=== Player Stats Schema ===
 
@@ -100,5 +100,5 @@ class PlayerNoteRow(BaseModel):
 #=== Combined Update Schema ===
 
 class PlayerInsightsUpdate(BaseModel):
-    stats: PlayerStatsSchema
+    stats: Dict[str, Dict[str, Any]]
     notes: List[PlayerNoteRow]
