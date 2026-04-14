@@ -90,13 +90,13 @@ def get_player_history(
 
         raw_stats = cur.fetchall()
 
-        stats_by_game = {}
+        stats_by_game = []
 
         for row in raw_stats:
-            game_id = row["game_id"]
-
-            if game_id not in stats_by_game:
-                stats_by_game[game_id] = {}
+            stat_entry = {
+                "game_id": row["game_id"],
+                "quarter": row["quarter"]
+            }
 
             for key, value in row.items():
                 if key in ["id", "player_id", "game_id", "quarter", "created_at"]:
@@ -105,9 +105,9 @@ def get_player_history(
                 if value is None:
                     continue
 
-                stats_by_game[game_id][key] = (
-                    stats_by_game[game_id].get(key, 0) + value
-                )
+                stat_entry[key] = value
+
+            stats_by_game.append(stat_entry)
 
         # Get Player Notes
         cur.execute(
