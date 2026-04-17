@@ -19,11 +19,40 @@ const timeToSeconds = (t) => {
     return parseInt(t, 10) || 0;
 };
 
+const getThirdDownPct = (conv, att) => {
+    if (!att) return "0%";
+    return ((conv / att) * 100).toFixed(0) + "%";
+};
+
+const getColor = (team, opp, inverse = false) => {
+    if (team === opp) return "white";
+    if (inverse) return team < opp ? "#4caf50" : "#f44336";
+    return team > opp ? "#4caf50" : "#f44336";
+};
+
 export default function AnalyzeGamePage() {
     const { teamId, matchId } = useParams();
     const navigate = useNavigate();
 
     const [activeTab, setActiveTab] = useState("Game State");
+
+    const [gameView, setGameView] = useState("state"); 
+    const [selectedQuarter, setSelectedQuarter] = useState("Q1");
+
+    const QUARTERS = ["Q1", "Q2", "Q3", "Q4", "overall"];
+
+    const METRIC_FIELDS = [
+        { key: "points", label: "Points" },
+        { key: "total_yards", label: "Total Yards" },
+        { key: "turnovers", label: "Turnovers" },
+        { key: "penalties", label: "Penalties" },
+        { key: "penalty_yards", label: "Penalty Yards" },
+        { key: "third_down_conversions", label: "3rd Down Conversions" },
+        { key: "third_down_attempts", label: "3rd Down Attempts" },
+        { key: "time_of_possession", label: "Time of Possession" }
+];
+
+const [gameMetrics, setGameMetrics] = useState({});
     // Main state holding all data
     const [allTableData, setAllTableData] = useState(INITIAL_DATA);
 
@@ -87,6 +116,7 @@ export default function AnalyzeGamePage() {
                                 //  Ensure every row has a quarter field
                                 data[tab] = data[tab].map(row => ({
                                     ...row,
+                                    text: row.text || row.note || row.observation || "",  // 🔥 FIX
                                     quarter: row.quarter || ""
                                 }));
 
@@ -96,6 +126,15 @@ export default function AnalyzeGamePage() {
                         });
 
                         setAllTableData(data);
+                    }
+                });
+            fetch(`/games/${matchId}/metrics`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data?.metrics) {
+                        setGameMetrics(data.metrics);
                     }
                 });
         }
@@ -370,6 +409,17 @@ export default function AnalyzeGamePage() {
             }
         }
 
+        fetch(`/games/${matchId}/metrics`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+            body: JSON.stringify({
+                metrics: gameMetrics
+            }),
+        });
+
         // Quick final sort before saving to ensure everything is perfect
         const finalData = { ...allTableData };
         Object.keys(finalData).forEach(tab => {
@@ -549,308 +599,452 @@ export default function AnalyzeGamePage() {
 
             {/* Main Content */}
             <div className="analyze-content">
-                {/* Video Player Section */}
-                <div className="video-player-section">
-                    {videoSrc ? (
-                        <video
-                            ref={videoRef}
-                            src={videoSrc}
-                            controls
-                            className="video-player"
-                        />
-                    ) : (
-                        <div className="video-placeholder">
-                            Upload a video to begin analysis
+                {/* LEFT COLUMN */}
+                <div className="video-column">
+                    {/* Video Player Section */}
+                    <div className="video-player-section">
+                        {videoSrc ? (
+                            <video
+                                ref={videoRef}
+                                src={videoSrc}
+                                controls
+                                className="video-player"
+                            />
+                        ) : (
+                            <div className="video-placeholder">
+                                Upload a video to begin analysis
+                            </div>
+                        )}
+                    </div>
+                 </div>
+
+                {/* RIGHT COLUMN */}
+                <div className="table-column">
+                    {/* Game View Toggle */}
+                    {activeTab === "Game State" && (
+                        <div className="game-view-toggle">
+                            <button
+                                className="tab-button"
+                                style={gameView === "state" ? { transform: "translate(2px,2px)", boxShadow: "none" } : {}}
+                                onClick={() => setGameView("state")}
+                            >
+                                Game State Table
+                            </button>
+
+                            <button
+                                className="tab-button"
+                                style={gameView === "metrics" ? { transform: "translate(2px,2px)", boxShadow: "none" } : {}}
+                                onClick={() => setGameView("metrics")}
+                            >
+                                Quantitative Metrics
+                            </button>
                         </div>
                     )}
+
+                    {/* Table */}
+                    {activeTab === "Videos" ? (
+                        <VideoTable
+                            videoList={videoList}
+                            setVideoSrc={setVideoSrc}
+                            setVideoName={setVideoName}
+                            handleDeleteVideo={handleDeleteVideo}
+                            handleClipVideo={openClipModal}
+                            handleRenameVideo={handleRenameVideo}
+                            handleUpscaleVideo={handleUpscaleVideo}
+                            handleUpscaleClick={handleUpscaleClick}
+                            upscaleJobs={upscaleJobs}
+                        />
+                    ) : activeTab === "Game State" && gameView === "state" ? (
+
+                        // ORIGINAL GAME STATE TABLE (unchanged)
+                        <div className="game-state-table-container">
+                            <div className="table-title-header">{tableHeaderTitle}</div>
+
+                            {/*Edited by Wences Jacob Lorenzo*/}
+                            <div className="table-header-row">
+                                <div className="cell col-obs">Observation</div>
+                                <div className="cell col-time">Time</div>
+                                <div className="cell col-quarter">Quarter</div>
+                                <div className="cell col-play">Play</div>
+                                <div className="cell col-delete"></div> {/* NEW */}
+                                <div className="scrollbar-spacer"></div>
+                            </div>
+
+                            <div className="table-scroll-area">
+                                {currentTableData.map((row) => (
+                                    <div className="table-row" key={row.id}>
+                                        <div className="cell col-obs">
+                                            <input
+                                                className="table-input"
+                                                value={row.text}
+                                                onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="cell col-time">
+                                            <input
+                                                className="table-input center"
+                                                value={row.time}
+                                                onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
+                                                onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
+                                            />
+                                        </div>
+
+                                        {/* NEW: Quarter dropdown. Added by Wences Jacob Lorenzo */}
+                                        <div className="cell col-quarter">
+                                            <select
+                                                className="table-input center"
+                                                value={row.quarter || ""}
+                                                onChange={(e) => handleInputChange(row.id, "quarter", e.target.value)}
+                                            >
+                                                <option value="">Select</option>
+                                                <option value="Q1">Q1</option>
+                                                <option value="Q2">Q2</option>
+                                                <option value="Q3">Q3</option>
+                                                <option value="Q4">Q4</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="cell col-play">
+                                            <button 
+                                                className="play-row-btn"
+                                                onClick={() => {
+                                                    if (videoRef.current && row.time) {
+                                                        videoRef.current.currentTime = timeToSeconds(row.time);
+                                                        videoRef.current.play();
+                                                    }
+                                                }}
+                                                title="Play from timestamp"
+                                            >
+                                                ▶
+                                            </button>
+                                        </div>
+
+                                        <div className="cell col-delete">
+                                            <button
+                                                className="delete-btn"
+                                                onClick={() => handleDeleteRow(row.id)}
+                                                title="Delete row"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="table-footer-row">
+                                <button className="add-row-btn" onClick={handleAddRow}>
+                                    Add Row +
+                                </button>
+                            </div>
+                        </div>
+
+                    ) : activeTab === "Game State" && gameView === "metrics" ? (
+
+                        <div className="game-state-table-container">
+                            <div className="table-title-header">
+                                Game Metrics - Quantitative
+                            </div>
+
+                            {/* Quarter Selector */}
+                            <div style={{ marginBottom: "10px" }}>
+                                <label style={{ marginRight: "8px" }}>Quarter:</label>
+                                <select
+                                    value={selectedQuarter}
+                                    onChange={(e) => setSelectedQuarter(e.target.value)}
+                                >
+                                    {QUARTERS.map(q => (
+                                        <option key={q} value={q}>
+                                            {q === "overall" ? "Overall Game" : q}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="metrics-container">
+                                {/* Metrics Grid */}
+                                <div className="stats-grid">
+                                    {METRIC_FIELDS.map(({ key, label }) => {
+                                        const teamVal = selectedQuarter === "overall"
+                                            ? gameMetrics["overall"]?.[key] || 0
+                                            : gameMetrics[selectedQuarter]?.[key] || 0;
+
+                                        const oppKey = `opp_${key}`;
+                                        const oppVal = selectedQuarter === "overall"
+                                            ? gameMetrics["overall"]?.[oppKey] || 0
+                                            : gameMetrics[selectedQuarter]?.[oppKey] || 0;
+
+                                        const isInverse = ["turnovers", "penalties", "penalty_yards"].includes(key);
+
+                                        return (
+                                            <div key={key} className="stat-field">
+                                                <label>{label}</label>
+
+                                                <div className="metrics-row">
+
+                                                    {/* TEAM */}
+                                                    <div className="metrics-col">
+                                                        <div className="metrics-label team">TEAM</div>
+
+                                                        <input
+                                                            type="number"
+                                                            style={{ borderColor: getColor(teamVal, oppVal, isInverse) }}
+                                                            value={teamVal}
+                                                            onChange={(e) => {
+                                                                if (selectedQuarter === "overall") return;
+
+                                                                setGameMetrics(prev => ({
+                                                                    ...prev,
+                                                                    [selectedQuarter]: {
+                                                                        ...(prev[selectedQuarter] || {}),
+                                                                        [key]: parseInt(e.target.value) || 0
+                                                                    }
+                                                                }));
+                                                            }}
+                                                        />
+
+                                                        {key === "third_down_conversions" && (
+                                                            <div className="third-down-pct">
+                                                                {`${gameMetrics[selectedQuarter]?.third_down_conversions || 0} / 
+                                                                ${gameMetrics[selectedQuarter]?.third_down_attempts || 0}
+                                                                (${getThirdDownPct(
+                                                                    gameMetrics[selectedQuarter]?.third_down_conversions || 0,
+                                                                    gameMetrics[selectedQuarter]?.third_down_attempts || 0
+                                                                )})`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* OPP */}
+                                                    <div className="metrics-col">
+                                                        <div className="metrics-label opp">OPP</div>
+
+                                                        <input
+                                                            type="number"
+                                                            style={{ borderColor: getColor(oppVal, teamVal, isInverse) }}
+                                                            value={oppVal}
+                                                            onChange={(e) => {
+                                                                if (selectedQuarter === "overall") return;
+
+                                                                setGameMetrics(prev => ({
+                                                                    ...prev,
+                                                                    [selectedQuarter]: {
+                                                                        ...(prev[selectedQuarter] || {}),
+                                                                        [oppKey]: parseInt(e.target.value) || 0
+                                                                    }
+                                                                }));
+                                                            }}
+                                                        />
+
+                                                        {key === "third_down_conversions" && (
+                                                            <div className="third-down-pct">
+                                                                {`${gameMetrics[selectedQuarter]?.opp_third_down_conversions || 0} / 
+                                                                ${gameMetrics[selectedQuarter]?.opp_third_down_attempts || 0}
+                                                                (${getThirdDownPct(
+                                                                    gameMetrics[selectedQuarter]?.opp_third_down_conversions || 0,
+                                                                    gameMetrics[selectedQuarter]?.opp_third_down_attempts || 0
+                                                                )})`}
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
+                    ) : (
+
+                        // PLAYER TABLE REPLACES GAME STATE TABLE
+                        <div className="game-state-table-container analysis-side-table">
+                            {/* Dynamic header color based on unit */}
+                            <div
+                                className={`table-title-header ${activeTab === "Offensive"
+                                    ? "offense"
+                                    : activeTab === "Defensive"
+                                        ? "defense"
+                                        : activeTab === "Special"
+                                            ? "special"
+                                            : ""
+                                    }`}
+                            >
+                                Player Table - {activeTab}
+                            </div>
+
+                            <div className="table-header-row analysis-player-header">
+                                <div className="cell col-player-number">#</div>
+                                <div className="cell col-player-name">Name</div>
+                                <div className="cell col-player-position">Position</div>
+                                <div className="cell col-player-priority">★</div>
+                                <div className="cell col-player-action">Action</div>
+                            </div>
+
+                            <div className="table-scroll-area analysis-alt-table-scroll">
+                                {filteredPlayers.length > 0 ? filteredPlayers.map((player) => (
+                                    <div className="table-row analysis-player-row" key={player.id}>
+                                        <div className="cell col-player-number">{player.jersey_number}</div>
+                                        <div className="cell col-player-name">{player.player_name}</div>
+                                        <div className="cell col-player-position">{getFullPositionName(player.position)}</div>
+
+                                        <div className="cell col-player-priority">
+                                            <button
+                                                className={`priority-star ${player.is_priority ? "active" : ""}`}
+                                                title={player.is_priority ? "Remove Priority" : "Mark as Priority"}
+                                                onClick={() => togglePriority(player)}
+                                            >
+                                                {player.is_priority ? "★" : "☆"}
+                                            </button>
+                                        </div>
+
+                                        <div className="cell col-player-action">
+                                            <button
+                                                className="player-view-btn"
+                                                onClick={() => openPlayerModal(player)}
+                                            >
+                                                View
+                                            </button>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <div className="table-row analysis-player-row">
+                                        <div className="cell col-empty">No players found for this unit</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    )}
+
                 </div>
-                {/* Table */}
-                {activeTab === "Videos" ? (
-                    <VideoTable
-                        videoList={videoList}
-                        setVideoSrc={setVideoSrc}
-                        setVideoName={setVideoName}
-                        handleDeleteVideo={handleDeleteVideo}
-                        handleClipVideo={openClipModal}
-                        handleRenameVideo={handleRenameVideo}
-                        handleUpscaleVideo={handleUpscaleVideo}
-                        handleUpscaleClick={handleUpscaleClick}
-                        upscaleJobs={upscaleJobs}
-                    />
-                ) : activeTab === "Game State" ? (
 
-                    // ORIGINAL GAME STATE TABLE (unchanged)
-                    <div className="game-state-table-container">
-                        <div className="table-title-header">{tableHeaderTitle}</div>
+                {/* Footer Buttons */}
+                <div className="footer-buttons">
+                    <button className="action-btn save" onClick={handleSave}>
+                        Save Changes and Exit
+                    </button>
+                    <button className="action-btn export tutorial-export-btn" onClick={handleExport}>
+                        Export Current Table
+                    </button>
+                    <button className="action-btn exit" onClick={handleExit}>
+                        Exit without Saving
+                    </button>
+                </div>
 
-                        {/*Edited by Wences Jacob Lorenzo*/}
-                        <div className="table-header-row">
-                            <div className="cell col-obs">Observation</div>
-                            <div className="cell col-time">Time</div>
-                            <div className="cell col-quarter">Quarter</div>
-                            <div className="cell col-play">Play</div>
-                            <div className="cell col-delete"></div> {/* NEW */}
-                            <div className="scrollbar-spacer"></div>
-                        </div>
+                {/* Edit Game Modal */}
+                {showEdit && (
+                    <div className="modal-overlay">
+                        <div className="modal-card">
+                            <h2>Edit Game Details</h2>
 
-                        <div className="table-scroll-area">
-                            {currentTableData.map((row) => (
-                                <div className="table-row" key={row.id}>
-                                    <div className="cell col-obs">
-                                        <input
-                                            className="table-input"
-                                            value={row.text}
-                                            onChange={(e) => handleInputChange(row.id, 'text', e.target.value)}
-                                        />
-                                    </div>
+                            <label>Game Name</label>
+                            <input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                            />
 
-                                    <div className="cell col-time">
-                                        <input
-                                            className="table-input center"
-                                            value={row.time}
-                                            onChange={(e) => handleInputChange(row.id, 'time', e.target.value)}
-                                            onBlur={(e) => handleTimeBlur(row.id, e.target.value)}
-                                        />
-                                    </div>
+                            <label>Opponent</label>
+                            <input
+                                value={opponent}
+                                onChange={(e) => setOpponent(e.target.value)}
+                            />
 
-                                    {/* NEW: Quarter dropdown. Added by Wences Jacob Lorenzo */}
-                                    <div className="cell col-quarter">
-                                        <select
-                                            className="table-input center"
-                                            value={row.quarter || ""}
-                                            onChange={(e) => handleInputChange(row.id, "quarter", e.target.value)}
-                                        >
-                                            <option value="">Select</option>
-                                            <option value="Q1">Q1</option>
-                                            <option value="Q2">Q2</option>
-                                            <option value="Q3">Q3</option>
-                                            <option value="Q4">Q4</option>
-                                        </select>
-                                    </div>
+                            <label>Date</label>
+                            <input
+                                type="date"
+                                value={gameDate}
+                                onChange={(e) => setGameDate(e.target.value)}
+                            />
 
-                                    <div className="cell col-play">
-                                        <button 
-                                            className="play-row-btn"
-                                            onClick={() => {
-                                                if (videoRef.current && row.time) {
-                                                    videoRef.current.currentTime = timeToSeconds(row.time);
-                                                    videoRef.current.play();
-                                                }
-                                            }}
-                                            title="Play from timestamp"
-                                        >
-                                            ▶
-                                        </button>
-                                    </div>
+                            <label>Team Score</label>
+                            <input
+                                type="number"
+                                value={teamScore}
+                                onChange={(e) => setTeamScore(e.target.value)}
+                            />
 
-                                    <div className="cell col-delete">
-                                        <button
-                                            className="delete-btn"
-                                            onClick={() => handleDeleteRow(row.id)}
-                                            title="Delete row"
-                                        >
-                                            ✕
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                            <label>Opponent Score</label>
+                            <input
+                                type="number"
+                                value={opponentScore}
+                                onChange={(e) => setOpponentScore(e.target.value)}
+                            />
 
-                        <div className="table-footer-row">
-                            <button className="add-row-btn" onClick={handleAddRow}>
-                                Add Row +
-                            </button>
+                            <label>Description</label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                            />
+
+                            <div className="modal-actions">
+                                <button
+                                    className="modal-primary"
+                                    onClick={handleUpdateMatch}
+                                >
+                                    Save Changes
+                                </button>
+                                <button
+                                    className="modal-secondary"
+                                    onClick={() => setShowEdit(false)}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </div>
-
-                ) : (
-
-                    // PLAYER TABLE REPLACES GAME STATE TABLE
-                    <div className="game-state-table-container analysis-side-table">
-                        {/* Dynamic header color based on unit */}
-                        <div
-                            className={`table-title-header ${activeTab === "Offensive"
-                                ? "offense"
-                                : activeTab === "Defensive"
-                                    ? "defense"
-                                    : activeTab === "Special"
-                                        ? "special"
-                                        : ""
-                                }`}
-                        >
-                            Player Table - {activeTab}
-                        </div>
-
-                        <div className="table-header-row analysis-player-header">
-                            <div className="cell col-player-number">#</div>
-                            <div className="cell col-player-name">Name</div>
-                            <div className="cell col-player-position">Position</div>
-                            <div className="cell col-player-priority">★</div>
-                            <div className="cell col-player-action">Action</div>
-                        </div>
-
-                        <div className="table-scroll-area analysis-alt-table-scroll">
-                            {filteredPlayers.length > 0 ? filteredPlayers.map((player) => (
-                                <div className="table-row analysis-player-row" key={player.id}>
-                                    <div className="cell col-player-number">{player.jersey_number}</div>
-                                    <div className="cell col-player-name">{player.player_name}</div>
-                                    <div className="cell col-player-position">{getFullPositionName(player.position)}</div>
-
-                                    <div className="cell col-player-priority">
-                                        <button
-                                            className={`priority-star ${player.is_priority ? "active" : ""}`}
-                                            title={player.is_priority ? "Remove Priority" : "Mark as Priority"}
-                                            onClick={() => togglePriority(player)}
-                                        >
-                                            {player.is_priority ? "★" : "☆"}
-                                        </button>
-                                    </div>
-
-                                    <div className="cell col-player-action">
-                                        <button
-                                            className="player-view-btn"
-                                            onClick={() => openPlayerModal(player)}
-                                        >
-                                            View
-                                        </button>
-                                    </div>
-                                </div>
-                            )) : (
-                                <div className="table-row analysis-player-row">
-                                    <div className="cell col-empty">No players found for this unit</div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
                 )}
 
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="footer-buttons">
-                <button className="action-btn save" onClick={handleSave}>
-                    Save Changes and Exit
-                </button>
-                <button className="action-btn export tutorial-export-btn" onClick={handleExport}>
-                    Export Current Table
-                </button>
-                <button className="action-btn exit" onClick={handleExit}>
-                    Exit without Saving
-                </button>
-            </div>
-
-            {/* Edit Game Modal */}
-            {showEdit && (
-                <div className="modal-overlay">
-                    <div className="modal-card">
-                        <h2>Edit Game Details</h2>
-
-                        <label>Game Name</label>
-                        <input
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                        />
-
-                        <label>Opponent</label>
-                        <input
-                            value={opponent}
-                            onChange={(e) => setOpponent(e.target.value)}
-                        />
-
-                        <label>Date</label>
-                        <input
-                            type="date"
-                            value={gameDate}
-                            onChange={(e) => setGameDate(e.target.value)}
-                        />
-
-                        <label>Team Score</label>
-                        <input
-                            type="number"
-                            value={teamScore}
-                            onChange={(e) => setTeamScore(e.target.value)}
-                        />
-
-                        <label>Opponent Score</label>
-                        <input
-                            type="number"
-                            value={opponentScore}
-                            onChange={(e) => setOpponentScore(e.target.value)}
-                        />
-
-                        <label>Description</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                        />
-
-                        <div className="modal-actions">
-                            <button
-                                className="modal-primary"
-                                onClick={handleUpdateMatch}
-                            >
-                                Save Changes
+                {/* Exit Confirm Modal */}
+                {showExitConfirm && (
+                    <div className="modal-overlay">
+                        <div className="confirm-card">
+                            <p>
+                                Are you sure you want to exit without saving?
+                                <br />
+                                <strong>Any unsaved changes will be lost.</strong>
+                            </p>
+                            <button className="confirm-yes" onClick={confirmExit}>
+                                Yes, Exit
                             </button>
                             <button
-                                className="modal-secondary"
-                                onClick={() => setShowEdit(false)}
+                                className="confirm-cancel"
+                                onClick={() => setShowExitConfirm(false)}
                             >
                                 Cancel
                             </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Exit Confirm Modal */}
-            {showExitConfirm && (
-                <div className="modal-overlay">
-                    <div className="confirm-card">
-                        <p>
-                            Are you sure you want to exit without saving?
-                            <br />
-                            <strong>Any unsaved changes will be lost.</strong>
-                        </p>
-                        <button className="confirm-yes" onClick={confirmExit}>
-                            Yes, Exit
-                        </button>
-                        <button
-                            className="confirm-cancel"
-                            onClick={() => setShowExitConfirm(false)}
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            )}
+                {/* Player Insights Modal */}
+                {showPlayerModal && (
+                    <PlayerInsightsModal
+                        selectedPlayer={selectedPlayer}
+                        playerStats={playerStats}
+                        setPlayerStats={setPlayerStats}
+                        playerNotes={playerNotes}
+                        updatePlayerNote={updatePlayerNote}
+                        addPlayerNoteRow={addPlayerNoteRow}
+                        deletePlayerNoteRow={deletePlayerNoteRow}
+                        savePlayerInsights={savePlayerInsights}
+                        cancelPlayerModal={cancelPlayerModal}
+                        isSavingPlayer={isSavingPlayer}
+                        videoRef={videoRef}
+                    />
+                )}
 
-            {/* Player Insights Modal */}
-            {showPlayerModal && (
-                <PlayerInsightsModal
-                    selectedPlayer={selectedPlayer}
-                    playerStats={playerStats}
-                    setPlayerStats={setPlayerStats}
-                    playerNotes={playerNotes}
-                    updatePlayerNote={updatePlayerNote}
-                    addPlayerNoteRow={addPlayerNoteRow}
-                    deletePlayerNoteRow={deletePlayerNoteRow}
-                    savePlayerInsights={savePlayerInsights}
-                    cancelPlayerModal={cancelPlayerModal}
-                    isSavingPlayer={isSavingPlayer}
-                    videoRef={videoRef}
-                />
-            )}
-
-            {/* Clip Video Modal */}
-            {clipTarget && (
-                <ClipVideoModal
-                    video={clipTarget}
-                    onSave={handleClipVideo}
-                    onDiscard={closeClipModal}
-                />
-            )}
-
+                {/* Clip Video Modal */}
+                {clipTarget && (
+                    <ClipVideoModal
+                        video={clipTarget}
+                        onSave={handleClipVideo}
+                        onDiscard={closeClipModal}
+                    />
+                )}
+            </div>
         </div>
     );
 }
