@@ -33,6 +33,8 @@ from backend.routers.games import router as games_router
 from backend.routers.player_history import router as player_history #Added by Wences Jacob Lorenzo
 from backend.routers.ai import router as ai_router #Added by Wences Jacob Lorenzo
 from backend.routers.team_members import router as team_members_router
+from backend.routers.game_metrics import router as game_metrics_router
+
 
 
 #Initialize FastAPI App
@@ -59,6 +61,7 @@ app.include_router(games_router) # Game metadata management
 app.include_router(player_history) #Player history management (Added by Wences Jacob Lorenzo)
 app.include_router(ai_router)  # AI analysis (Gemini)  (Added by Wences Jacob Lorenzo)
 app.include_router(team_members_router)  # Team sharing & member management
+app.include_router(game_metrics_router)
 
 #Verify if backend is running
 @app.get("/")
