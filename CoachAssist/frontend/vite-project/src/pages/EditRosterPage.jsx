@@ -227,7 +227,24 @@ export default function EditRosterPage() {
 
     try {
       if (positionChanged) {
-        const res = await fetch(`/teams/players/${editPlayer.id}/switch-position`, {
+        //  STEP 1: UPDATE NAME + JERSEY FIRST
+        const updateRes = await fetch(`/teams/players/${editPlayer.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            player_name: form.player_name.trim(),
+            jersey_number: Number(form.jersey_number),
+            is_priority: editPlayer.is_priority ?? false,
+          }),
+        });
+
+        if (!updateRes.ok) throw new Error("Failed to update player");
+
+        //  STEP 2: THEN SWITCH POSITION
+        const switchRes = await fetch(`/teams/players/${editPlayer.id}/switch-position`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -238,15 +255,12 @@ export default function EditRosterPage() {
           }),
         });
 
-        if (!res.ok) throw new Error("Failed to switch position");
+        if (!switchRes.ok) throw new Error("Failed to switch position");
 
-        // 🔥 THIS IS THE MISSING PART
-        const newPlayer = await res.json();
+        const newPlayer = await switchRes.json();
 
-        // switch UI to the correct player
+        // 🔥 update UI correctly
         setSelectedHistoryPlayer(newPlayer);
-
-        // reload history for new position
         openPlayerHistory(newPlayer);
       }
       else {

@@ -249,7 +249,7 @@ def switch_position(
 
     cur = db.cursor()
 
-    # Get current player
+    # 🔥 Get current player
     cur.execute("SELECT * FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 
@@ -259,13 +259,13 @@ def switch_position(
 
     require_team_role(player["team_id"], user["id"], db, "editor")
 
-    # 🔥 STEP 1: deactivate current player
+    #  STEP 1: deactivate current player
     cur.execute(
         "UPDATE indv_players SET is_active = FALSE WHERE id = %s",
         (player_id,)
     )
 
-    # 🔥 STEP 2: check if position already exists
+    #  STEP 2: check if position already exists
     cur.execute(
         """
         SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
@@ -277,13 +277,13 @@ def switch_position(
     existing = cur.fetchone()
 
     if existing:
-        # 🔥 STEP 3: reactivate existing position
+        #  STEP 3: reactivate existing position
         cur.execute(
             "UPDATE indv_players SET is_active = TRUE WHERE id = %s",
             (existing["id"],)
         )
 
-        # 🔥 re-fetch updated row (so is_active is correct)
+        #  re-fetch updated row
         cur.execute(
             """
             SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
@@ -299,7 +299,23 @@ def switch_position(
 
         return updated_existing
 
-    # 🔥 STEP 4: create new active row
+    #  STEP 4: ALWAYS fetch latest canonical player data
+    cur.execute(
+        """
+        SELECT player_name, jersey_number, team_id, athlete_id, is_priority
+        FROM indv_players
+        WHERE athlete_id = %s
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (player["athlete_id"],)
+    )
+    latest_player = cur.fetchone()
+
+    if not latest_player:
+        latest_player = player  # fallback safety
+
+    #  STEP 5: create new active row with correct data
     cur.execute(
         """
         INSERT INTO indv_players
@@ -308,13 +324,13 @@ def switch_position(
         RETURNING id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
         """,
         (
-            player["athlete_id"],
-            player["team_id"],
-            player["player_name"],
-            player["jersey_number"],
-            player["unit"],
+            latest_player["athlete_id"],
+            latest_player["team_id"],
+            latest_player["player_name"],
+            latest_player["jersey_number"],
+            player["unit"],  # can later derive from position if desired
             new_position,
-            player["is_priority"]
+            latest_player["is_priority"]
         )
     )
 
@@ -399,7 +415,7 @@ def update_player(
     user_id = user["id"]
     cur = db.cursor()
 
-    cur.execute("SELECT id, team_id FROM indv_players WHERE id = %s", (player_id,))
+    cur.execute("SELECT id, team_id, athlete_id FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 
     if not player:
@@ -432,20 +448,26 @@ def update_player(
         cur.close()
         raise HTTPException(status_code=400, detail="No fields provided")
 
-    values.append(player_id)
+    values.append(player["athlete_id"])
 
     try:
         cur.execute(
             f"""
             UPDATE indv_players
             SET {", ".join(fields)}
-            WHERE id = %s
+            WHERE athlete_id = %s
             RETURNING id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
             """,
             tuple(values)
         )
 
-        updated_player = cur.fetchone()
+        updated_players = cur.fetchall()
+
+        # return the active one
+        updated_player = next(
+            (p for p in updated_players if p["is_active"]),
+            updated_players[0]
+        )
         db.commit()
         return updated_player
 
