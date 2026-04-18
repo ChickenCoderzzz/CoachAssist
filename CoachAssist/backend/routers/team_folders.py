@@ -17,6 +17,7 @@ Users can only access teams and matches they own.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from psycopg2.extras import RealDictCursor
 from backend.database import get_db
 from backend.schemas.match_schema import MatchCreateSchema
 from backend.routers.auth import require_user
@@ -394,7 +395,7 @@ def get_matches(team_id: int, user=Depends(require_user)):
 
     require_team_role(team_id, user["id"], db, "viewer")
 
-    cur = db.cursor()
+    cur = db.cursor(cursor_factory=RealDictCursor)
 
     cur.execute(
         """
@@ -406,7 +407,55 @@ def get_matches(team_id: int, user=Depends(require_user)):
         (team_id,)
     )
 
-    return {"matches": cur.fetchall()}
+    rows = cur.fetchall()
+
+    result = []
+
+    for match in rows:
+        game_id = match["id"]
+
+        # =========================
+        # FETCH METRICS FOR GAME
+        # =========================
+        cur.execute(
+            """
+            SELECT *
+            FROM game_metrics
+            WHERE game_id = %s
+            """,
+            (game_id,)
+        )
+
+        metric_rows = cur.fetchall()
+
+        metrics_by_quarter = {}
+
+        # Organize by quarter
+        for row in metric_rows:
+            quarter = row.get("quarter", "overall")
+            filtered_row = {
+                k: v for k, v in row.items()
+                if k not in ["id", "game_id", "quarter", "created_at"]
+            }
+            metrics_by_quarter[quarter] = filtered_row
+
+        # Compute overall totals
+        overall = {}
+
+        for row in metric_rows:
+            for key, value in row.items():
+                if key in ["id", "game_id", "quarter", "created_at"]:
+                    continue
+                overall[key] = overall.get(key, 0) + (value or 0)
+
+        metrics_by_quarter["overall"] = overall
+
+        # Attach metrics to match
+        match_dict = dict(match)
+        match_dict["metrics"] = metrics_by_quarter
+        result.append(match_dict)
+
+    return {"matches": result}
 
 
 # GET SINGLE MATCH

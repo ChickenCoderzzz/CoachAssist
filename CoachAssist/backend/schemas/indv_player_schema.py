@@ -18,15 +18,9 @@ from pydantic import BaseModel
 from typing import Literal, Optional
 
 #=== ALLOWED UNIT TYPES ===
-#Restricts unit values to valid football team categories
-#Prevents invalid data
-
 UnitType = Literal["offense", "defense", "special"]
 
-#=== ALLOWED POSITION TYPES===
-#Restricts positions to valid football roles
-#Ensures frontend and backend consistency
-
+#=== ALLOWED POSITION TYPES ===
 PositionType = Literal[
     "QB","RB","FB","WR","TE","LT","LG","C","RG","RT",
     "DE","DT","NT","OLB","ILB","MLB","CB","FS","SS",
@@ -38,12 +32,6 @@ PositionType = Literal[
 class PlayerCreate(BaseModel):
     """
     Used when creating a new player.
-
-    All fields are required.
-    Validation ensures:
-    - team_id exists
-    - jersey_number is integer
-    - unit and position match allowed values
     """
 
     team_id: int
@@ -53,35 +41,34 @@ class PlayerCreate(BaseModel):
     position: PositionType
     is_priority: bool = False
 
+
 #=== PLAYER OUTPUT SCHEMA ===
 
 class PlayerOut(BaseModel):
     """
     Returned when sending player data back to frontend.
-
-    Mirrors database structure.
     """
 
     id: int
+    athlete_id: int          #  REQUIRED
     team_id: int
     player_name: str
     jersey_number: int
     unit: UnitType
     position: PositionType
     is_priority: bool
+    is_active: bool          #  REQUIRED
+
 
 #=== UPDATE PLAYER SCHEMA ===
 
 class PlayerUpdate(BaseModel):
     """
     Used for updating player details.
-
-    All fields are optional to allow partial updates.
-    Only provided fields will be modified.
     """
 
     player_name: Optional[str] = None
     jersey_number: Optional[int] = None
     unit: Optional[UnitType] = None
-    position: Optional[PositionType] = None
+    position: Optional[PositionType] = None  # allowed but ignored
     is_priority: Optional[bool] = None

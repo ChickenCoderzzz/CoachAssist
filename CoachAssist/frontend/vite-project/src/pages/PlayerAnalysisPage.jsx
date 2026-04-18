@@ -127,7 +127,26 @@ export default function PlayerAnalysisPage() {
     })
       .then((res) => res.json())
       .then((data) => {
-        const sorted = [...(data || [])].sort((a, b) => {
+        console.log("PLAYER ANALYSIS PLAYERS:", data);
+
+        //  STEP 1: ONLY ACTIVE PLAYERS
+        const activePlayers = (data || []).filter(p => p.is_active);
+
+        //  STEP 2: GROUP BY athlete_id
+        const uniquePlayersMap = {};
+
+        activePlayers.forEach((p) => {
+          const key = p.athlete_id;
+
+          if (!uniquePlayersMap[key]) {
+            uniquePlayersMap[key] = p;
+          }
+        });
+
+        const uniquePlayers = Object.values(uniquePlayersMap);
+
+        //  STEP 3: SORT (same as before)
+        const sorted = uniquePlayers.sort((a, b) => {
           if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
             return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
           }
