@@ -83,16 +83,37 @@ export default function EditRosterPage() {
         return res.json();
       })
       .then((data) => {
-        // Sort players so priority players (starred) appear at the top.
-        // If both players have same priority, fallback to ID ordering.
-        const sorted = [...data].sort((a, b) => {
+        console.log("PLAYERS:", data);
+
+        // 🔥 STEP 1: ONLY ACTIVE PLAYERS
+        const activePlayers = data.filter((p) => p.is_active);
+
+        // 🔥 STEP 2: GROUP BY athlete_id
+        const uniquePlayersMap = {};
+
+        activePlayers.forEach((p) => {
+          const key = p.athlete_id;
+
+          if (!uniquePlayersMap[key]) {
+            uniquePlayersMap[key] = p;
+          }
+        });
+
+        const uniquePlayers = Object.values(uniquePlayersMap);
+
+        // 🔥 STEP 3: SORT
+        const sorted = uniquePlayers.sort((a, b) => {
           if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
             return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
           }
           return a.id - b.id;
         });
+
         setPlayers(sorted);
       })
+      .catch((err) => {
+        console.error("Error fetching players:", err);
+      });
   };
 
   // PRIORITY TOGGLE
@@ -132,9 +153,20 @@ export default function EditRosterPage() {
 
   // Automatically load first player when players list updates
   useEffect(() => {
-    if (players.length > 0) {
-      openPlayerHistory(players[0]);
+    if (!players.length) return;
+
+    //  If we already have a selected player, try to keep it
+    if (selectedHistoryPlayer) {
+      const updated = players.find(p => p.id === selectedHistoryPlayer.id);
+
+      if (updated) {
+        setSelectedHistoryPlayer(updated);
+        return;
+      }
     }
+
+    // fallback to first player only if none selected
+    openPlayerHistory(players[0]);
   }, [players]);
 
   //ADD PLAYER
@@ -191,28 +223,58 @@ export default function EditRosterPage() {
   };
 
   const proceedWithUpdate = async () => {
-    const res = await fetch(`/teams/players/${editPlayer.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        player_name: form.player_name.trim(),
-        jersey_number: Number(form.jersey_number),
-        position: form.position,
-        is_priority: editPlayer.is_priority ?? false,
-      }),
-    });
+    const positionChanged = editPlayer.position !== form.position;
 
-    if (!res.ok) {
-      alert("Failed to update player");
-      return;
+    try {
+      if (positionChanged) {
+        const res = await fetch(`/teams/players/${editPlayer.id}/switch-position`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            new_position: form.position,
+          }),
+        });
+
+        if (!res.ok) throw new Error("Failed to switch position");
+
+        // 🔥 THIS IS THE MISSING PART
+        const newPlayer = await res.json();
+
+        // switch UI to the correct player
+        setSelectedHistoryPlayer(newPlayer);
+
+        // reload history for new position
+        openPlayerHistory(newPlayer);
+      }
+      else {
+        // existing update logic
+        const res = await fetch(`/teams/players/${editPlayer.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            player_name: form.player_name.trim(),
+            jersey_number: Number(form.jersey_number),
+            is_priority: editPlayer.is_priority ?? false,
+          }),
+        });
+
+        if (!res.ok) throw new Error("Failed to update player");
+      }
+
+      setPendingPositionChange(false);
+      setEditPlayer(null);
+      fetchPlayers();
+
+    } catch (err) {
+      console.error(err);
+      alert("Update failed");
     }
-
-    setPendingPositionChange(false);
-    setEditPlayer(null);
-    fetchPlayers();
   };
 
   //DELETE PLAYER

@@ -158,8 +158,26 @@ const [gameMetrics, setGameMetrics] = useState({});
         })
             .then(res => res.json())
             .then(data => {
-                // Ensure priority players appear at top of player table
-                const sorted = [...(data || [])].sort((a, b) => {
+                console.log("ANALYZE PLAYERS:", data);
+
+                //  STEP 1: ONLY ACTIVE PLAYERS
+                const activePlayers = (data || []).filter(p => p.is_active);
+
+                //  STEP 2: GROUP BY athlete_id
+                const uniquePlayersMap = {};
+
+                activePlayers.forEach((p) => {
+                    const key = p.athlete_id;
+
+                    if (!uniquePlayersMap[key]) {
+                        uniquePlayersMap[key] = p;
+                    }
+                });
+
+                const uniquePlayers = Object.values(uniquePlayersMap);
+
+                //  STEP 3: SORT (same logic as before)
+                const sorted = uniquePlayers.sort((a, b) => {
                     if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
                         return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
                     }

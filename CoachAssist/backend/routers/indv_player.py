@@ -14,6 +14,7 @@ All routes are protected and require authentication.
 Users may only access players belonging to their own teams.
 """
 
+
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import List, Optional, Literal
 from io import BytesIO
@@ -29,27 +30,21 @@ from backend.database import get_db
 from backend.routers.auth import require_user
 from backend.routers.team_access import require_team_role
 
-#Router for team-related player endpoints
 router = APIRouter(
     prefix="/teams",
     tags=["Players"]
 )
 
-#Restricts allowed unit values to valid football categories
 UnitType = Literal["offense", "defense", "special"]
 
 
-#HELPER: ensure logged-in user has access to the team
-
 def verify_team_access(team_id: int, user_id: int, db, required_role: str = "viewer"):
-    """
-    Ensures that the authenticated user has at least the required role
-    for the team they are attempting to access.
-    """
     require_team_role(team_id, user_id, db, required_role)
 
-# GET ALL PLAYERS FOR A TEAM (optional unit filter)
 
+# =========================
+# GET ALL PLAYERS
+# =========================
 @router.get("/{team_id}/players", response_model=List[PlayerOut])
 def get_players(
     team_id: int,
@@ -57,30 +52,18 @@ def get_players(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Returns all players belonging to a team.
-
-    Optional:
-    - Filter by unit (offense, defense, special teams)
-
-    Only accessible by the team owner.
-    """
-
     user_id = user["id"]
-
     verify_team_access(team_id, user_id, db, "viewer")
 
     cur = db.cursor()
 
-    #Base query
     query = """
-        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
+        SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
         FROM indv_players
         WHERE team_id = %s
     """
     params = [team_id]
 
-    #Optional filtering by unit
     if unit:
         query += " AND unit = %s"
         params.append(unit)
@@ -92,6 +75,9 @@ def get_players(
     return players
 
 
+# =========================
+# EXPORT PDF
+# =========================
 @router.get("/{team_id}/players/export/pdf")
 def export_players_pdf(
     team_id: int,
@@ -99,17 +85,13 @@ def export_players_pdf(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Export team players (optionally filtered by unit) as a simple PDF table.
-    """
-
     user_id = user["id"]
     verify_team_access(team_id, user_id, db, "viewer")
 
     cur = db.cursor()
 
     query = """
-        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
+        SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
         FROM indv_players
         WHERE team_id = %s
     """
@@ -120,63 +102,48 @@ def export_players_pdf(
         params.append(unit)
 
     query += " ORDER BY jersey_number ASC, player_name ASC"
+
     cur.execute(query, tuple(params))
     players = cur.fetchall()
     cur.close()
 
-    unit_label = unit.capitalize() if unit else "All"
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, f"Team {team_id} Player Table ({unit_label})", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 8, f"Generated: {timestamp}", ln=True)
-    pdf.ln(2)
 
-    # Header
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 10, f"Team {team_id} Player Table", ln=True)
+
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(20, 8, "#", border=1, align="C")
+    pdf.cell(20, 8, "#", border=1)
     pdf.cell(80, 8, "Name", border=1)
     pdf.cell(35, 8, "Unit", border=1)
     pdf.cell(35, 8, "Position", border=1, ln=True)
 
-    # Rows
     pdf.set_font("Helvetica", "", 10)
-    if not players:
-        pdf.cell(170, 8, "No players found for this selection.", border=1, ln=True)
-    else:
-        for p in players:
-            jersey = str(p.get("jersey_number", ""))
-            name = str(p.get("player_name", ""))[:38]
-            row_unit = str(p.get("unit", ""))
-            position = str(p.get("position", ""))
 
-            pdf.cell(20, 8, jersey, border=1, align="C")
-            pdf.cell(80, 8, name, border=1)
-            pdf.cell(35, 8, row_unit, border=1)
-            pdf.cell(35, 8, position, border=1, ln=True)
+    for p in players:
+        pdf.cell(20, 8, str(p["jersey_number"]), border=1)
+        pdf.cell(80, 8, p["player_name"], border=1)
+        pdf.cell(35, 8, p["unit"], border=1)
+        pdf.cell(35, 8, p["position"], border=1, ln=True)
 
     pdf_bytes = pdf.output(dest="S")
     if isinstance(pdf_bytes, str):
         pdf_bytes = pdf_bytes.encode("latin-1")
-    buffer = BytesIO(pdf_bytes)
-
-    filename_unit = unit if unit else "all"
-    filename = f"team_{team_id}_{filename_unit}_players.pdf"
 
     return Response(
-        content=buffer.getvalue(),
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"'
+            "Content-Disposition": f'attachment; filename="team_{team_id}_players.pdf"'
         }
     )
 
-#ADD A PLAYER
 
+# =========================
+# ADD PLAYER
+# =========================
 @router.post("/{team_id}/players", response_model=PlayerOut, status_code=201)
 def add_player(
     team_id: int,
@@ -184,35 +151,53 @@ def add_player(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Creates a new player for a team.
-
-    Validates:
-    - User owns the team
-    - Team ID in URL matches request body
-    - Jersey number conflicts handled at DB level
-    """
-
     user_id = user["id"]
     verify_team_access(team_id, user_id, db, "editor")
 
-    #Ensure URL team_id matches body team_id
     if team_id != player.team_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Team ID mismatch"
-        )
+        raise HTTPException(status_code=400, detail="Team ID mismatch")
 
     cur = db.cursor()
+
     try:
+        # Find existing athlete
+        cur.execute(
+            """
+            SELECT athlete_id FROM indv_players
+            WHERE team_id = %s AND player_name = %s AND jersey_number = %s
+            LIMIT 1
+            """,
+            (player.team_id, player.player_name, player.jersey_number)
+        )
+        existing = cur.fetchone()
+
+        athlete_id = existing["athlete_id"] if existing else None
+
+        # Prevent duplicate position
+        if athlete_id:
+            cur.execute(
+                """
+                SELECT id FROM indv_players
+                WHERE athlete_id = %s AND position = %s
+                """,
+                (athlete_id, player.position)
+            )
+            if cur.fetchone():
+                raise HTTPException(
+                    status_code=400,
+                    detail="Player already exists at this position"
+                )
+
+        # Insert player
         cur.execute(
             """
             INSERT INTO indv_players
-            (team_id, player_name, jersey_number, unit, position, is_priority)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id, team_id, player_name, jersey_number, unit, position, is_priority
+            (athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+            RETURNING id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
             """,
             (
+                athlete_id,
                 player.team_id,
                 player.player_name,
                 player.jersey_number,
@@ -221,51 +206,144 @@ def add_player(
                 player.is_priority
             )
         )
+
         new_player = cur.fetchone()
+
+        # Assign athlete_id if new
+        if new_player["athlete_id"] is None:
+            cur.execute(
+                "UPDATE indv_players SET athlete_id = %s WHERE id = %s",
+                (new_player["id"], new_player["id"])
+            )
+            new_player["athlete_id"] = new_player["id"]
+
         db.commit()
         return new_player
 
-    #Roll back transaction on conflict
+    except HTTPException:
+        db.rollback()
+        raise
+
     except Exception:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Player already exists or invalid data"
-        )
+        raise HTTPException(status_code=400, detail="Failed to add player")
 
     finally:
         cur.close()
 
-#DELETE A PLAYER
 
+# =========================
+# SWITCH POSITION
+# =========================
+@router.post("/players/{player_id}/switch-position", response_model=PlayerOut)
+def switch_position(
+    player_id: int,
+    payload: dict,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    new_position = payload.get("new_position")
+
+    if not new_position:
+        raise HTTPException(status_code=400, detail="New position required")
+
+    cur = db.cursor()
+
+    # Get current player
+    cur.execute("SELECT * FROM indv_players WHERE id = %s", (player_id,))
+    player = cur.fetchone()
+
+    if not player:
+        cur.close()
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    require_team_role(player["team_id"], user["id"], db, "editor")
+
+    # 🔥 STEP 1: deactivate current player
+    cur.execute(
+        "UPDATE indv_players SET is_active = FALSE WHERE id = %s",
+        (player_id,)
+    )
+
+    # 🔥 STEP 2: check if position already exists
+    cur.execute(
+        """
+        SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
+        FROM indv_players
+        WHERE athlete_id = %s AND position = %s
+        """,
+        (player["athlete_id"], new_position)
+    )
+    existing = cur.fetchone()
+
+    if existing:
+        # 🔥 STEP 3: reactivate existing position
+        cur.execute(
+            "UPDATE indv_players SET is_active = TRUE WHERE id = %s",
+            (existing["id"],)
+        )
+
+        # 🔥 re-fetch updated row (so is_active is correct)
+        cur.execute(
+            """
+            SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
+            FROM indv_players
+            WHERE id = %s
+            """,
+            (existing["id"],)
+        )
+        updated_existing = cur.fetchone()
+
+        db.commit()
+        cur.close()
+
+        return updated_existing
+
+    # 🔥 STEP 4: create new active row
+    cur.execute(
+        """
+        INSERT INTO indv_players
+        (athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+        RETURNING id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
+        """,
+        (
+            player["athlete_id"],
+            player["team_id"],
+            player["player_name"],
+            player["jersey_number"],
+            player["unit"],
+            new_position,
+            player["is_priority"]
+        )
+    )
+
+    new_player = cur.fetchone()
+
+    db.commit()
+    cur.close()
+
+    return new_player
+
+
+# =========================
+# DELETE PLAYER
+# =========================
 @router.delete("/players/{player_id}", status_code=200)
 def delete_player(
     player_id: int,
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Creates a new player for a team.
-
-    Validates:
-    - User owns the team
-    - Team ID in URL matches request body
-    - Jersey number conflicts handled at DB level
-    """
-
     user_id = user["id"]
     cur = db.cursor()
 
-    # Get player and verify team access
     cur.execute("SELECT id, team_id FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 
     if not player:
         cur.close()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
-        )
+        raise HTTPException(status_code=404, detail="Player not found")
 
     require_team_role(player["team_id"], user_id, db, "editor")
 
@@ -275,26 +353,22 @@ def delete_player(
 
     return {"success": True}
 
-# GET A SINGLE PLAYER
 
+# =========================
+# GET SINGLE PLAYER
+# =========================
 @router.get("/players/{player_id}", response_model=PlayerOut)
 def get_player(
     player_id: int,
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Returns detailed information for a single player.
-
-    Access restricted to team owner.
-    """
-
     user_id = user["id"]
     cur = db.cursor()
 
     cur.execute(
         """
-        SELECT id, team_id, player_name, jersey_number, unit, position, is_priority
+        SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
         FROM indv_players
         WHERE id = %s
         """,
@@ -305,17 +379,16 @@ def get_player(
     cur.close()
 
     if not player:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Player not found"
-        )
+        raise HTTPException(status_code=404, detail="Player not found")
 
     require_team_role(player["team_id"], user_id, db, "viewer")
 
     return player
 
-#UPDATE PLAYER DETAILS
 
+# =========================
+# UPDATE PLAYER (NO POSITION CHANGE)
+# =========================
 @router.put("/players/{player_id}", response_model=PlayerOut)
 def update_player(
     player_id: int,
@@ -323,13 +396,6 @@ def update_player(
     db=Depends(get_db),
     user=Depends(require_user)
 ):
-    """
-    Updates one or more player fields dynamically.
-
-    Only updates fields that are provided.
-    Prevents unauthorized access via team ownership validation.
-    """
-    
     user_id = user["id"]
     cur = db.cursor()
 
@@ -338,14 +404,10 @@ def update_player(
 
     if not player:
         cur.close()
-        raise HTTPException(
-            status_code=404,
-            detail="Player not found"
-        )
+        raise HTTPException(status_code=404, detail="Player not found")
 
     require_team_role(player["team_id"], user_id, db, "editor")
 
-    #Build dynamic update query based on provided fields
     fields = []
     values = []
 
@@ -361,20 +423,14 @@ def update_player(
         fields.append("unit = %s")
         values.append(updates.unit)
 
-    if updates.position is not None:
-        fields.append("position = %s")
-        values.append(updates.position)
-
+    #  Position updates blocked
     if updates.is_priority is not None:
         fields.append("is_priority = %s")
         values.append(updates.is_priority)
 
     if not fields:
         cur.close()
-        raise HTTPException(
-            status_code=400,
-            detail="No fields provided for update"
-        )
+        raise HTTPException(status_code=400, detail="No fields provided")
 
     values.append(player_id)
 
@@ -384,20 +440,18 @@ def update_player(
             UPDATE indv_players
             SET {", ".join(fields)}
             WHERE id = %s
-            RETURNING id, team_id, player_name, jersey_number, unit, position, is_priority
+            RETURNING id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
             """,
             tuple(values)
         )
+
         updated_player = cur.fetchone()
         db.commit()
         return updated_player
 
     except Exception:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Update failed (possible jersey number conflict)"
-        )
+        raise HTTPException(status_code=400, detail="Update failed")
 
     finally:
         cur.close()
