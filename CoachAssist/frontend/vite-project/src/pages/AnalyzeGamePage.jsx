@@ -270,15 +270,14 @@ export default function AnalyzeGamePage() {
     const {
         videoList, videoSrc, videoName, videoRef,
         uploading, clipTarget,
-        upscaleJobs,
+        uploadJobs, upscaleJobs,
+        isUploading, activeUploadJobId,
         setVideoSrc, setVideoName,
         handleVideoUpload, handleDeleteVideo,
         handleRenameVideo,
         openClipModal, closeClipModal, handleClipVideo,
         handleUpscaleVideo, handleUpscaleClick
     } = useVideos(teamId, matchId);
-
-
 
 
 
@@ -483,9 +482,34 @@ export default function AnalyzeGamePage() {
                                 id="video-upload"
                                 style={{ display: "none" }}
                                 onChange={handleVideoUpload}
-                                disabled={uploading}
+                                disabled={!!isUploading}
                             />
-                            {uploading && <div>Uploading... ⏳</div>}
+                            {activeUploadJobId && uploadJobs?.[activeUploadJobId] && (
+                                <div style={{ width: "220px" }}>
+                                    <div style={{
+                                        height: "6px",
+                                        background: "#ddd",
+                                        borderRadius: "4px",
+                                        overflow: "hidden"
+                                    }}>
+                                        <div
+                                            style={{
+                                                width: `${uploadJobs[activeUploadJobId]?.progress || 0}%`,
+                                                height: "100%",
+                                                background: "#4caf50",
+                                                transition: "width 0.2s ease"
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div style={{ fontSize: "12px", marginTop: "4px" }}>
+                                        {uploadJobs[activeUploadJobId]?.status === "done"
+                                            ? "Upload complete"
+                                            : `Uploading... ${uploadJobs[activeUploadJobId]?.progress || 0}%`
+                                        }
+                                    </div>
+                                </div>
+                            )}
                             <button
                                 className="add-team-btn"
                                 onClick={() => document.getElementById("video-upload").click()}

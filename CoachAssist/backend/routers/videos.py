@@ -9,6 +9,7 @@ from backend.video_providers.firebase_storage import upload_video_to_firebase, b
 from backend.upscaling_utils.realesrgan import REALSRCAN_BIN, REALSRCAN_DIR
 import subprocess
 import tempfile
+import requests
 import os
 import uuid
 import logging
@@ -24,6 +25,98 @@ router = APIRouter(
     prefix="/teams/{team_id}/matches/{match_id}/videos",
     tags=["Match Videos"]
 )
+#resumable blob uploads will allow the upload progress to be visible 
+#Firebase SDK is meant to work on the frontend, so it would mean a total change in our architecture
+def upload_video_with_progress(file_path, blob, job_id=None, cur=None, db=None,
+                         base_progress=0, progress_span=100):
+
+    file_size = os.path.getsize(file_path)
+
+    session_url = blob.create_resumable_upload_session(
+        content_type="video/mp4"
+    )
+    # 2MB 
+    # chunk_size = 2 * 1024 * 1024  
+    # 256KB
+    chunk_size = 256 * 1024  
+    uploaded = 0
+
+    with open(file_path, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+
+            start = uploaded
+            end = uploaded + len(chunk) - 1
+
+            headers = {
+                "Content-Type": "video/mp4",
+                "Content-Range": f"bytes {start}-{end}/{file_size}"
+            }
+
+            response = requests.put(session_url, data=chunk, headers=headers)
+
+            if response.status_code not in (200, 201, 308):
+                raise Exception(f"Upload failed: {response.text}")
+
+            uploaded += len(chunk)
+
+            #progress tracking
+            if job_id and cur and db:
+                pct = uploaded / file_size
+                progress = base_progress + int(pct * progress_span)
+
+                update_upload_job(cur, job_id, progress=progress, step="uploading")
+                db.commit()
+
+#background task for video uploading
+def process_video_upload(user_id, team_id, match_id, video_id, job_id, temp_path, original_filename):
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        update_upload_job(cur, job_id, status="processing", progress=10, step="uploading")
+        db.commit()
+
+        filename = f"{user_id}_{match_id}_{original_filename}"
+        storage_path = f"users/{user_id}/matches/{match_id}/{filename}"
+
+        blob = bucket.blob(storage_path)
+
+        upload_video_with_progress(
+            temp_path,
+            blob,
+            job_id=job_id,
+            cur=cur,
+            db=db,
+            base_progress=10,
+            progress_span=80
+        )
+
+        blob.content_type = "video/mp4"
+        blob.patch()
+
+        # update video record
+        cur.execute(
+            """
+            UPDATE videos
+            SET storage_path = %s
+            WHERE id = %s
+            """,
+            (storage_path, video_id)
+        )
+
+        update_upload_job(cur, job_id, status="done", progress=100, step="completed")
+        db.commit()
+
+    except Exception as e:
+        update_upload_job(cur, job_id, status="failed", step=str(e)[:100])
+        db.commit()
+
+    finally:
+        cur.close()
+        db.close()
 
 #verify that the match is owned by the requester and is avaliable to store videos under
 def verify_match_ownership(team_id: int, match_id: int, user_id: int):
@@ -50,28 +143,44 @@ def verify_match_ownership(team_id: int, match_id: int, user_id: int):
     if not result:
         raise HTTPException(status_code=404, detail="Match not found or unauthorized")
 
-def update_job(cur, job_id, status=None, progress=None, step=None):
+#update an ongoing job to reflect progress
+def update_upload_job(cur, job_id, status=None, progress=None, step=None):
     try:
         cur.execute(
-        """
-        UPDATE upscale_jobs
-        SET status = COALESCE(%s, status),
-            progress = COALESCE(%s, progress),
-            step = COALESCE(%s, step)
-        WHERE id = %s
-        """,
-        (status, progress, step, job_id)
-    )
+            """
+            UPDATE upload_jobs
+            SET status = COALESCE(%s, status),
+                progress = COALESCE(%s, progress),
+                step = COALESCE(%s, step)
+            WHERE id = %s
+            """,
+            (status, progress, step, job_id)
+        )
+    except Exception as e:
+        logger.error(f"[UPSCALE] Update failed for job={job_id}: {e}", exc_info=True)
+def update_upscale_job(cur, job_id, status=None, progress=None, step=None):
+    try:
+        cur.execute(
+            """
+            UPDATE upscale_jobs
+            SET status = COALESCE(%s, status),
+                progress = COALESCE(%s, progress),
+                step = COALESCE(%s, step)
+            WHERE id = %s
+            """,
+            (status, progress, step, job_id)
+        )
     except Exception as e:
         logger.error(f"[UPSCALE] Update failed for job={job_id}: {e}", exc_info=True)
 
+#upscale video in background
 def process_upscale_video_in_background(user_id: int, team_id: int, match_id: int, video_id: int, job_id: int):
     db = get_db()
     cur = db.cursor()
     
     logger.info(f"[UPSCALE] Starting upscale for user={user_id}, video={video_id}")
     #update job to reflect that it has begun
-    update_job(cur, job_id, status="processing", progress=5, step="downloading")
+    update_upscale_job(cur, job_id, status="processing", progress=5, step="downloading")
     db.commit()
     try:
         cur.execute(
@@ -88,7 +197,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
 
         video = cur.fetchone()
         if not video or not video["storage_path"]:
-            update_job(cur, job_id, status="failed", step="video not found")
+            update_upscale_job(cur, job_id, status="failed", step="video not found")
             db.commit()
             logger.error(f"[UPSCALE] Video not found or missing storage_path: {video}")
             return
@@ -117,7 +226,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 logger.error(f"[UPSCALE] Firebase download failed: {e}")
                 raise
             # update job to reflect that the current stage is frame extraction
-            update_job(cur, job_id, progress=20, step="extracting_frames")
+            update_upscale_job(cur, job_id, progress=20, step="extracting_frames")
             db.commit()
             # Step 2: Extract frames
             try:
@@ -137,7 +246,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 logger.error(f"[UPSCALE] Frame extraction failed: {e}")
                 raise
             # update job to reflect that the current stage is upscaling frames
-            update_job(cur, job_id, progress=40, step="upscaling_frames")
+            update_upscale_job(cur, job_id, progress=40, step="upscaling_frames")
             db.commit()
             # Step 3: Upscale frames
             try:
@@ -165,7 +274,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 logger.error(f"[UPSCALE] Upscaling failed: {e}")
                 raise
             # update job to reflect that the current stage is rebuilding the video
-            update_job(cur, job_id, progress=70, step="rebuilding_video")
+            update_upscale_job(cur, job_id, progress=70, step="rebuilding_video")
             db.commit()
             # Step 4: Rebuild video
             try:
@@ -189,7 +298,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 logger.error(f"[UPSCALE] Video rebuild failed: {e}")
                 raise
             # update job to reflect that the current stage is reuploading video
-            update_job(cur, job_id, progress=80, step="uploading")
+            update_upscale_job(cur, job_id, progress=80, step="uploading")
             db.commit()
             # Step 5: Upload to Firebase
             try:
@@ -200,14 +309,16 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
 
                 blob_out = bucket.blob(storage_path)
 
-                blob_out.chunk_size = 5 * 1024 * 1024  # 5MB chunks
+                upload_video_with_progress(
+                    output_path,
+                    blob_out,
+                    job_id=job_id,
+                    cur=cur,
+                    db=db,
+                    base_progress=80,   # your existing stage
+                    progress_span=10    # goes from 80 → 90
+                )
 
-                with open(output_path, "rb") as f:
-                    blob_out.upload_from_file(
-                        f,
-                        timeout=600  # increase timeout to 10 minutes
-                    )
-                    
                 blob_out.content_type = "video/mp4"
                 blob_out.patch()
                 logger.info(f"[UPSCALE] Successfully uploaded to Firebase: {storage_path}")
@@ -215,7 +326,7 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 logger.error(f"[UPSCALE] Firebase upload failed: {e}")
                 raise
             # update job to reflect that the current stage is updating the database records
-            update_job(cur, job_id, progress=90, step="updating records")
+            update_upscale_job(cur, job_id, progress=90, step="updating records")
             db.commit()
             # Step 6: Insert database record
             try:
@@ -249,14 +360,14 @@ def process_upscale_video_in_background(user_id: int, team_id: int, match_id: in
                 db.rollback()
                 logger.error(f"[UPSCALE] Database insert failed: {e}")
                 raise
-        update_job(cur, job_id, status="done", progress=100, step="completed")
+        update_upscale_job(cur, job_id, status="done", progress=100, step="completed")
         db.commit()
         logger.info(f"[UPSCALE] Upscaling completed successfully for video={video_id}")
 
     except Exception as e:
         logger.error(f"[UPSCALE] Upscaling failed for user={user_id}, video={video_id}: {e}", exc_info=True)
         db.commit()
-        update_job(cur, job_id, status="failed", step=str(e)[:100])
+        update_upscale_job(cur, job_id, status="failed", step=str(e)[:100])
 
     finally:
         cur.close()
@@ -388,35 +499,36 @@ def list_videos(
 def upload_video(
     team_id: int,
     match_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user=Depends(require_user)
 ):
-    #verify that the team,match,and user are correct
     verify_match_ownership(team_id, match_id, user["id"])
 
     db = get_db()
     cur = db.cursor()
 
-    try:
-        storage_path = upload_video_to_firebase(
-            file,
-            user["id"],
-            match_id
-        )[0]
+    temp_path = None
 
+    try:
+        # 1. Save temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_path = tmp.name
+
+        # 2. Create DB record FIRST (placeholder video)
         cur.execute(
-                       """
+            """
             INSERT INTO videos (
                 user_id,
                 team_id,
                 match_id,
                 provider,
-                provider_video_id,
                 storage_path,
                 filename
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, filename, created_at
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 user["id"],
@@ -424,23 +536,54 @@ def upload_video(
                 match_id,
                 "firebase",
                 None,
-                storage_path,
                 file.filename
             )
         )
 
-        new_video = cur.fetchone()
-        db.commit()
+        video_id = cur.fetchone()["id"]
 
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(400, f"Upload failed: {e}")
+        # 3. Create upload job
+        cur.execute(
+            """
+            INSERT INTO upload_jobs (
+                video_id, user_id, team_id, match_id,
+                status, progress, step
+            )
+            VALUES (%s, %s, %s, %s, 'queued', 0, 'queued')
+            RETURNING id
+            """,
+            (video_id, user["id"], team_id, match_id)
+        )
+
+        job_id = cur.fetchone()["id"]
+
+        db.commit()
 
     finally:
         cur.close()
         db.close()
 
-    return new_video
+    # 4. Start background upload
+    background_tasks.add_task(
+        process_video_upload,
+        user["id"],
+        team_id,
+        match_id,
+        video_id,
+        job_id,
+        temp_path,
+        file.filename
+    )
+
+    # 5. RETURN IMMEDIATELY
+    return {
+        "video": {
+            "id": video_id,
+            "filename": file.filename,
+            "playback_url": None
+        },
+        "job_id": job_id
+    }
 
 
 #delete method
@@ -764,6 +907,34 @@ def upscale_video(
         "status": "queued",
         "job_id": job_id
     }
+
+#uploading job status endpoint
+@router.get("/upload-status/{job_id}")
+def get_upload_status(
+    job_id: int,
+    user=Depends(require_user)
+):
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute(
+        """
+        SELECT status, progress, step
+        FROM upload_jobs
+        WHERE id = %s AND user_id = %s
+        """,
+        (job_id, user["id"])
+    )
+
+    job = cur.fetchone()
+
+    cur.close()
+    db.close()
+
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    return job
 
 #upscaling job status endpoint
 @router.get("/{job_id}/upscale-status")

@@ -4,10 +4,12 @@ export default function useVideos(teamId, matchId) {
     const [videoList, setVideoList] = useState([]);
     const [videoSrc, setVideoSrc] = useState(null);
     const [videoName, setVideoName] = useState("");
-    const [loadingVideos, setLoadingVideos] = useState(true); //videos being fetched
+    const [loadingVideos, setLoadingVideos] = useState(true); // videos being fetched
     const videoRef = useRef(null);
-    const [uploading, setUploading] = useState(false); // video uploading 
+    const [activeUploadJobId, setActiveUploadJobId] = useState(null); // track which upload job is currently active for polling
+    const [uploadJobs, setUploadJobs] = useState({}); // videos being uploaded
     const [upscaleJobs, setUpscaleJobs] = useState({}); // videos being upscaled
+    const isUploading = activeUploadJobId && uploadJobs?.[activeUploadJobId]?.status !== "done";
     // Clip modal state – holds the video object being clipped, or null
     const [clipTarget, setClipTarget] = useState(null);
 
@@ -71,11 +73,11 @@ export default function useVideos(teamId, matchId) {
         if (!file) return alert("No file selected.");
         if (!token) return alert("You must be logged in.");
 
-        const formData = new FormData();
-        formData.append("file", file);
-
         try {
-            setUploading(true);
+            
+
+            const formData = new FormData();
+            formData.append("file", file);
 
             const res = await fetch(
                 `/teams/${teamId}/matches/${matchId}/videos`,
@@ -88,26 +90,54 @@ export default function useVideos(teamId, matchId) {
                 }
             );
 
+            const data = await res.json();
+
             if (!res.ok) {
-                const text = await res.text();
-                alert("Upload failed: " + text);
+                alert("Upload failed: " + JSON.stringify(data));
                 return;
             }
 
-            const newVideo = await res.json();
+            const newVideo = data.video;
+            const jobId = data.job_id;
 
-            // add the new video at the top
-            setVideoList(prev => [newVideo, ...prev]);
-            setVideoSrc(newVideo.playback_url);
+            // ----------------------------
+            // SAFETY GUARD (critical fix)
+            // ----------------------------
+            if (!newVideo?.id || !jobId) {
+                console.error("Invalid upload response:", data);
+                alert("Upload failed: invalid server response");
+                return;
+            }
+
+            // ----------------------------
+            // Add placeholder video only
+            // ----------------------------
+            setVideoList(prev => [
+                {
+                    ...newVideo,
+                    playback_url: null // explicitly indicate "not ready yet"
+                },
+                ...prev
+            ]);
+
+            // DO NOT set playback yet (video is not ready)
+            //setVideoSrc(null);
             setVideoName(newVideo.filename);
-
-            //fetch the whole list again to ensure backend sync
-            await fetchVideos();
             
+            // ----------------------------
+            // Start polling using jobId ONLY
+            // (job is source of truth)
+            // ----------------------------
+            setActiveUploadJobId(jobId);
+            startUploadPolling(jobId);
+
+            // optional refresh (safe but not required immediately)
+            //await fetchVideos();
+
         } catch (err) {
             alert("Upload error: " + err);
         } finally {
-            setUploading(false);
+            
         }
     };
 
@@ -173,6 +203,49 @@ export default function useVideos(teamId, matchId) {
         } catch (err) {
             alert("Delete error: " + err);
         }
+    };
+
+    const startUploadPolling = (jobId) => {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(
+                    `/teams/${teamId}/matches/${matchId}/videos/upload-status/${jobId}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
+                // IMPORTANT: stop polling on failure
+                if (!res.ok) {
+                    clearInterval(interval);
+                    console.error("Upload job not found:", jobId);
+                    return;
+                }
+
+                const job = await res.json();
+
+                setUploadJobs(prev => ({
+                    ...prev,
+                    [jobId]: job
+                }));
+
+                // stop conditions
+                if (job.status === "done" || job.status === "failed") {
+                    clearInterval(interval);
+
+                    if (job.status === "done") {
+                        // refresh final video list once backend commit is complete
+                        fetchVideos();
+                    }
+                }
+
+            } catch (err) {
+                console.error("Upload polling error:", err);
+                clearInterval(interval);
+            }
+        }, 1000);
     };
 
     const handleClipVideo = async (start, end) => {
@@ -323,8 +396,10 @@ export default function useVideos(teamId, matchId) {
         videoName,
         videoRef,
         loadingVideos,
-        uploading,
+       
+        uploadJobs,
         upscaleJobs,
+        activeUploadJobId,
         clipTarget,
         setVideoSrc,
         setVideoName,
