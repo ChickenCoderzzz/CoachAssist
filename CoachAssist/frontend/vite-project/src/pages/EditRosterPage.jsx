@@ -646,6 +646,11 @@ export default function EditRosterPage() {
                   <VisTab
                     historyData={historyData}
                     selectedGameIds={selectedGameIds}
+                    selectedQuarters={
+                      selectedQuarter === "all"
+                        ? []
+                        : [selectedQuarter]
+                    }
                     selectedPlayer={selectedHistoryPlayer}
                   />
                 )}

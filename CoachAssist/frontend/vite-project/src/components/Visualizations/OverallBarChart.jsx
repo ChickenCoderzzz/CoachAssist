@@ -1,4 +1,4 @@
-/*
+/* 
 OverallBarChart
 
 Displays the total distribution of selected stats.
@@ -14,10 +14,11 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
-  LabelList
+  LabelList,
+  Cell   // 🔥 ADDED
 } from "recharts";
 
-export default function OverallBarChart({ data }) {
+export default function OverallBarChart({ data, useComparisonColors = false }) { // 🔥 ADDED PROP
 
 /*If no stats are selected, show a message instead of rendering an empty chart.*/
 if (!data || data.length === 0) {
@@ -50,12 +51,12 @@ if (!data || data.length === 0) {
 
           data={data}
 
-          /*Tight margins so the chart fills the white container more evenly.*/
+          /* 🔥 UPDATED: more bottom space for labels */
           margin={{
             top: 10,
             right: 15,
-            left: -3,   // pulls chart slightly left to remove empty space
-            bottom: 40
+            left: -3,
+            bottom: 110
           }}
 
         >
@@ -76,15 +77,15 @@ if (!data || data.length === 0) {
 
             interval={0}
 
-            /*Rotate labels slightly so longer stats fit*/
-            angle={-45}
+            /* 🔥 UPDATED: less aggressive rotation */
+            angle={-30}
 
             textAnchor="end"
 
-            dx = {-20}
-            tickMargin={30}
+            dx = {-10}   // 🔥 adjusted
+            tickMargin={20}  // 🔥 adjusted
 
-            height={60}
+            height={110}  // 🔥 critical fix
 
             tick={{
               fill: "#333",
@@ -145,6 +146,40 @@ if (!data || data.length === 0) {
             radius={[4,4,0,0]}
 
           >
+
+            {/* 🔥 UPDATED: dynamic color mapping */}
+            {data.map((entry, index) => {
+
+              const isOpp = entry.stat.includes("(Opp)");
+
+              const TEAM_COLORS = [
+                "#3b82f6", "#2563eb", "#1d4ed8",
+                "#60a5fa", "#93c5fd",
+                "#0ea5e9", "#0284c7", "#0369a1",
+                "#38bdf8", "#7dd3fc"
+              ];
+
+              const OPP_COLORS = [
+                "#ef4444", "#dc2626", "#b91c1c",
+                "#f87171", "#fca5a5",
+                "#fb7185", "#e11d48", "#be123c",
+                "#fecaca", "#fda4af"
+              ];
+
+              const color = useComparisonColors
+                ? (isOpp
+                    ? OPP_COLORS[index % OPP_COLORS.length]
+                    : TEAM_COLORS[index % TEAM_COLORS.length])
+                : "#4CAF50";
+
+              return (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={color}
+                />
+              );
+
+            })}
 
             {/* Value labels above bars */}
             <LabelList

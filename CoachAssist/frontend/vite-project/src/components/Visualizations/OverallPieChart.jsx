@@ -37,8 +37,6 @@ const COLORS = [
 
 /*
 Custom Legend Renderer
-
-Creates a white box with a title and color indicators for each stat.
 */
 function CustomLegend({ payload }) {
 
@@ -54,7 +52,6 @@ function CustomLegend({ payload }) {
       }}
     >
 
-      {/* Legend Title */}
       <div
         style={{
           fontWeight: "bold",
@@ -65,7 +62,6 @@ function CustomLegend({ payload }) {
         Stats Legend
       </div>
 
-      {/* Legend Items */}
       {payload.map((entry, index) => (
 
         <div
@@ -78,7 +74,6 @@ function CustomLegend({ payload }) {
           }}
         >
 
-          {/* Color indicator */}
           <div
             style={{
               width: "12px",
@@ -88,7 +83,6 @@ function CustomLegend({ payload }) {
             }}
           />
 
-          {/* Stat name */}
           <span>{entry.value}</span>
 
         </div>
@@ -100,7 +94,7 @@ function CustomLegend({ payload }) {
   );
 }
 
-export default function OverallPieChart({ data, expanded }) {
+export default function OverallPieChart({ data, expanded, useComparisonColors = false }) {
 
   if (!data || data.length === 0) {
     return (
@@ -121,11 +115,9 @@ export default function OverallPieChart({ data, expanded }) {
   }
 
   /*Increase radius when expanded so the pie actually grows in fullscreen*/
-
   const radius = expanded ? 340 : 145;
 
   /*Move center slightly left when expanded to leave room for legend*/
-
   const centerX = expanded ? "40%" : "45%";
 
   return (
@@ -141,22 +133,45 @@ export default function OverallPieChart({ data, expanded }) {
             data={data}
             dataKey="value"
             nameKey="stat"
-
             cx={centerX}
             cy="50%"
-
             outerRadius={radius}
-
             label
           >
 
-            {/* Apply different colors to slices */}
-            {data.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
+            {/* 🔥 UPDATED: dynamic color mapping */}
+            {data.map((entry, index) => {
+
+              const isOpp = entry.stat.includes("(Opp)");
+
+              const TEAM_COLORS = [
+                "#3b82f6", "#2563eb", "#1d4ed8",
+                "#60a5fa", "#93c5fd",
+                "#0ea5e9", "#0284c7", "#0369a1",
+                "#38bdf8", "#7dd3fc"
+              ];
+
+              const OPP_COLORS = [
+                "#ef4444", "#dc2626", "#b91c1c",
+                "#f87171", "#fca5a5",
+                "#fb7185", "#e11d48", "#be123c",
+                "#fecaca", "#fda4af"
+              ];
+
+              const color = useComparisonColors
+                ? (isOpp
+                    ? OPP_COLORS[index % OPP_COLORS.length]
+                    : TEAM_COLORS[index % TEAM_COLORS.length])
+                : COLORS[index % COLORS.length];
+
+              return (
+                <Cell
+                  key={`cell-${index}`}
+                  fill={color}
+                />
+              );
+
+            })}
 
           </Pie>
 
