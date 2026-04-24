@@ -2,22 +2,6 @@
 SingleStatBarChart
 
 Displays MULTIPLE stats across games.
-
-Example data structure:
-
-[
-  {
-    game: "UCLA",
-    passing_yards: 250,
-    rushing_yards: 80
-  },
-  {
-    game: "USC",
-    passing_yards: 310,
-    rushing_yards: 65
-  }
-]
-
 Each stat becomes its own colored bar within the game group.
 */
 
@@ -34,13 +18,13 @@ import {
 } from "recharts";
 
 
-// CoachAssist color palette for stats
+// CoachAssist color palette for stats (fallback only)
 const COLORS = [
-  "#4C6EF5", // blue
-  "#8E44AD", // purple
-  "#4CAF50", // green
-  "#E4572E", // orange
-  "#E3B505"  // gold
+  "#4C6EF5",
+  "#8E44AD",
+  "#4CAF50",
+  "#E4572E",
+  "#E3B505"
 ];
 
 // Convert stat keys like passing_yards to Passing Yards
@@ -48,14 +32,11 @@ function formatLabel(key) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function SingleStatBarChart({ data, stats }) {
+export default function SingleStatBarChart({ data, stats, useComparisonColors = false }) {
 
   /*If no stats selected, still render the chart container so the graph viewer does not disappear.*/
-
   if (!stats || stats.length === 0) {
-
     return (
-
       <div
         className="chart-container"
         style={{
@@ -65,35 +46,44 @@ export default function SingleStatBarChart({ data, stats }) {
           justifyContent: "center"
         }}
       >
-
         <p style={{ color: "black" }}>
           Select stats to visualize
         </p>
-
       </div>
-
     );
-
   }
+
+  /* 🔥 EXPANDED COLOR SETS */
+  const TEAM_COLORS = [
+    "#3b82f6", "#2563eb", "#1d4ed8",
+    "#60a5fa", "#93c5fd",
+    "#0ea5e9", "#0284c7", "#0369a1",
+    "#38bdf8", "#7dd3fc"
+  ];
+
+  const OPP_COLORS = [
+    "#ef4444", "#dc2626", "#b91c1c",
+    "#f87171", "#fca5a5",
+    "#fb7185", "#e11d48", "#be123c",
+    "#fecaca", "#fda4af"
+  ];
 
   return (
 
-    // Container controlled by CSS sizing
     <div className="chart-container">
 
-      {/* Responsive container ensures chart fills available space */}
       <ResponsiveContainer width="100%" height="100%">
 
         <BarChart
 
           data={data}
 
-          /*Margin spacing to keep axes labels readable and consistent with other charts.*/
+          /* 🔥 UPDATED: label cutoff fix */
           margin={{
             top: 10,
             right: 15,
             left: -3,
-            bottom: 40
+            bottom: 110
           }}
 
         >
@@ -101,32 +91,28 @@ export default function SingleStatBarChart({ data, stats }) {
           {/* White background improves readability */}
           <rect width="100%" height="100%" fill="white" />
 
-          {/* Grid lines for visual reference */}
+          {/* Grid lines */}
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="#ddd"
           />
 
-          {/*X Axis - Shows game opponent names*/}
-
+          {/* X Axis */}
           <XAxis
 
             dataKey="game"
 
             interval={0}
 
-            /*Rotate labels so longer opponent names fit cleanly.*/
-            angle={-45}
+            /* 🔥 UPDATED: less tilt + more space */
+            angle={-30}
 
             textAnchor="end"
 
-            /*Horizontal adjustment*/
-            dx={-20}
+            dx={-10}
+            tickMargin={20}
 
-            /*Adds spacing between axis and labels*/
-            tickMargin={30}
-
-            height={60}
+            height={110}
 
             tick={{
               fill: "#333",
@@ -135,8 +121,7 @@ export default function SingleStatBarChart({ data, stats }) {
 
           />
 
-          {/*Y Axis - Shows stat values*/}
-
+          {/* Y Axis */}
           <YAxis
 
             width={35}
@@ -148,22 +133,18 @@ export default function SingleStatBarChart({ data, stats }) {
               fontSize: 12
             }}
 
-            /*Automatically scales chart based on largest value.*/
             domain={[0, "dataMax + 1"]}
 
           />
 
-          {/*Tooltip - Shows stat values when hovering*/}
-
+          {/* Tooltip */}
           <Tooltip
 
-            /*Replace raw stat key with readable label*/
             formatter={(value, name) => [
               value,
               formatLabel(name)
             ]}
 
-            /*Display game name*/
             labelFormatter={(label) => `Game: ${label}`}
 
             contentStyle={{
@@ -178,46 +159,50 @@ export default function SingleStatBarChart({ data, stats }) {
 
           />
 
-          {/*Legend Shows stat color mapping*/}
-
+          {/* Legend */}
           <Legend
             verticalAlign="bottom"
             wrapperStyle={{
                 paddingTop: 18,
                 fontSize: 13
             }}
-
-            /*Force legend text to remain black while keeping colored icons.*/
             formatter={(value) => (
                 <span style={{ color: "black" }}>
                 {value}
                 </span>
             )}
-            />
+          />
 
-          {/*Bars - One bar per stat per game*/}
+          {/* Bars */}
+          {stats.map((stat, index) => {
 
-          {stats.map((stat, index) => (
+            const isOpp = stat.includes("_opp");
 
-            <Bar
+            const color = useComparisonColors
+              ? (isOpp
+                  ? OPP_COLORS[index % OPP_COLORS.length]
+                  : TEAM_COLORS[index % TEAM_COLORS.length])
+              : COLORS[index % COLORS.length];
 
-              key={stat}
+            return (
+              <Bar
 
-              dataKey={stat}
+                key={stat}
 
-              name={formatLabel(stat)}
+                dataKey={stat}
 
-              fill={COLORS[index % COLORS.length]}
+                name={formatLabel(stat)}
 
-              /*Rounded top corner*/
-              radius={[4,4,0,0]}
+                fill={color}
 
-              /*Slightly narrower bars improves grouping visibility*/
-              maxBarSize={45}
+                radius={[4,4,0,0]}
 
-            />
+                maxBarSize={45}
 
-          ))}
+              />
+            );
+
+          })}
 
         </BarChart>
 

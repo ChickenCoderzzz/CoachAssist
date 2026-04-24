@@ -1,11 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../styles/game_history.css";
+import OverallBarChart from "../components/visualizations/OverallBarChart";
+import OverallPieChart from "../components/visualizations/OverallPieChart";
+import OverallRadarChart from "../components/visualizations/OverallRadarChart";
+import SingleStatLineChart from "../components/visualizations/SingleStatLineChart";
+import SingleStatBarChart from "../components/visualizations/SingleStatBarChart";
+import ExpandableChart from "../components/visualizations/ExpandableCharts";
 
 export default function GameHistoryPage() {
 const { teamId } = useParams();
 const navigate = useNavigate();
 
+/* STAT KEYS (ALWAYS SHOW) */
+const allStatKeys = [
+    "points",
+    "total_yards",
+    "turnovers",
+    "penalties",
+    "penalty_yards",
+    "third_down_conversions",
+    "third_down_attempts",
+    "time_of_possession"
+];
 
 const [matches, setMatches] = useState([]);
 const [loading, setLoading] = useState(true);
@@ -18,6 +35,25 @@ const [modalTab, setModalTab] = useState("notes");
 const [expandedGames, setExpandedGames] = useState({});
 const [selectedQuarter, setSelectedQuarter] = useState("All");
 
+const [vizMode, setVizMode] = useState("overall");
+const [vizChart, setVizChart] = useState("bar");
+const [valueMode, setValueMode] = useState("total");
+const [compareMode, setCompareMode] = useState("team"); 
+
+const [selectedGameIds, setSelectedGameIds] = useState([]);
+const [selectedQuartersViz, setSelectedQuartersViz] = useState([]);
+
+const [selectedStats, setSelectedStats] = useState(allStatKeys);
+const [progressStats, setProgressStats] = useState(allStatKeys.slice(0,3));
+
+const [showGameDropdown, setShowGameDropdown] = useState(false);
+const [showStatDropdown, setShowStatDropdown] = useState(false);
+const [showQuarterDropdown, setShowQuarterDropdown] = useState(false);
+
+const gameDropdownRef = useRef(null);
+const statDropdownRef = useRef(null);
+const quarterDropdownRef = useRef(null);
+
 useEffect(() => {
     fetch(`/teams/${teamId}/matches`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
@@ -29,6 +65,48 @@ useEffect(() => {
         })
         .catch(() => setLoading(false));
 }, [teamId]);
+
+useEffect(() => {
+    setSelectedGameIds(matches.map(m => m.id));
+}, [matches]);
+
+useEffect(() => {
+    if (
+        vizMode !== "overall" &&
+        (vizChart === "pie" || vizChart === "radar")
+    ) {
+        setVizChart("bar");
+    }
+}, [vizMode]);
+
+useEffect(() => {
+    const handleClick = (e) => {
+
+        if (
+            gameDropdownRef.current &&
+            !gameDropdownRef.current.contains(e.target)
+        ) {
+            setShowGameDropdown(false);
+        }
+
+        if (
+            statDropdownRef.current &&
+            !statDropdownRef.current.contains(e.target)
+        ) {
+            setShowStatDropdown(false);
+        }
+
+        if (
+            quarterDropdownRef.current &&
+            !quarterDropdownRef.current.contains(e.target)
+        ) {
+            setShowQuarterDropdown(false);
+        }
+    };
+
+    window.addEventListener("click", handleClick);
+    return () => window.removeEventListener("click", handleClick);
+}, []);
 
 const formatDate = (dateStr) => {
     if (!dateStr) return "—";
@@ -43,21 +121,197 @@ const getResult = (teamScore, opponentScore) => {
     return "T";
 };
 
+const formatStat = (stat) =>
+    stat.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+
 const sortedMatches = [...matches].sort(
     (a, b) => new Date(a.game_date) - new Date(b.game_date)
 );
 
-/* ✅ FIXED STAT KEYS (ALWAYS SHOW) */
-const allStatKeys = [
-    "points",
-    "total_yards",
-    "turnovers",
-    "penalties",
-    "penalty_yards",
-    "third_down_conversions",
-    "third_down_attempts",
-    "time_of_possession"
-];
+const safeQuarters = selectedQuartersViz || [];
+
+const filteredGames = sortedMatches.filter(g =>
+    selectedGameIds.includes(g.id)
+);
+
+const filteredStats = filteredGames.flatMap(g => {
+    const metrics = g.metrics || {};
+
+    return Object.entries(metrics)
+        .filter(([key]) => key.startsWith("Q"))
+        .filter(([q]) =>
+            safeQuarters.length === 0 || safeQuarters.includes(q)
+        )
+        .map(([q, stats]) => {
+
+            const base = {
+                game_id: g.id,
+                opponent: g.opponent,
+                date: g.game_date,
+                quarter: q
+            };
+
+            if (compareMode === "opponent") {
+                const oppOnly = Object.fromEntries(
+                    Object.entries(stats)
+                        .filter(([k]) => k.startsWith("opp_"))
+                        .map(([k, v]) => [k.replace("opp_", ""), v || 0])
+                );
+
+                return { ...base, ...oppOnly };
+            }
+
+            if (compareMode === "both") {
+                const combined = {};
+
+                allStatKeys.forEach(stat => {
+                    combined[stat] = stats[stat] || 0;
+                    combined[`opp_${stat}`] = stats[`opp_${stat}`] || 0;
+                });
+
+                return { ...base, ...combined };
+            }
+
+            return { ...base, ...stats };
+        });
+});
+
+const totals = {};
+let count = filteredStats.length;
+
+filteredStats.forEach(row => {
+    allStatKeys.forEach(stat => {
+
+    // TEAM
+    totals[stat] = (totals[stat] || 0) + (row[stat] || 0);
+
+    // OPPONENT
+    totals[`opp_${stat}`] =
+        (totals[`opp_${stat}`] || 0) + (row[`opp_${stat}`] || 0);
+});
+});
+
+if (valueMode === "average" && count > 0) {
+    allStatKeys.forEach(stat => {
+        totals[stat] = totals[stat] / count;
+
+        //  Opponent average
+        totals[`opp_${stat}`] =
+            totals[`opp_${stat}`] / count;
+    });
+}
+
+const overallData = selectedStats.flatMap(stat => {
+
+    if (compareMode === "both") {
+        return [
+            {
+                stat: `${formatStat(stat)} (Team)`,
+                value: totals[stat] || 0
+            },
+            {
+                stat: `${formatStat(stat)} (Opp)`,
+                value: totals[`opp_${stat}`] || 0
+            }
+        ];
+    }
+
+    const key = compareMode === "opponent"
+        ? `opp_${stat}`
+        : stat;
+
+    return [{
+        stat: formatStat(stat),
+        value: totals[key] || 0
+    }];
+});
+
+const perGameData = filteredGames.map(game => {
+
+    const statsForGame = filteredStats.filter(s => s.game_id === game.id);
+
+    const row = {
+        game: game.opponent,
+        date: game.game_date
+    };
+
+    const divisor = statsForGame.length;
+
+    progressStats.forEach((stat, i) => {
+        const teamTotal = statsForGame.reduce(
+            (sum, s) => sum + (s[stat] || 0),
+            0
+        );
+
+        const oppTotal = statsForGame.reduce(
+            (sum, s) => sum + (s[`opp_${stat}`] || 0),
+            0
+        );
+
+        if (compareMode === "both") {
+            row[`${stat}_team_${i}`] =
+                valueMode === "average" && statsForGame.length > 0
+                    ? teamTotal / statsForGame.length
+                    : teamTotal;
+
+            row[`${stat}_opp_${i}`] =
+                valueMode === "average" && statsForGame.length > 0
+                    ? oppTotal / statsForGame.length
+                    : oppTotal;
+        } else {
+            const key = compareMode === "opponent" ? `opp_${stat}` : stat;
+
+            const total = statsForGame.reduce(
+                (sum, s) => sum + (s[key] || 0),
+                0
+            );
+
+            row[stat] =
+                valueMode === "average" && statsForGame.length > 0
+                    ? total / statsForGame.length
+                    : total;
+        }
+    });
+
+    return row;
+});
+
+const perQuarterData = ["Q1","Q2","Q3","Q4"]
+.filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
+.map(q => {
+
+    const statsForQuarter = filteredStats.filter(s => s.quarter === q);
+
+    const row = { game: q };
+
+    const divisor = statsForQuarter.length;
+
+    progressStats.forEach((stat, i) => {
+        const teamTotal = statsForQuarter.reduce(
+            (sum, s) => sum + (s[stat] || 0),
+            0
+        );
+
+        const oppTotal = statsForQuarter.reduce(
+            (sum, s) => sum + (s[`opp_${stat}`] || 0),
+            0
+        );
+
+        if (compareMode === "both") {
+            row[`${stat}_team_${i}`] = teamTotal;
+            row[`${stat}_opp_${i}`] = oppTotal;
+        } else {
+            const key = compareMode === "opponent" ? `opp_${stat}` : stat;
+
+            row[stat] = statsForQuarter.reduce(
+                (sum, s) => sum + (s[key] || 0),
+                0
+            );
+        }
+    });
+
+    return row;
+});
 
 const openGameModal = async (match) => {
     setSelectedGame(match);
@@ -96,9 +350,6 @@ const getFilteredNotes = () => {
 };
 
 /* ===== METRICS ===== */
-
-const formatStat = (stat) =>
-    stat.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
 
 const getFilteredMetrics = () => {
     if (selectedQuarter === "All") return gameMetrics;
@@ -171,6 +422,9 @@ return (
             </button>
             <button className={activeView === "stats" ? "active" : ""} onClick={() => setActiveView("stats")}>
                 All Game Stats
+            </button>
+            <button className={activeView === "visualizations" ? "active" : ""} onClick={() => setActiveView("visualizations")}>
+                Data Visualizations
             </button>
         </div>
 
@@ -298,6 +552,302 @@ return (
                     </tbody>
                 </table>
             </div>
+        )}
+
+        {/* ================= VISUALIZATIONS ================= */}
+        {activeView === "visualizations" && (
+
+        <div style={{ width: "100%", padding: "20px" }}>
+
+            <h2>Game Visualizations ({valueMode === "average" ? "Average" : "Total"})</h2>
+
+            {/* GAME SELECTOR */}
+            <div className="dropdown" ref={gameDropdownRef}>
+                <div
+                    className="dropdown-toggle"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowGameDropdown(prev => !prev);
+                    }}
+                >
+                    Select Games ▼ ({selectedGameIds.length})
+                </div>
+
+                {showGameDropdown && (
+                    <div className="dropdown-menu">
+                        {sortedMatches.map(game => (
+                            <label key={game.id} className="dropdown-item">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedGameIds.includes(game.id)}
+                                    onChange={() => {
+                                        if (selectedGameIds.includes(game.id)) {
+                                            setSelectedGameIds(selectedGameIds.filter(id => id !== game.id));
+                                        } else {
+                                            setSelectedGameIds([...selectedGameIds, game.id]);
+                                        }
+                                    }}
+                                />
+                                {game.opponent} ({formatDate(game.game_date)})
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* MODE */}
+            <div className="viz-controls">
+                <button
+                    className={vizMode === "overall" ? "active-btn" : ""}
+                    onClick={() => setVizMode("overall")}
+                >
+                    Overall
+                </button>
+
+                <button
+                    className={vizMode === "progress" ? "active-btn" : ""}
+                    onClick={() => setVizMode("progress")}
+                >
+                    Stat Progress
+                </button>
+
+                <button
+                    className={vizMode === "quarterly" ? "active-btn" : ""}
+                    onClick={() => setVizMode("quarterly")}
+                >
+                    Quarterly
+                </button>
+            </div>
+
+
+            {/* VALUE MODE */}
+            <div className="viz-controls">
+                <button
+                    className={valueMode === "total" ? "active-btn green" : ""}
+                    onClick={() => setValueMode("total")}
+                >
+                    Total
+                </button>
+
+                <button
+                    className={valueMode === "average" ? "active-btn yellow" : ""}
+                    onClick={() => setValueMode("average")}
+    >
+        Average
+    </button>
+</div>
+
+
+{/* TEAM / OPPONENT */}
+<div className="viz-controls">
+    <button
+        className={compareMode === "team" ? "active-btn green" : ""}
+        onClick={() => setCompareMode("team")}
+    >
+        Team
+    </button>
+
+    <button
+        className={compareMode === "opponent" ? "active-btn yellow" : ""}
+        onClick={() => setCompareMode("opponent")}
+    >
+        Opponent
+    </button>
+
+    <button
+        className={compareMode === "both" ? "active-btn dual" : ""}
+        onClick={() => setCompareMode("both")}
+    >
+        Both
+    </button>
+</div>
+
+
+{/* CHART TYPE */}
+<div className="viz-controls">
+    <button
+        className={vizChart === "bar" ? "active-btn" : ""}
+        onClick={() => setVizChart("bar")}
+    >
+        Bar
+    </button>
+
+    {(vizMode === "progress" || vizMode === "quarterly") && (
+        <button
+            className={vizChart === "line" ? "active-btn" : ""}
+            onClick={() => setVizChart("line")}
+        >
+            Line
+        </button>
+    )}
+
+    {vizMode === "overall" && (
+        <>
+            <button
+                className={vizChart === "pie" ? "active-btn" : ""}
+                onClick={() => setVizChart("pie")}
+            >
+                Pie
+            </button>
+
+            <button
+                className={vizChart === "radar" ? "active-btn" : ""}
+                onClick={() => setVizChart("radar")}
+            >
+                Radar
+            </button>
+        </>
+    )}
+</div>
+
+            {/* STAT SELECTOR */}
+            <div className="dropdown" ref={statDropdownRef}>
+                <div
+                    className="dropdown-toggle"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowStatDropdown(prev => !prev);
+                    }}
+                >
+                    {vizMode === "overall" ? "Select Stats" : "Select Stats for Chart ▼"}
+                </div>
+
+                {showStatDropdown && (
+                    <div className="dropdown-menu">
+                        {allStatKeys.map(stat => {
+                            const activeList =
+                                vizMode === "overall" ? selectedStats : progressStats;
+
+                            return (
+                                <label key={stat} className="dropdown-item">
+                                    <input
+                                        type="checkbox"
+                                        checked={activeList.includes(stat)}
+                                        onChange={() => {
+                                            if (vizMode === "overall") {
+                                                if (selectedStats.includes(stat)) {
+                                                    if (selectedStats.length === 1) return;
+                                                    setSelectedStats(selectedStats.filter(s => s !== stat));
+                                                } else {
+                                                    setSelectedStats([...selectedStats, stat]);
+                                                }
+                                            } else {
+                                                if (progressStats.includes(stat)) {
+                                                    if (progressStats.length === 1) return;
+                                                    setProgressStats(progressStats.filter(s => s !== stat));
+                                                } else {
+                                                    setProgressStats([...progressStats, stat]);
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    {formatStat(stat)}
+                                </label>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* QUARTERS */}
+            <div className="dropdown" ref={quarterDropdownRef}>
+                <div
+                    className="dropdown-toggle"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowQuarterDropdown(prev => !prev);
+                    }}
+                >
+                    Select Quarters ▼ ({selectedQuartersViz.length || "All"})
+                </div>
+
+                {showQuarterDropdown && (
+                    <div className="dropdown-menu">
+                        {["Q1","Q2","Q3","Q4"].map(q => (
+                            <label key={q} className="dropdown-item">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedQuartersViz.includes(q)}
+                                    onChange={() => {
+                                        if (selectedQuartersViz.includes(q)) {
+                                            setSelectedQuartersViz(selectedQuartersViz.filter(x => x !== q));
+                                        } else {
+                                            setSelectedQuartersViz([...selectedQuartersViz, q]);
+                                        }
+                                    }}
+                                />
+                                {q}
+                            </label>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* CHART */}
+            {vizMode === "overall" && (
+                <div className="chart-wrapper">
+                    <ExpandableChart>
+                        {vizChart === "bar" && (
+                        <OverallBarChart
+                            data={overallData}
+                            useComparisonColors={true}
+                        />
+                        )}
+
+                        {vizChart === "pie" && (
+                        <OverallPieChart
+                            data={overallData}
+                            useComparisonColors={true}
+                        />
+                        )}
+
+                        {vizChart === "radar" && (
+                        <OverallRadarChart
+                            data={overallData}
+                            useComparisonColors={true}
+                        />
+                        )}
+                    </ExpandableChart>
+                </div>
+            )}
+
+            {(vizMode === "progress" || vizMode === "quarterly") && (
+                <div className="chart-wrapper">
+                    <ExpandableChart>
+                        {vizChart === "bar" && (
+                            <SingleStatBarChart
+                                data={vizMode === "quarterly" ? perQuarterData : perGameData}
+                                stats={
+                                    compareMode === "both"
+                                    ? progressStats.flatMap((s, i) => [
+                                        `${s}_team_${i}`,
+                                        `${s}_opp_${i}`
+                                        ])
+                                    : progressStats
+                                }
+                                useComparisonColors={true}
+                            />
+                        )}
+
+                        {vizChart === "line" && (
+                           <SingleStatLineChart
+                                data={vizMode === "quarterly" ? perQuarterData : perGameData}
+                                stats={
+                                    compareMode === "both"
+                                    ? progressStats.flatMap((s, i) => [
+                                        `${s}_team_${i}`,
+                                        `${s}_opp_${i}`
+                                        ])
+                                    : progressStats
+                                }
+                                useComparisonColors={true}
+                            />
+                        )}
+                    </ExpandableChart>
+                </div>
+            )}
+
+        </div>
         )}
 
         {/* ================= MODAL ================= */}
