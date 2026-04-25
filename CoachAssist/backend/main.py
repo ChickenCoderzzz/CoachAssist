@@ -34,6 +34,7 @@ from backend.routers.player_history import router as player_history #Added by We
 from backend.routers.ai import router as ai_router #Added by Wences Jacob Lorenzo
 from backend.routers.team_members import router as team_members_router
 from backend.routers.game_metrics import router as game_metrics_router
+from backend.routers.drawboards import router as drawboards_router
 
 
 
@@ -62,6 +63,7 @@ app.include_router(player_history) #Player history management (Added by Wences J
 app.include_router(ai_router)  # AI analysis (Gemini)  (Added by Wences Jacob Lorenzo)
 app.include_router(team_members_router)  # Team sharing & member management
 app.include_router(game_metrics_router)
+app.include_router(drawboards_router) # Football play diagrams + edit history
 
 #Verify if backend is running
 @app.get("/")

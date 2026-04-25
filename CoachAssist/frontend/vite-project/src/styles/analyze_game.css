@@ -692,20 +692,44 @@
 
 /* VIDEO TABLE OVERRIDES            */
 
-.video-table .player-table-header,
-.video-table .player-table-row {
-    grid-template-columns: 1fr 80px;
-}
-
-.video-table .player-table-row div:first-child {
+.video-table .col-video-name {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.video-table .player-table-body {
-    max-height: none;
-    overflow-y: visible;
+.video-table .col-video-action {
+    width: 80px;
+    flex-shrink: 0;
+    justify-content: center;
+    border-right: none;
+}
+
+.video-table .video-action-cell {
+    width: 100%;
+    border-right: none;
+    justify-content: center;
+    padding: 4px 8px;
+}
+
+.video-table .video-action-grid {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.video-table .video-action-grid .player-view-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 2px 12px;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .video-toggle-btn {

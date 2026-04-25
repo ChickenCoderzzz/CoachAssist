@@ -1,0 +1,305 @@
+/* ============ Drawboard ============ */
+
+.drawboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.drawboard-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #1c1c1c;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.db-tool {
+  padding: 6px 12px;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.db-tool:hover { background: #383838; }
+.db-tool.active { background: #4b8b3b; border-color: #4b8b3b; color: white; }
+.db-tool:disabled { opacity: 0.4; cursor: not-allowed; }
+.db-tool.db-danger { background: #5a1f1f; border-color: #7a2a2a; }
+.db-tool.db-danger:hover { background: #7a2a2a; }
+
+.db-color {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #555;
+  cursor: pointer;
+  padding: 0;
+}
+.db-color.active { border-color: #4b8b3b; box-shadow: 0 0 0 2px #4b8b3b; }
+
+.db-sep {
+  width: 1px;
+  height: 22px;
+  background: #444;
+  margin: 0 4px;
+}
+
+.drawboard-toolbar select {
+  padding: 5px 8px;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+}
+
+.drawboard-canvas {
+  width: 100%;
+  background: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.drawboard-canvas.transparent {
+  background: transparent;
+  border: none;
+}
+
+.drawboard-savebar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.drawboard-savebar input {
+  flex: 1;
+  padding: 8px 10px;
+  background: #1c1c1c;
+  color: #f0f0f0;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.db-save {
+  padding: 8px 16px;
+  background: #4b8b3b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.db-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ============ Workspace shell ============ */
+
+.drawboard-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawboard-workspace-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawboard-workspace-body {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.drawboard-workspace-body.with-panel > div:first-child {
+  flex: 1;
+}
+
+/* ============ History panel ============ */
+
+.drawboard-history {
+  width: 280px;
+  flex-shrink: 0;
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 700px;
+  overflow-y: auto;
+  color: #f0f0f0;
+}
+
+.drawboard-history h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.drawboard-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.drawboard-history li {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #2a2a2a;
+  margin-bottom: 6px;
+  background: #232323;
+}
+.drawboard-history li.active {
+  border-color: #4b8b3b;
+}
+
+.vh-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.vh-summary {
+  font-size: 0.85rem;
+  margin-top: 4px;
+  font-style: italic;
+  color: #ccc;
+}
+
+.vh-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.vh-actions button {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.vh-actions button:hover { background: #383838; }
+
+.muted { color: #888; font-size: 0.85rem; }
+
+/* ============ Video annotation modal ============ */
+
+.vao-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.vao-modal {
+  width: min(95vw, 1600px);
+  height: min(92vh, 1000px);
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f0f0f0;
+}
+
+.vao-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #333;
+  background: #161616;
+}
+
+.vao-modal-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.vao-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vao-modal-body {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.vao-stage {
+  flex: 1;
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vao-video {
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.vao-draw-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.vao-draw-layer .drawboard {
+  flex: 1;
+  min-height: 0;
+}
+
+.vao-draw-layer .drawboard-canvas {
+  flex: 1;
+  background: transparent;
+  border: none;
+}
+
+.vao-draw-layer .drawboard-canvas svg {
+  width: 100%;
+  height: 100%;
+}
+
+.vao-draw-layer.view {
+  /* In view mode the layer is non-interactive so clicks reach the video controls. */
+  pointer-events: none;
+}
+
+.vao-draw-layer .drawboard-toolbar,
+.vao-draw-layer .drawboard-savebar {
+  background: rgba(28, 28, 28, 0.9);
+  backdrop-filter: blur(4px);
+}
+
+.vao-loading {
+  padding: 20px;
+  text-align: center;
+  color: #888;
+}

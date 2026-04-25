@@ -11,6 +11,7 @@ export default defineConfig({
       "/games": "http://127.0.0.1:8000",
       "/players": "http://127.0.0.1:8000",
       "/videos": "http://127.0.0.1:8000",
+      "/drawboards": "http://127.0.0.1:8000",
     },
   },
 });

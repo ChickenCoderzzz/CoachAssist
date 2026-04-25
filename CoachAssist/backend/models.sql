@@ -339,3 +339,38 @@ ALTER TABLE players ADD CONSTRAINT players_position_check
     'DL','LB','CB','S',
     'K','P','LS','KR','PR'
   ));
+
+-- =========================
+-- DRAWBOARDS (Play diagrams + edit history)
+-- =========================
+
+CREATE TABLE IF NOT EXISTS drawboards (
+    id SERIAL PRIMARY KEY,
+    team_id    INTEGER NOT NULL REFERENCES teams(id)   ON DELETE CASCADE,
+    match_id   INTEGER          REFERENCES matches(id) ON DELETE CASCADE,
+    video_id   INTEGER          REFERENCES videos(id)  ON DELETE CASCADE,
+    scope      VARCHAR(10) NOT NULL CHECK (scope IN ('playbook','game','video')),
+    title      VARCHAR(150) NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    CHECK (
+        (scope = 'playbook' AND match_id IS NULL     AND video_id IS NULL) OR
+        (scope = 'game'     AND match_id IS NOT NULL AND video_id IS NULL) OR
+        (scope = 'video'    AND match_id IS NOT NULL AND video_id IS NOT NULL)
+    )
+);
+
+CREATE TABLE IF NOT EXISTS drawboard_versions (
+    id SERIAL PRIMARY KEY,
+    drawboard_id INTEGER NOT NULL REFERENCES drawboards(id) ON DELETE CASCADE,
+    author_id    INTEGER NOT NULL REFERENCES users(id),
+    snapshot     JSONB NOT NULL,
+    summary      TEXT,
+    created_at   TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_drawboards_team   ON drawboards(team_id);
+CREATE INDEX IF NOT EXISTS idx_drawboards_match  ON drawboards(match_id);
+CREATE INDEX IF NOT EXISTS idx_drawboards_video  ON drawboards(video_id);
+CREATE INDEX IF NOT EXISTS idx_versions_board_at ON drawboard_versions(drawboard_id, created_at DESC);

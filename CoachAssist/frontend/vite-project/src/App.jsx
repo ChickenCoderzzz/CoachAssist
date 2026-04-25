@@ -18,6 +18,9 @@ import EditRosterPage from "./pages/EditRosterPage";
 import GameHistoryPage from "./pages/GameHistoryPage.jsx";
 import PlayerAnalysisPage from "./pages/PlayerAnalysisPage.jsx";
 import TeamCalendarPage from "./pages/TeamCalendarPage.jsx";
+import PlaybookPage from "./pages/PlaybookPage.jsx";
+import PlaybookEditorPage from "./pages/PlaybookEditorPage.jsx";
+import GameBoardPage from "./pages/GameBoardPage.jsx";
 
 // Shared UI component
 import Navbar from "./components/Navbar.jsx";
@@ -136,6 +139,38 @@ function App() {
           element={
             <ProtectedRoute>
               <TeamCalendarPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/playbook"
+          element={
+            <ProtectedRoute>
+              <PlaybookPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/playbook/:boardId"
+          element={
+            <ProtectedRoute>
+              <PlaybookEditorPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/match/:matchId/board"
+          element={
+            <ProtectedRoute>
+              <GameBoardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team/:teamId/match/:matchId/board/:boardId"
+          element={
+            <ProtectedRoute>
+              <GameBoardPage />
             </ProtectedRoute>
           }
         />

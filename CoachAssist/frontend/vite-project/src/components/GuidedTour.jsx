@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import Joyride, { ACTIONS, EVENTS, STATUS } from "react-joyride";
+import { Joyride, ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
