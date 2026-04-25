@@ -15,12 +15,14 @@ export default function PlayerInsightsModal({
     videoRef
 }) {
 
-    const [activeView, setActiveView] = React.useState("insights"); // 🔥 NEW
+    const [activeView, setActiveView] = React.useState("insights"); // View control
     const [selectedQuarter, setSelectedQuarter] = React.useState("Q1");
 
+    //Quarter handling
     const QUARTERS = ["Q1", "Q2", "Q3", "Q4", "overall"];
     const isOverall = selectedQuarter === "overall";
 
+    //Overall stats
     const computedOverall = Object.values(playerStats || {}).reduce((acc, quarterStats) => {
         if (!quarterStats) return acc;
 
@@ -44,7 +46,7 @@ export default function PlayerInsightsModal({
                     {POSITION_LABELS[selectedPlayer?.position] || selectedPlayer?.position}
                 </div>
 
-                {/* 🔥 BUTTONS BELOW HEADER */}
+                {/*  BUTTONS BELOW HEADER */}
                 <div className="player-modal-tabs">
                     <button
                         className="tab-button"
@@ -66,6 +68,7 @@ export default function PlayerInsightsModal({
                 <div className="player-modal-body">
 
                     {/* ================= INSIGHTS ================= */}
+                    {/* Structural update */}
                     {activeView === "insights" && (
                         <div className="player-notes-wrapper">
 
@@ -196,6 +199,7 @@ export default function PlayerInsightsModal({
                                             <label>
                                                 {stat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                                             </label>
+                                            {/*Universal stat input*/}
                                             <input
                                                 type="number"
                                                 value={
@@ -235,6 +239,7 @@ export default function PlayerInsightsModal({
                                                     <label>
                                                         {stat.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
                                                     </label>
+                                                    {/*Position group stats */}
                                                     <input
                                                         type="number"
                                                         value={

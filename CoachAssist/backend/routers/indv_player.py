@@ -249,7 +249,7 @@ def switch_position(
 
     cur = db.cursor()
 
-    # 🔥 Get current player
+    #  Get current player
     cur.execute("SELECT * FROM indv_players WHERE id = %s", (player_id,))
     player = cur.fetchone()
 

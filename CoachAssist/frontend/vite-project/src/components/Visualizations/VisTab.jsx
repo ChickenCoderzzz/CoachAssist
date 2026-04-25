@@ -79,7 +79,8 @@ export default function VisualizationsTab({
     historyData,
     selectedGameIds,
     selectedQuarters,
-    selectedPlayer
+    selectedPlayer,
+    useClassicColors
 }) {
 
 const safeQuarters = selectedQuarters || [];
@@ -95,6 +96,8 @@ const safeQuarters = selectedQuarters || [];
 
     //Total and average toggle states
     const [valueMode, setValueMode] = useState("total"); // "total" | "average"
+
+    const compareMode = "team";
 
     // Dropdown control
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -291,48 +294,86 @@ const safeQuarters = selectedQuarters || [];
         const divisor = statsForGame.length;
 
         progressStats.forEach(stat => {
-        const total = stats[stat] || 0;
+            const total = stats[stat] || 0;
 
-        row[stat] =
-            valueMode === "average" && divisor > 0
-            ? total / divisor
-            : total;
+            const keyName =
+                compareMode === "opponent"
+                ? `opp_${stat}`
+                : stat;
+
+            row[keyName] =
+                valueMode === "average" && divisor > 0
+                ? total / divisor
+                : total;
         });
 
         return row;
 
     });
 
-    const perQuarterData = ["Q1", "Q2", "Q3", "Q4"]
-        .filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
-        .map(q => {
+    const perQuarterData = ["Q1","Q2","Q3","Q4"]
+.filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
+.map(q => {
 
-            const statsForQuarter = historyData.stats_by_game.filter(
-                stat =>
-                    selectedGameIds.includes(stat.game_id) &&
-                    (safeQuarters.length === 0 || stat.quarter === q)
-            );
+    const statsForQuarter = filteredStats.filter(s => s.quarter === q);
 
-            const row = {
-            game: q
-            };
+        //  GROUP BY GAME
+        const gamesMap = {};
+        statsForQuarter.forEach(s => {
+            if (!gamesMap[s.game_id]) {
+                gamesMap[s.game_id] = [];
+            }
+            gamesMap[s.game_id].push(s);
+        });
 
-            const divisor = statsForQuarter.length;
+        const gameCount = Object.keys(gamesMap).length;
 
-            progressStats.forEach(statKey => {
-            const total = statsForQuarter.reduce(
-                (sum, s) => sum + (s[statKey] || 0),
-                0
-            );
+        const row = { game: q };
 
-            row[statKey] =
-                valueMode === "average" && divisor > 0
-                ? total / divisor
-                : total;
+        progressStats.forEach((stat, i) => {
+
+            let teamTotal = 0;
+            let oppTotal = 0;
+
+            Object.values(gamesMap).forEach(gameRows => {
+                const gameSum = gameRows.reduce((sum, r) => sum + (r[stat] || 0), 0);
+                const oppSum = gameRows.reduce((sum, r) => sum + (r[`opp_${stat}`] || 0), 0);
+
+                teamTotal += gameSum;
+                oppTotal += oppSum;
             });
 
-            return row;
-     });
+            if (compareMode === "both") {
+                row[`${stat}_team_${i}`] =
+                    valueMode === "average" && gameCount > 0
+                        ? teamTotal / gameCount
+                        : teamTotal;
+
+                row[`${stat}_opp_${i}`] =
+                    valueMode === "average" && gameCount > 0
+                        ? oppTotal / gameCount
+                        : oppTotal;
+
+            } else {
+                const total =
+                    compareMode === "opponent"
+                        ? oppTotal
+                        : teamTotal;
+
+                const keyName =
+                    compareMode === "opponent"
+                        ? `opp_${stat}`
+                        : stat;
+
+                    row[keyName] =
+                    valueMode === "average" && gameCount > 0
+                        ? total / gameCount
+                        : total;
+            }
+        });
+
+        return row;
+    });
 
     /*STAT SET FUNCTIONS*/
 
@@ -662,7 +703,12 @@ const safeQuarters = selectedQuarters || [];
 
                     {overallChart === "bar" &&
                         <ExpandableChart>
-                        <OverallBarChart data={overallData} />
+                        <OverallBarChart
+                            data={overallData}
+                            useComparisonColors={true}
+                            compareMode={compareMode}
+                            useClassicColors={true}
+                        />
                         </ExpandableChart>
                     }
 
@@ -670,8 +716,11 @@ const safeQuarters = selectedQuarters || [];
                         <ExpandableChart
                             render={(expanded) => (
                                 <OverallPieChart
-                                data={overallData}
-                                expanded={expanded}
+                                    data={overallData}
+                                    expanded={expanded}
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                             )}
                             />
@@ -831,7 +880,14 @@ const safeQuarters = selectedQuarters || [];
                                 <ExpandableChart>
                                 <SingleStatLineChart
                                     data={viewMode === "quarterly" ? perQuarterData : perGameData}
-                                    stats={progressStats}
+                                    stats={
+                                        compareMode === "opponent"
+                                        ? progressStats.map(s => `opp_${s}`)
+                                        : progressStats
+                                    }
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                                 </ExpandableChart>
                             }
@@ -840,7 +896,14 @@ const safeQuarters = selectedQuarters || [];
                                 <ExpandableChart>
                                 <SingleStatBarChart
                                     data={viewMode === "quarterly" ? perQuarterData : perGameData}
-                                    stats={progressStats}
+                                    stats={
+                                        compareMode === "opponent"
+                                        ? progressStats.map(s => `opp_${s}`)
+                                        : progressStats
+                                    }
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                                 </ExpandableChart>
                             }

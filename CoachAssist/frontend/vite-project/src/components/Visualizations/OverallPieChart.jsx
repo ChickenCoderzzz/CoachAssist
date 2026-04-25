@@ -16,7 +16,7 @@ import {
   Pie,
   Tooltip,
   Legend,
-  Cell
+  Cell 
 } from "recharts";
 
 /*Color palette supporting up to 12 stat categories. Colors repeat if more stats are added.*/
@@ -94,7 +94,7 @@ function CustomLegend({ payload }) {
   );
 }
 
-export default function OverallPieChart({ data, expanded, useComparisonColors = false }) {
+export default function OverallPieChart({ data, expanded, useComparisonColors = false, compareMode= "team", useClassicColors = false }) {
 
   if (!data || data.length === 0) {
     return (
@@ -139,10 +139,12 @@ export default function OverallPieChart({ data, expanded, useComparisonColors = 
             label
           >
 
-            {/* 🔥 UPDATED: dynamic color mapping */}
+            {/*  UPDATED: dynamic color mapping */}
             {data.map((entry, index) => {
 
-              const isOpp = entry.stat.includes("(Opp)");
+              const isOpp =
+                compareMode === "opponent" ||
+                entry.stat.includes("(Opp)");
 
               const TEAM_COLORS = [
                 "#3b82f6", "#2563eb", "#1d4ed8",
@@ -158,11 +160,22 @@ export default function OverallPieChart({ data, expanded, useComparisonColors = 
                 "#fecaca", "#fda4af"
               ];
 
-              const color = useComparisonColors
-                ? (isOpp
-                    ? OPP_COLORS[index % OPP_COLORS.length]
-                    : TEAM_COLORS[index % TEAM_COLORS.length])
-                : COLORS[index % COLORS.length];
+              let color;
+
+              if (useClassicColors) {
+                //  Player history mode
+                color = COLORS[index % COLORS.length];
+
+              } else if (useComparisonColors) {
+                //  Game history comparison
+                color = isOpp
+                  ? OPP_COLORS[index % OPP_COLORS.length]
+                  : TEAM_COLORS[index % TEAM_COLORS.length];
+
+              } else {
+                // fallback
+                color = COLORS[index % COLORS.length];
+              }
 
               return (
                 <Cell

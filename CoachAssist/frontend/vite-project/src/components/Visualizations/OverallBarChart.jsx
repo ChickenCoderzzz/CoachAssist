@@ -15,10 +15,10 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   LabelList,
-  Cell   // 🔥 ADDED
+  Cell   //  ADDED
 } from "recharts";
 
-export default function OverallBarChart({ data, useComparisonColors = false }) { // 🔥 ADDED PROP
+export default function OverallBarChart({ data, useComparisonColors = false, compareMode = "team", useClassicColors = false }) { //  ADDED PROP
 
 /*If no stats are selected, show a message instead of rendering an empty chart.*/
 if (!data || data.length === 0) {
@@ -51,7 +51,7 @@ if (!data || data.length === 0) {
 
           data={data}
 
-          /* 🔥 UPDATED: more bottom space for labels */
+          /*  UPDATED: more bottom space for labels */
           margin={{
             top: 10,
             right: 15,
@@ -77,15 +77,15 @@ if (!data || data.length === 0) {
 
             interval={0}
 
-            /* 🔥 UPDATED: less aggressive rotation */
+            /*  UPDATED: less aggressive rotation */
             angle={-30}
 
             textAnchor="end"
 
-            dx = {-10}   // 🔥 adjusted
-            tickMargin={20}  // 🔥 adjusted
+            dx = {-10}   //  adjusted
+            tickMargin={20}  //  adjusted
 
-            height={110}  // 🔥 critical fix
+            height={110}  //  critical fix
 
             tick={{
               fill: "#333",
@@ -147,10 +147,18 @@ if (!data || data.length === 0) {
 
           >
 
-            {/* 🔥 UPDATED: dynamic color mapping */}
+            {/*  UPDATED: dynamic color mapping */}
             {data.map((entry, index) => {
 
-              const isOpp = entry.stat.includes("(Opp)");
+              const CLASSIC_COLORS = [
+                "#4CAF50", "#2196F3", "#FFC107", "#FF5722",
+                "#9C27B0", "#00BCD4", "#8BC34A", "#FF9800",
+                "#3F51B5", "#E91E63", "#795548", "#607D8B"
+              ];
+
+              const isOpp =
+                compareMode === "opponent" ||
+                entry.stat.includes("(Opp)");
 
               const TEAM_COLORS = [
                 "#3b82f6", "#2563eb", "#1d4ed8",
@@ -166,11 +174,22 @@ if (!data || data.length === 0) {
                 "#fecaca", "#fda4af"
               ];
 
-              const color = useComparisonColors
-                ? (isOpp
-                    ? OPP_COLORS[index % OPP_COLORS.length]
-                    : TEAM_COLORS[index % TEAM_COLORS.length])
-                : "#4CAF50";
+              let color;
+
+              if (useClassicColors) {
+                //  Player history mode
+                color = CLASSIC_COLORS[index % CLASSIC_COLORS.length];
+
+              } else if (useComparisonColors) {
+                //  Game history comparison
+                color = isOpp
+                  ? OPP_COLORS[index % OPP_COLORS.length]
+                  : TEAM_COLORS[index % TEAM_COLORS.length];
+
+              } else {
+                // fallback
+                color = "#4CAF50";
+              }
 
               return (
                 <Cell

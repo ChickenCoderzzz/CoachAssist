@@ -14,7 +14,7 @@ import {
   Tooltip
 } from "recharts";
 
-export default function OverallRadarChart({ data, expanded, useComparisonColors = false }) {
+export default function OverallRadarChart({ data, expanded, useComparisonColors = false, compareMode = "team"}) {
 
   if (!data || data.length === 0) {
     return (
@@ -34,7 +34,7 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
     );
   }
 
-  /* 🔥 SPLIT TEAM / OPP DATA (ONLY WHEN ENABLED) */
+  /*  SPLIT TEAM / OPP DATA (ONLY WHEN ENABLED) */
   const teamData = useComparisonColors
     ? data.filter(d => !d.stat.includes("(Opp)"))
     : data;
@@ -99,12 +99,11 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
 
     let color = "#ffffff";
 
+    //  STRICT: labels only reflect normalization
     if (statData?.normalizationType === "Per Snap") {
-      color = "#22c55e";
-    }
-
-    if (statData?.normalizationType === "Ceiling") {
-      color = "#facc15";
+      color = "#22c55e"; // green
+    } else if (statData?.normalizationType === "Ceiling") {
+      color = "#facc15"; // yellow
     }
 
     return (
@@ -115,7 +114,7 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
         fill={color}
         fontSize={expanded ? 16 : 14}
       >
-        {payload.value}
+        {payload.value.replace(" (Team)", "").replace(" (Opp)", "")}
       </text>
     );
   };
@@ -148,6 +147,7 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
         <ResponsiveContainer width="100%" height="100%">
 
           <RadarChart
+            data={teamData}   
             outerRadius={expanded ? "80%" : "70%"}
             margin={{ top: 40, right: 80, left: 80, bottom: 40 }}
           >
@@ -170,29 +170,45 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
               axisLine={false}
             />
 
-            {/* 🔥 TEAM RADAR */}
-            <Radar
-              data={teamData}
-              dataKey="value"
-              stroke={useComparisonColors ? "#3b82f6" : "#22c55e"}
-              strokeWidth={3}
-              fill={useComparisonColors ? "#3b82f6" : "#22c55e"}
-              fillOpacity={0.25}
-              dot={{
-                r: expanded ? 6 : 4,
-                fill: useComparisonColors ? "#3b82f6" : "#22c55e"
-              }}
-            />
+            {/*  TEAM RADAR */}
+            {(() => {
+              const teamColor =
+                compareMode === "opponent"
+                  ? "#ef4444"   // 🔴 make it red in opponent mode
+                  : "#3b82f6";  // 🔵 normal team color
 
-            {/* 🔥 OPPONENT RADAR */}
+              return (
+                <Radar
+                  name="Team"
+                  data={teamData}
+                  dataKey="value"
+                  stroke={useComparisonColors ? teamColor : "#22c55e"}
+                  strokeWidth={3}
+                  fill={useComparisonColors ? teamColor : "#22c55e"}
+                  fillOpacity={0.25}
+                  dot={{
+                    r: expanded ? 6 : 4,
+                    fill: useComparisonColors ? teamColor : "#22c55e"
+                  }}
+                />
+              );
+            })()}
+            
+
+            {/*  OPPONENT RADAR */}
             {useComparisonColors && oppData.length > 0 && (
               <Radar
-                data={oppData}
+                name="Opponent"
+                data={teamData.map((t, i) => ({
+                  ...t,
+                  value: oppData[i]?.value ?? 0
+                }))}
                 dataKey="value"
                 stroke="#ef4444"
-                strokeWidth={3}
+                strokeWidth={2}              //  slightly thinner
+                strokeDasharray="4 4"
                 fill="#ef4444"
-                fillOpacity={0.25}
+                fillOpacity={0.15}           //  lighter so it doesn't stack visually
                 dot={{
                   r: expanded ? 6 : 4,
                   fill: "#ef4444"
@@ -208,7 +224,7 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
 
       </div>
 
-      {/* LEGEND (UNCHANGED) */}
+      {/* LEGEND (Updated) */}
       <div
         style={{
           marginTop: "-30px",

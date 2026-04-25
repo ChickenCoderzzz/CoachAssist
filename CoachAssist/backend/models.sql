@@ -261,6 +261,96 @@ CREATE TABLE IF NOT EXISTS team_members (
     UNIQUE(team_id, invited_email)
 );
 
+-- ======================================================================
+-- TABLE UPDATES FOR ANALYSIS ENHANCEMENT FEATURES - Wences Jacob Lorenzo
+-- ======================================================================
+
+--Add game quarter to game state table
+ALTER TABLE game_states ADD COLUMN quarter VARCHAR(2);
+
+--Add game quarter to player notes
+ALTER TABLE player_notes ADD COLUMN quarter VARCHAR(2);
+
+--Add quarter column to player stats
+ALTER TABLE player_stats
+ADD COLUMN quarter VARCHAR(10) DEFAULT 'overall';
+
+--Add unique constraint for player game quarter
+ALTER TABLE player_stats
+ADD CONSTRAINT unique_player_game_quarter
+UNIQUE (player_id, game_id, quarter);
+
+--Remove duplicate player stat records
+DELETE FROM player_stats a
+USING player_stats b
+WHERE a.id > b.id
+AND a.player_id = b.player_id
+AND a.game_id = b.game_id
+AND a.quarter = b.quarter;
+
+--Add missing columns to player stats
+ALTER TABLE player_stats
+ADD COLUMN targets INTEGER DEFAULT 0,
+ADD COLUMN drops INTEGER DEFAULT 0,
+ADD COLUMN run_block_snaps INTEGER DEFAULT 0,
+ADD COLUMN pass_block_snaps INTEGER DEFAULT 0,
+ADD COLUMN lead_blocks INTEGER DEFAULT 0,
+ADD COLUMN tackles_for_loss INTEGER DEFAULT 0,
+ADD COLUMN punts_inside_20 INTEGER DEFAULT 0,
+ADD COLUMN bad_snaps INTEGER DEFAULT 0,
+ADD COLUMN targets_allowed INTEGER DEFAULT 0,
+ADD COLUMN completions_allowed INTEGER DEFAULT 0,
+ADD COLUMN total_snaps INTEGER DEFAULT 0;
+
+-- CREATE GAME METRICS TABLE
+CREATE TABLE game_metrics (
+    id SERIAL PRIMARY KEY,
+    game_id INTEGER NOT NULL,
+    quarter VARCHAR(10) NOT NULL,
+
+    -- Core Coaching Metrics
+    points INTEGER DEFAULT 0,
+    total_yards INTEGER DEFAULT 0,
+    turnovers INTEGER DEFAULT 0,
+    penalties INTEGER DEFAULT 0,
+    penalty_yards INTEGER DEFAULT 0,
+    third_down_conversions INTEGER DEFAULT 0,
+    third_down_attempts INTEGER DEFAULT 0,
+    time_of_possession INTEGER DEFAULT 0, -- seconds
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(game_id, quarter)
+);
+
+--Add opponent stat columns to game metrics
+ALTER TABLE game_metrics
+ADD COLUMN opp_points INTEGER DEFAULT 0,
+ADD COLUMN opp_total_yards INTEGER DEFAULT 0,
+ADD COLUMN opp_turnovers INTEGER DEFAULT 0,
+ADD COLUMN opp_penalties INTEGER DEFAULT 0,
+ADD COLUMN opp_penalty_yards INTEGER DEFAULT 0,
+ADD COLUMN opp_third_down_conversions INTEGER DEFAULT 0,
+ADD COLUMN opp_third_down_attempts INTEGER DEFAULT 0,
+ADD COLUMN opp_time_of_possession INTEGER DEFAULT 0;
+
+--Add athlete_id to indv_players table
+ALTER TABLE indv_players
+ADD COLUMN athlete_id INT;
+
+--Set athlete_id to match player id
+UPDATE indv_players
+SET athlete_id = id;
+
+--Add unique constraint for player position
+ALTER TABLE indv_players
+ADD CONSTRAINT unique_player_position
+UNIQUE (athlete_id, position);
+
+--Add is_active column to indv_players table
+ALTER TABLE indv_players
+ADD COLUMN is_active BOOLEAN DEFAULT TRUE;
+
 CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_user ON team_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(invited_email);
