@@ -85,10 +85,10 @@ export default function EditRosterPage() {
       .then((data) => {
         console.log("PLAYERS:", data);
 
-        // 🔥 STEP 1: ONLY ACTIVE PLAYERS
+        //  STEP 1: ONLY ACTIVE PLAYERS
         const activePlayers = data.filter((p) => p.is_active);
 
-        // 🔥 STEP 2: GROUP BY athlete_id
+        //  STEP 2: GROUP BY athlete_id
         const uniquePlayersMap = {};
 
         activePlayers.forEach((p) => {
@@ -101,7 +101,7 @@ export default function EditRosterPage() {
 
         const uniquePlayers = Object.values(uniquePlayersMap);
 
-        // 🔥 STEP 3: SORT
+        //  STEP 3: SORT
         const sorted = uniquePlayers.sort((a, b) => {
           if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
             return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
@@ -259,7 +259,7 @@ export default function EditRosterPage() {
 
         const newPlayer = await switchRes.json();
 
-        // 🔥 update UI correctly
+        //  update UI correctly
         setSelectedHistoryPlayer(newPlayer);
         openPlayerHistory(newPlayer);
       }
@@ -652,6 +652,7 @@ export default function EditRosterPage() {
                         : [selectedQuarter]
                     }
                     selectedPlayer={selectedHistoryPlayer}
+                    useClassicColors={true}
                   />
                 )}
 

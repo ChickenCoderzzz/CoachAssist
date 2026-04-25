@@ -19,11 +19,9 @@ import {
 
 // CoachAssist color palette (fallback)
 const COLORS = [
-  "#4C6EF5",
-  "#8E44AD",
-  "#4CAF50",
-  "#E4572E",
-  "#E3B505"
+  "#4CAF50", "#2196F3", "#FFC107", "#FF5722",
+  "#9C27B0", "#00BCD4", "#8BC34A", "#FF9800",
+  "#3F51B5", "#E91E63", "#795548", "#607D8B"
 ];
 
 // Convert stat keys to readable labels
@@ -31,7 +29,7 @@ function formatLabel(key) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function SingleStatLineChart({ data, stats, useComparisonColors = false }) {
+export default function SingleStatLineChart({ data, stats, useComparisonColors = false, compareMode="team", useClassicColors= false }) {
 
   if (!stats || stats.length === 0) {
     return (
@@ -98,7 +96,7 @@ export default function SingleStatLineChart({ data, stats, useComparisonColors =
     return null;
   }
 
-  /* 🔥 EXPANDED COLOR SETS */
+  /*  EXPANDED COLOR SETS */
   const TEAM_COLORS = [
     "#3b82f6", "#2563eb", "#1d4ed8",
     "#60a5fa", "#93c5fd",
@@ -123,7 +121,7 @@ export default function SingleStatLineChart({ data, stats, useComparisonColors =
 
           data={data}
 
-          /* 🔥 UPDATED: label cutoff fix */
+          /*  UPDATED: label cutoff fix */
           margin={{
             top: 10,
             right: 15,
@@ -146,7 +144,7 @@ export default function SingleStatLineChart({ data, stats, useComparisonColors =
 
             interval={0}
 
-            /* 🔥 UPDATED */
+            /*  UPDATED */
             angle={-30}
 
             textAnchor="end"
@@ -186,40 +184,46 @@ export default function SingleStatLineChart({ data, stats, useComparisonColors =
                 paddingTop: 18,
                 fontSize: 13
             }}
-            formatter={(value) => (
-                <span style={{ color: "black" }}>
+            formatter={(value, entry) => (
+              <span style={{ color: entry.color }}>
                 {value}
-                </span>
+              </span>
             )}
           />
 
           {/* Lines */}
           {stats.map((stat, index) => {
 
-            const isOpp = stat.includes("_opp");
+           const isOpp =
+            compareMode === "opponent" ||
+            stat.startsWith("opp_") ||
+            stat.includes("_opp");
 
-            const color = useComparisonColors
-              ? (isOpp
-                  ? OPP_COLORS[index % OPP_COLORS.length]
-                  : TEAM_COLORS[index % TEAM_COLORS.length])
-              : COLORS[index % COLORS.length];
+          let color;
+
+          if (useClassicColors) {
+            //  Player-style colors
+            color = COLORS[index % COLORS.length];
+
+          } else if (useComparisonColors) {
+            //  Game comparison
+            color = isOpp
+              ? OPP_COLORS[index % OPP_COLORS.length]
+              : TEAM_COLORS[index % TEAM_COLORS.length];
+
+          } else {
+            color = COLORS[index % COLORS.length];
+          }
 
             return (
 
               <Line
-
                 key={stat}
-
                 type="monotone"
-
                 dataKey={stat}
-
                 name={formatLabel(stat)}
-
                 stroke={color}
-
                 strokeWidth={3}
-
                 dot={{
                   r: 4,
                   fill: color
@@ -230,9 +234,7 @@ export default function SingleStatLineChart({ data, stats, useComparisonColors =
                 }}
 
               />
-
             );
-
           })}
 
         </LineChart>

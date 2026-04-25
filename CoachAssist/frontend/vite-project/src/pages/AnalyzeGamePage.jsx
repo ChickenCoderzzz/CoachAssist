@@ -19,11 +19,38 @@ const timeToSeconds = (t) => {
     return parseInt(t, 10) || 0;
 };
 
+// Calculate Third Down Percent Stat - Wences Jacob Lorenzo
 const getThirdDownPct = (conv, att) => {
     if (!att) return "0%";
     return ((conv / att) * 100).toFixed(0) + "%";
 };
 
+// Compute overall (Q1–Q4) totals
+const getOverallValue = (gameMetrics, key, isOpp = false) => {
+    const field = isOpp ? `opp_${key}` : key;
+
+    return ["Q1", "Q2", "Q3", "Q4"].reduce((sum, q) => {
+        return sum + (gameMetrics[q]?.[field] || 0);
+    }, 0);
+};
+
+// Compute overall 3rd down stats
+const getOverallThirdDown = (gameMetrics, isOpp = false) => {
+    const convKey = isOpp ? "opp_third_down_conversions" : "third_down_conversions";
+    const attKey = isOpp ? "opp_third_down_attempts" : "third_down_attempts";
+
+    const conv = ["Q1","Q2","Q3","Q4"].reduce((sum, q) => {
+        return sum + (gameMetrics[q]?.[convKey] || 0);
+    }, 0);
+
+    const att = ["Q1","Q2","Q3","Q4"].reduce((sum, q) => {
+        return sum + (gameMetrics[q]?.[attKey] || 0);
+    }, 0);
+
+    return { conv, att };
+};
+
+// Color scale for team and opponent visualizations - Wences Jacob Lorenzo
 const getColor = (team, opp, inverse = false) => {
     if (team === opp) return "white";
     if (inverse) return team < opp ? "#4caf50" : "#f44336";
@@ -36,11 +63,14 @@ export default function AnalyzeGamePage() {
 
     const [activeTab, setActiveTab] = useState("Game State");
 
+    //Wences Jacob Lorenzo
     const [gameView, setGameView] = useState("state"); 
     const [selectedQuarter, setSelectedQuarter] = useState("Q1");
 
+    //Game Quareters - Wences Jacob Lorenzo
     const QUARTERS = ["Q1", "Q2", "Q3", "Q4", "overall"];
-
+ 
+    //Game metrics - Wences Jacob Lorenzo
     const METRIC_FIELDS = [
         { key: "points", label: "Points" },
         { key: "total_yards", label: "Total Yards" },
@@ -116,7 +146,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                                 //  Ensure every row has a quarter field
                                 data[tab] = data[tab].map(row => ({
                                     ...row,
-                                    text: row.text || row.note || row.observation || "",  // 🔥 FIX
+                                    text: row.text || row.note || row.observation || "",  //  FIX
                                     quarter: row.quarter || ""
                                 }));
 
@@ -128,6 +158,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                         setAllTableData(data);
                     }
                 });
+            //Retrieve metrics - Wences Jacob Lorenzo
             fetch(`/games/${matchId}/metrics`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
             })
@@ -160,6 +191,7 @@ const [gameMetrics, setGameMetrics] = useState({});
             .then(data => {
                 console.log("ANALYZE PLAYERS:", data);
 
+                //Player Filtering - Wences Jacob Lorenzo
                 //  STEP 1: ONLY ACTIVE PLAYERS
                 const activePlayers = (data || []).filter(p => p.is_active);
 
@@ -427,6 +459,7 @@ const [gameMetrics, setGameMetrics] = useState({});
             }
         }
 
+        //Save Game Metrics - Wences Jacob Lorenzo
         fetch(`/games/${matchId}/metrics`, {
             method: "PUT",
             headers: {
@@ -617,7 +650,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
             {/* Main Content */}
             <div className="analyze-content">
-                {/* LEFT COLUMN */}
+                {/* LEFT COLUMN - Updated Format - Wences Jacob Lorenzo*/}
                 <div className="video-column">
                     {/* Video Player Section */}
                     <div className="video-player-section">
@@ -784,13 +817,14 @@ const [gameMetrics, setGameMetrics] = useState({});
                                 {/* Metrics Grid */}
                                 <div className="stats-grid">
                                     {METRIC_FIELDS.map(({ key, label }) => {
+                                        const oppKey = `opp_${key}`;
+
                                         const teamVal = selectedQuarter === "overall"
-                                            ? gameMetrics["overall"]?.[key] || 0
+                                            ? getOverallValue(gameMetrics, key, false)
                                             : gameMetrics[selectedQuarter]?.[key] || 0;
 
-                                        const oppKey = `opp_${key}`;
                                         const oppVal = selectedQuarter === "overall"
-                                            ? gameMetrics["overall"]?.[oppKey] || 0
+                                            ? getOverallValue(gameMetrics, key, true)
                                             : gameMetrics[selectedQuarter]?.[oppKey] || 0;
 
                                         const isInverse = ["turnovers", "penalties", "penalty_yards"].includes(key);
@@ -807,6 +841,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                                                         <input
                                                             type="number"
+                                                            disabled={selectedQuarter === "overall"}
                                                             style={{ borderColor: getColor(teamVal, oppVal, isInverse) }}
                                                             value={teamVal}
                                                             onChange={(e) => {
@@ -824,12 +859,20 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                                                         {key === "third_down_conversions" && (
                                                             <div className="third-down-pct">
-                                                                {`${gameMetrics[selectedQuarter]?.third_down_conversions || 0} / 
-                                                                ${gameMetrics[selectedQuarter]?.third_down_attempts || 0}
-                                                                (${getThirdDownPct(
-                                                                    gameMetrics[selectedQuarter]?.third_down_conversions || 0,
-                                                                    gameMetrics[selectedQuarter]?.third_down_attempts || 0
-                                                                )})`}
+                                                                {key === "third_down_conversions" && (() => {
+                                                                    const { conv, att } = selectedQuarter === "overall"
+                                                                        ? getOverallThirdDown(gameMetrics, false)
+                                                                        : {
+                                                                            conv: gameMetrics[selectedQuarter]?.third_down_conversions || 0,
+                                                                            att: gameMetrics[selectedQuarter]?.third_down_attempts || 0
+                                                                        };
+
+                                                                    return (
+                                                                        <div className="third-down-pct">
+                                                                            {`${conv} / ${att} (${getThirdDownPct(conv, att)})`}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </div>
@@ -840,6 +883,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                                                         <input
                                                             type="number"
+                                                            disabled={selectedQuarter === "overall"}
                                                             style={{ borderColor: getColor(oppVal, teamVal, isInverse) }}
                                                             value={oppVal}
                                                             onChange={(e) => {
@@ -854,17 +898,20 @@ const [gameMetrics, setGameMetrics] = useState({});
                                                                 }));
                                                             }}
                                                         />
+                                                        {key === "third_down_conversions" && (() => {
+                                                            const { conv, att } = selectedQuarter === "overall"
+                                                                ? getOverallThirdDown(gameMetrics, true)
+                                                                : {
+                                                                    conv: gameMetrics[selectedQuarter]?.opp_third_down_conversions || 0,
+                                                                    att: gameMetrics[selectedQuarter]?.opp_third_down_attempts || 0
+                                                                };
 
-                                                        {key === "third_down_conversions" && (
-                                                            <div className="third-down-pct">
-                                                                {`${gameMetrics[selectedQuarter]?.opp_third_down_conversions || 0} / 
-                                                                ${gameMetrics[selectedQuarter]?.opp_third_down_attempts || 0}
-                                                                (${getThirdDownPct(
-                                                                    gameMetrics[selectedQuarter]?.opp_third_down_conversions || 0,
-                                                                    gameMetrics[selectedQuarter]?.opp_third_down_attempts || 0
-                                                                )})`}
-                                                            </div>
-                                                        )}
+                                                            return (
+                                                                <div className="third-down-pct">
+                                                                    {`${conv} / ${att} (${getThirdDownPct(conv, att)})`}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
 
                                                 </div>

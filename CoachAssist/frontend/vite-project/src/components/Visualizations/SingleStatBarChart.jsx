@@ -20,11 +20,9 @@ import {
 
 // CoachAssist color palette for stats (fallback only)
 const COLORS = [
-  "#4C6EF5",
-  "#8E44AD",
-  "#4CAF50",
-  "#E4572E",
-  "#E3B505"
+  "#4CAF50", "#2196F3", "#FFC107", "#FF5722",
+  "#9C27B0", "#00BCD4", "#8BC34A", "#FF9800",
+  "#3F51B5", "#E91E63", "#795548", "#607D8B"
 ];
 
 // Convert stat keys like passing_yards to Passing Yards
@@ -32,7 +30,7 @@ function formatLabel(key) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function SingleStatBarChart({ data, stats, useComparisonColors = false }) {
+export default function SingleStatBarChart({ data, stats, useComparisonColors = false, compareMode = "team", useClassicColors = false }) {
 
   /*If no stats selected, still render the chart container so the graph viewer does not disappear.*/
   if (!stats || stats.length === 0) {
@@ -53,7 +51,7 @@ export default function SingleStatBarChart({ data, stats, useComparisonColors = 
     );
   }
 
-  /* 🔥 EXPANDED COLOR SETS */
+  /*  EXPANDED COLOR SETS */
   const TEAM_COLORS = [
     "#3b82f6", "#2563eb", "#1d4ed8",
     "#60a5fa", "#93c5fd",
@@ -78,7 +76,7 @@ export default function SingleStatBarChart({ data, stats, useComparisonColors = 
 
           data={data}
 
-          /* 🔥 UPDATED: label cutoff fix */
+          /*  UPDATED: label cutoff fix */
           margin={{
             top: 10,
             right: 15,
@@ -104,7 +102,7 @@ export default function SingleStatBarChart({ data, stats, useComparisonColors = 
 
             interval={0}
 
-            /* 🔥 UPDATED: less tilt + more space */
+            /*  UPDATED: less tilt + more space */
             angle={-30}
 
             textAnchor="end"
@@ -166,37 +164,44 @@ export default function SingleStatBarChart({ data, stats, useComparisonColors = 
                 paddingTop: 18,
                 fontSize: 13
             }}
-            formatter={(value) => (
-                <span style={{ color: "black" }}>
+            formatter={(value, entry) => (
+              <span style={{ color: entry.color }}>
                 {value}
-                </span>
+              </span>
             )}
           />
 
           {/* Bars */}
           {stats.map((stat, index) => {
 
-            const isOpp = stat.includes("_opp");
+            const isOpp =
+              compareMode === "opponent" ||
+              stat.startsWith("opp_") ||
+              stat.includes("_opp");
 
-            const color = useComparisonColors
-              ? (isOpp
-                  ? OPP_COLORS[index % OPP_COLORS.length]
-                  : TEAM_COLORS[index % TEAM_COLORS.length])
-              : COLORS[index % COLORS.length];
+            let color;
+
+            if (useClassicColors) {
+              // 🎨 Player-style colors
+              color = COLORS[index % COLORS.length];
+
+            } else if (useComparisonColors) {
+              // 🔵🔴 Game comparison
+              color = isOpp
+                ? OPP_COLORS[index % OPP_COLORS.length]
+                : TEAM_COLORS[index % TEAM_COLORS.length];
+
+            } else {
+              color = COLORS[index % COLORS.length];
+            }
 
             return (
               <Bar
-
                 key={stat}
-
                 dataKey={stat}
-
                 name={formatLabel(stat)}
-
                 fill={color}
-
                 radius={[4,4,0,0]}
-
                 maxBarSize={45}
 
               />

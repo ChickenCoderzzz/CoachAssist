@@ -50,14 +50,14 @@ class PlayerOut(BaseModel):
     """
 
     id: int
-    athlete_id: int          #  REQUIRED
+    athlete_id: int # New
     team_id: int
     player_name: str
     jersey_number: int
     unit: UnitType
     position: PositionType
     is_priority: bool
-    is_active: bool          #  REQUIRED
+    is_active: bool # New
 
 
 #=== UPDATE PLAYER SCHEMA ===

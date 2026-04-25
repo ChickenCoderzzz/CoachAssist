@@ -234,7 +234,7 @@ def update_player_insights(
             }
 
         except Exception as e:
-            print("🔥 BACKEND ERROR:", e)   # 👈 ADD THIS
+            print(" BACKEND ERROR:", e)   #  ADD THIS
             db.rollback()
             raise HTTPException(
                 status_code=500,

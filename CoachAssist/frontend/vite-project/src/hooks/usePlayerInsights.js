@@ -22,7 +22,7 @@ export default function usePlayerInsights(matchId) {
             .then(res => res.json())
             .then(data => {
 
-                // Build default stat structure
+                // Build default stat structure - Wences Jacob Lorenzo
                 const buildEmptyStats = () => {
                     let base = {};
 

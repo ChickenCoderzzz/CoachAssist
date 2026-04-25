@@ -423,11 +423,11 @@ export default function PlayerAnalysisPage() {
 
     return unitData.reduce(
       (acc, entry) => {
-        // 🔥 Normalize stats safely
+        //  Normalize stats safely
         const stats = (() => {
           if (!entry.stats) return {};
 
-          // If array → merge all objects
+          // If array, merge all objects
           if (Array.isArray(entry.stats)) {
             return entry.stats.reduce((sAcc, obj) => {
               if (!obj || typeof obj !== "object") return sAcc;
@@ -448,7 +448,7 @@ export default function PlayerAnalysisPage() {
           return {};
         })();
 
-        // 🔥 Normalize notes safely
+        //  Normalize notes safely
         const notes = Array.isArray(entry.notes) ? entry.notes : [];
 
         acc.penalties += Number(stats.penalties || 0);
@@ -994,7 +994,7 @@ export default function PlayerAnalysisPage() {
                               </tr>
 
                               {/* QUARTER ROWS */}
-                              {expandedGames[game.id] &&
+                              {expandedGames[game.id] && //Expanded rows
                                 ["Q1", "Q2", "Q3", "Q4"].map((q) => {
                                   const quarterStats = historyData.stats_by_game
                                     .filter(
