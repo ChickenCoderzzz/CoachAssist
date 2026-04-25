@@ -6,6 +6,7 @@ import { INITIAL_DATA, POSITION_LABELS, getFullPositionName } from "../constants
 import PlayerInsightsModal from "../components/PlayerInsightsModal";
 import VideoTable from "../components/VideoTable";
 import ClipVideoModal from "../components/ClipVideoModal";
+import VideoAnnotationOverlay from "../components/Drawboard/VideoAnnotationOverlay";
 import useVideos from "../hooks/useVideos";
 import usePlayerInsights from "../hooks/usePlayerInsights";
 
@@ -70,6 +71,11 @@ const [gameMetrics, setGameMetrics] = useState({});
     // Match State
     const [match, setMatch] = useState(null);
     const [showEdit, setShowEdit] = useState(false);
+
+    // Team role (for drawboard edit gating)
+    const [userRole, setUserRole] = useState(null);
+    // Whether the per-video annotation overlay is shown
+    const [showVideoAnnotations, setShowVideoAnnotations] = useState(false);
 
     // Edit Form State
     const [name, setName] = useState("");
@@ -139,6 +145,18 @@ const [gameMetrics, setGameMetrics] = useState({});
                 });
         }
     }, [matchId]);
+
+    // Fetch team to learn user's role (for drawboard edit gating)
+    useEffect(() => {
+        if (!teamId) return;
+        fetch(`/teams/${teamId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (data?.team) setUserRole(data.team.user_role || "owner");
+            });
+    }, [teamId]);
 
     // Fetch Players for Offensive / Defensive / Special tabs
     // Added by Wences Jacob Lorenzo
@@ -573,6 +591,16 @@ const [gameMetrics, setGameMetrics] = useState({});
                                 Edit Game Details
                             </button>
                         )}
+
+                        {teamId && matchId && (
+                            <button
+                                className="add-team-btn"
+                                onClick={() => navigate(`/team/${teamId}/match/${matchId}/board`)}
+                                style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                            >
+                                Boards
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -634,6 +662,34 @@ const [gameMetrics, setGameMetrics] = useState({});
                             </div>
                         )}
                     </div>
+
+                    {/* Per-video annotation overlay (drawboard) */}
+                    {videoSrc && (() => {
+                        const currentVideo = videoList.find((v) => v.playback_url === videoSrc);
+                        if (!currentVideo) return null;
+                        return (
+                            <div style={{ marginTop: '10px' }}>
+                                <button
+                                    className="add-team-btn"
+                                    onClick={() => setShowVideoAnnotations(true)}
+                                    style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
+                                >
+                                    Open annotations
+                                </button>
+                                {showVideoAnnotations && (
+                                    <VideoAnnotationOverlay
+                                        teamId={teamId}
+                                        matchId={matchId}
+                                        videoId={currentVideo.id}
+                                        videoSrc={videoSrc}
+                                        videoTitle={currentVideo.filename}
+                                        canEdit={userRole === 'owner' || userRole === 'editor'}
+                                        onClose={() => setShowVideoAnnotations(false)}
+                                    />
+                                )}
+                            </div>
+                        );
+                    })()}
                  </div>
 
                 {/* RIGHT COLUMN */}

@@ -274,6 +274,14 @@ export default function TeamPage() {
           Calendar
         </button>
 
+        {/* Navigate to Playbook (drawboards) */}
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/team/${teamId}/playbook`)}
+        >
+          Playbook
+        </button>
+
         {/* Team Members (owner only) */}
         {userRole === "owner" && (
           <button
