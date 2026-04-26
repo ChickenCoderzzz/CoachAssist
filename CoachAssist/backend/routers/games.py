@@ -2,6 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_game_role
 from pydantic import BaseModel
 from typing import List, Optional
 
@@ -20,23 +21,8 @@ class GameStateUpdate(BaseModel):
     category: str
     data: List[GameStateRow]
 
-def verify_game_access(game_id: int, user_id: int, db):
-    cur = db.cursor()
-    cur.execute("""
-        SELECT m.id
-        FROM matches m
-        JOIN teams t ON m.team_id = t.id
-        WHERE m.id = %s AND t.user_id = %s
-    """, (game_id, user_id))
-    
-    match = cur.fetchone()
-    cur.close()
-    
-    if not match:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Access denied to this game"
-        )
+def verify_game_access(game_id: int, user_id: int, db, required_role: str = "viewer"):
+    require_game_role(game_id, user_id, db, required_role)
 
 
 @router.get("/{game_id}/state")
@@ -83,11 +69,11 @@ def update_game_state(
     db=Depends(get_db), 
     user=Depends(require_user)
 ):
-    verify_game_access(game_id, user["id"], db)
+    verify_game_access(game_id, user["id"], db, "editor")
     cur = db.cursor()
-    
+
     try:
-        
+
         cur.execute("DELETE FROM game_states WHERE game_id = %s", (game_id,))
         
         #Edited by Wences Jacob Lorenzo

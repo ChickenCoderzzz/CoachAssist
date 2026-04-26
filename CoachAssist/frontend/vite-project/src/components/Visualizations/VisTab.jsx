@@ -78,8 +78,12 @@ function formatLabel(key) {
 export default function VisualizationsTab({
     historyData,
     selectedGameIds,
-    selectedPlayer
+    selectedQuarters,
+    selectedPlayer,
+    useClassicColors
 }) {
+
+const safeQuarters = selectedQuarters || [];
 
     /* STATE */
 
@@ -89,6 +93,11 @@ export default function VisualizationsTab({
     // Stats selected for progress comparison (max 5)
     const [progressStats, setProgressStats] = useState([]);
     const [viewMode, setViewMode] = useState("overall");
+
+    //Total and average toggle states
+    const [valueMode, setValueMode] = useState("total"); // "total" | "average"
+
+    const compareMode = "team";
 
     // Dropdown control
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -142,34 +151,50 @@ export default function VisualizationsTab({
             When switching players, reset the Stat Progress view to the Top 5 stats based on total production.
             */
 
-            const top5 = [...allowedStats]
+            const statTotals = {};
 
+            (historyData?.stats_by_game || []).forEach(s => {
+                allowedStats.forEach(stat => {
+                    statTotals[stat] = (statTotals[stat] || 0) + (s[stat] || 0);
+                });
+            });
+
+            const top5 = [...allowedStats]
                 .map(stat => ({
                     stat,
-                    value: totals?.[stat] || 0
+                    value: statTotals[stat] || 0
                 }))
                 .sort((a, b) => b.value - a.value)
                 .slice(0, 5)
                 .map(x => x.stat);
             setProgressStats(top5);
         }
-    }, [selectedPlayer]);
+    }, [selectedPlayer, historyData]);
 
     /* FILTER SELECTED GAMES*/
 
     const filteredStats = historyData.stats_by_game.filter(stat =>
-        selectedGameIds.includes(stat.game_id)
+        selectedGameIds.includes(stat.game_id) &&
+        (safeQuarters.length === 0 || safeQuarters.includes(stat.quarter))
     );
 
     /* BUILD TOTALS*/
 
     const totals = {};
+    let count = filteredStats.length;
 
     filteredStats.forEach(game => {
         allowedStats.forEach(stat => {
             totals[stat] = (totals[stat] || 0) + (game[stat] || 0);
         });
     });
+
+    // Convert to average if needed
+    if (valueMode === "average" && count > 0) {
+        allowedStats.forEach(stat => {
+            totals[stat] = totals[stat] / count;
+        });
+    }
 
     /*BUILD DATA FOR BAR & PIE CHARTS*/
 
@@ -187,7 +212,10 @@ export default function VisualizationsTab({
 
     const radarData = selectedStats.map(stat => {
 
-    const raw = totals[stat] || 0;
+    const raw = filteredStats.reduce(
+        (sum, s) => sum + (s[stat] || 0),
+        0
+    );
 
     let score;
     let normalizationType;
@@ -243,10 +271,19 @@ export default function VisualizationsTab({
     .sort((a, b) => new Date(a.game_date) - new Date(b.game_date))
     .map(game => {
 
-        const stats =
-        historyData.stats_by_game.find(
-            s => s.game_id === game.id
-        ) || {};
+        const statsForGame = historyData.stats_by_game.filter(
+            s =>
+                s.game_id === game.id &&
+                (safeQuarters.length === 0 || safeQuarters.includes(s.quarter))
+        );
+
+        const stats = {};
+
+        statsForGame.forEach(qStat => {
+            allowedStats.forEach(stat => {
+                stats[stat] = (stats[stat] || 0) + (qStat[stat] || 0);
+            });
+        });
 
         const row = {
         game: game.opponent,
@@ -254,12 +291,88 @@ export default function VisualizationsTab({
         };
 
         // Add selected progress stats dynamically
+        const divisor = statsForGame.length;
+
         progressStats.forEach(stat => {
-        row[stat] = stats[stat] || 0;
+            const total = stats[stat] || 0;
+
+            const keyName =
+                compareMode === "opponent"
+                ? `opp_${stat}`
+                : stat;
+
+            row[keyName] =
+                valueMode === "average" && divisor > 0
+                ? total / divisor
+                : total;
         });
 
         return row;
 
+    });
+
+    const perQuarterData = ["Q1","Q2","Q3","Q4"]
+.filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
+.map(q => {
+
+    const statsForQuarter = filteredStats.filter(s => s.quarter === q);
+
+        //  GROUP BY GAME
+        const gamesMap = {};
+        statsForQuarter.forEach(s => {
+            if (!gamesMap[s.game_id]) {
+                gamesMap[s.game_id] = [];
+            }
+            gamesMap[s.game_id].push(s);
+        });
+
+        const gameCount = Object.keys(gamesMap).length;
+
+        const row = { game: q };
+
+        progressStats.forEach((stat, i) => {
+
+            let teamTotal = 0;
+            let oppTotal = 0;
+
+            Object.values(gamesMap).forEach(gameRows => {
+                const gameSum = gameRows.reduce((sum, r) => sum + (r[stat] || 0), 0);
+                const oppSum = gameRows.reduce((sum, r) => sum + (r[`opp_${stat}`] || 0), 0);
+
+                teamTotal += gameSum;
+                oppTotal += oppSum;
+            });
+
+            if (compareMode === "both") {
+                row[`${stat}_team_${i}`] =
+                    valueMode === "average" && gameCount > 0
+                        ? teamTotal / gameCount
+                        : teamTotal;
+
+                row[`${stat}_opp_${i}`] =
+                    valueMode === "average" && gameCount > 0
+                        ? oppTotal / gameCount
+                        : oppTotal;
+
+            } else {
+                const total =
+                    compareMode === "opponent"
+                        ? oppTotal
+                        : teamTotal;
+
+                const keyName =
+                    compareMode === "opponent"
+                        ? `opp_${stat}`
+                        : stat;
+
+                    row[keyName] =
+                    valueMode === "average" && gameCount > 0
+                        ? total / gameCount
+                        : total;
+            }
+        });
+
+        return row;
     });
 
     /*STAT SET FUNCTIONS*/
@@ -390,7 +503,35 @@ export default function VisualizationsTab({
                     Stat Progress
                 </button>
 
+                <button
+                    className={viewMode === "quarterly" ? "active-tab" : ""}
+                    onClick={() => setViewMode("quarterly")}
+                >
+                    Quarterly Analysis
+                </button>
+
             </div>
+
+            <div style={{ marginTop: "10px" }}>
+                <button
+                    onClick={() => setValueMode("total")}
+                    style={{
+                    marginRight: "8px",
+                    background: valueMode === "total" ? "#e2c675" : "#f2f2f2"
+                    }}
+                >
+                    Total
+                </button>
+
+                <button
+                    onClick={() => setValueMode("average")}
+                    style={{
+                    background: valueMode === "average" ? "#e2c675" : "#f2f2f2"
+                    }}
+                >
+                    Average
+                </button>
+                </div>
 
             {/*OVERALL VISUALIZATIONS*/}
 
@@ -398,7 +539,9 @@ export default function VisualizationsTab({
 
                 <>
 
-                    <h3>Overall Stat Distribution</h3>
+                    <h3>
+                        Overall Stat Distribution ({valueMode === "average" ? "Average" : "Total"})
+                    </h3>
 
                     {/* STAT DROPDOWN */}
 
@@ -560,7 +703,12 @@ export default function VisualizationsTab({
 
                     {overallChart === "bar" &&
                         <ExpandableChart>
-                        <OverallBarChart data={overallData} />
+                        <OverallBarChart
+                            data={overallData}
+                            useComparisonColors={true}
+                            compareMode={compareMode}
+                            useClassicColors={true}
+                        />
                         </ExpandableChart>
                     }
 
@@ -568,23 +716,33 @@ export default function VisualizationsTab({
                         <ExpandableChart
                             render={(expanded) => (
                                 <OverallPieChart
-                                data={overallData}
-                                expanded={expanded}
+                                    data={overallData}
+                                    expanded={expanded}
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                             )}
                             />
                     }
 
-                    {overallChart === "radar" &&
-                        <ExpandableChart
-                            render={(expanded) => (
-                                <OverallRadarChart
-                                data={radarData}
-                                expanded={expanded}
-                                />
-                            )}
+                    {overallChart === "radar" && (
+
+                        <>
+                            <p style={{ fontSize: "12px", opacity: 0.7, marginBottom: "6px" }}>
+                                Radar chart is based on total values for consistency
+                            </p>
+
+                            <ExpandableChart
+                                render={(expanded) => (
+                                    <OverallRadarChart
+                                        data={radarData}
+                                        expanded={expanded}
+                                    />
+                                )}
                             />
-                    }
+                        </>
+                    )}
 
                 </>
 
@@ -592,18 +750,18 @@ export default function VisualizationsTab({
 
             {/*SINGLE STAT VISUALIZATIONS*/}
 
-            {viewMode === "single" && (
+            {(viewMode === "single" || viewMode === "quarterly") && (
 
                 <>
 
                     {/*STAT PROGRESS VISUALIZATIONS*/}
 
-                    {viewMode === "single" && (
-
                         <>
 
                             <h3 style={{ marginTop: 40 }}>
-                                Stat Progress
+                                {viewMode === "quarterly"
+                                    ? `Quarterly Analysis (${valueMode === "average" ? "Average" : "Total"})`
+                                    : `Stat Progress (${valueMode === "average" ? "Average" : "Total"})`}
                             </h3>
 
                             {/* STAT SELECTION DROPDOWN */}
@@ -721,8 +879,15 @@ export default function VisualizationsTab({
                             {singleChart === "line" &&
                                 <ExpandableChart>
                                 <SingleStatLineChart
-                                    data={perGameData}
-                                    stats={progressStats}
+                                    data={viewMode === "quarterly" ? perQuarterData : perGameData}
+                                    stats={
+                                        compareMode === "opponent"
+                                        ? progressStats.map(s => `opp_${s}`)
+                                        : progressStats
+                                    }
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                                 </ExpandableChart>
                             }
@@ -730,15 +895,22 @@ export default function VisualizationsTab({
                             {singleChart === "bar" &&
                                 <ExpandableChart>
                                 <SingleStatBarChart
-                                    data={perGameData}
-                                    stats={progressStats}
+                                    data={viewMode === "quarterly" ? perQuarterData : perGameData}
+                                    stats={
+                                        compareMode === "opponent"
+                                        ? progressStats.map(s => `opp_${s}`)
+                                        : progressStats
+                                    }
+                                    useComparisonColors={true}
+                                    compareMode={compareMode}
+                                    useClassicColors={useClassicColors}
                                 />
                                 </ExpandableChart>
                             }
 
                         </>
 
-                    )}
+                    
                 </>
 
             )}

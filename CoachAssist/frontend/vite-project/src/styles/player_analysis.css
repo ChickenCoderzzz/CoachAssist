@@ -361,3 +361,153 @@ button:hover {
 .save-analysis-btn {
   font-weight: bold;
 }
+
+/* ================= GAME ANALYSIS LAYOUT ================= */
+
+.game-analysis-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.game-analysis-selected {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.game-analysis-header-card {
+  border: 2px solid black;
+  border-radius: 12px;
+  background: #f7f7f7;
+  padding: 18px 20px;
+}
+
+.game-analysis-title {
+  margin: 0 0 8px 0;
+}
+
+.game-analysis-meta {
+  margin: 0;
+}
+
+.game-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: stretch;
+}
+
+.game-analysis-card {
+  border: 2px solid black;
+  border-radius: 12px;
+  background: #f9f9f9;
+  padding: 14px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-analysis-card h3 {
+  margin: 0 0 10px 0;
+}
+
+.game-analysis-card .table-scroll-container {
+  flex: 1;
+}
+
+.game-analysis-action {
+  margin-top: 8px;
+}
+
+.game-analysis-action .ai-button {
+  width: min(620px, 100%);
+}
+
+.game-analysis-result-card {
+  border: 2px solid black;
+  border-radius: 12px;
+  background: #f4f4f4;
+  padding: 18px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 980px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 1024px) {
+  .game-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.unit-notes-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.unit-notes-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.unit-notes-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 13000;
+  padding: 16px;
+}
+
+.unit-notes-modal {
+  width: 100%;
+  max-width: 640px;
+  max-height: 80vh;
+  border: 2px solid black;
+  border-radius: 12px;
+  background: #f9f9f9;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.unit-notes-modal-title {
+  margin: 0 0 12px 0;
+}
+
+.unit-notes-modal-body {
+  overflow-y: auto;
+  border: 2px solid black;
+  border-radius: 10px;
+  background: white;
+  padding: 12px;
+}
+
+.unit-note-entry {
+  padding: 8px 4px;
+  border-bottom: 1px solid #ddd;
+}
+
+.unit-note-entry:last-child {
+  border-bottom: none;
+}
+
+.unit-note-player {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.unit-note-text {
+  white-space: pre-wrap;
+}
+
+.unit-notes-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}

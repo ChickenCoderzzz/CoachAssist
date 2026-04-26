@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Joyride, EVENTS, STATUS } from "react-joyride";
+import { Joyride, ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -13,6 +13,7 @@ export default function GuidedTour() {
 
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [targetCheckTick, setTargetCheckTick] = useState(0);
 
   const isDashboardRoute = location.pathname === "/dashboard";
   const isAnalyzeRoute = /^\/team\/[^/]+\/match\/[^/]+$/.test(location.pathname);
@@ -115,6 +116,17 @@ export default function GuidedTour() {
   };
 
   useEffect(() => {
+    if (!user || !currentTutorial || run) return;
+    if (tutorialKey && localStorage.getItem(tutorialKey) === "true") return;
+
+    const intervalId = window.setInterval(() => {
+      setTargetCheckTick((tick) => tick + 1);
+    }, 300);
+
+    return () => window.clearInterval(intervalId);
+  }, [user, currentTutorial, tutorialKey, run]);
+
+  useEffect(() => {
     if (!user || !currentTutorial) {
       setRun(false);
       setStepIndex(0);
@@ -139,12 +151,12 @@ export default function GuidedTour() {
     }
 
     setRun(true);
-  }, [user, currentTutorial, tutorialKey, stepIndex, activeSteps]);
+  }, [user, currentTutorial, tutorialKey, stepIndex, activeSteps, targetCheckTick]);
 
   const handleCallback = (data) => {
     const { action, status, type, index } = data;
 
-    if (action === "prev") {
+    if (action === ACTIONS.PREV || action === "prev") {
       setStepIndex(Math.max(0, index - 1));
       return;
     }

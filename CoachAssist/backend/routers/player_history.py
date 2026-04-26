@@ -18,6 +18,7 @@ from psycopg2.extras import RealDictCursor
 from typing import Optional
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 
 router = APIRouter(
     prefix="/players",
@@ -44,15 +45,10 @@ def get_player_history(
 
     with db.cursor(cursor_factory=RealDictCursor) as cur:
 
-        # Verify Player Ownership
+        # Verify Player Access
         cur.execute(
-            """
-            SELECT p.id, p.team_id
-            FROM indv_players p
-            JOIN teams t ON p.team_id = t.id
-            WHERE p.id = %s AND t.user_id = %s
-            """,
-            (player_id, user_id)
+            "SELECT id, team_id FROM indv_players WHERE id = %s",
+            (player_id,)
         )
 
         player = cur.fetchone()
@@ -60,8 +56,10 @@ def get_player_history(
         if not player:
             raise HTTPException(
                 status_code=404,
-                detail="Player not found or access denied"
+                detail="Player not found"
             )
+
+        require_team_role(player["team_id"], user_id, db, "viewer")
 
         team_id = player["team_id"]
 
@@ -85,11 +83,31 @@ def get_player_history(
             SELECT *
             FROM player_stats
             WHERE player_id = %s
+            AND quarter != 'overall'
             """,
             (player_id,)
         )
 
-        stats = cur.fetchall()
+        raw_stats = cur.fetchall()
+
+        stats_by_game = []
+
+        for row in raw_stats:
+            stat_entry = {
+                "game_id": row["game_id"],
+                "quarter": row["quarter"]
+            }
+
+            for key, value in row.items():
+                if key in ["id", "player_id", "game_id", "quarter", "created_at"]:
+                    continue
+
+                if value is None:
+                    continue
+
+                stat_entry[key] = value
+
+            stats_by_game.append(stat_entry)
 
         # Get Player Notes
         cur.execute(
@@ -107,6 +125,6 @@ def get_player_history(
 
     return {
         "games": games,
-        "stats_by_game": stats,
+        "stats_by_game": stats_by_game,
         "notes": notes
     }

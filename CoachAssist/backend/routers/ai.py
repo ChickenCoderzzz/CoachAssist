@@ -7,6 +7,8 @@ Handles AI-based analysis using Google Gemini.
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from backend.database import get_db
+from backend.routers.auth import require_user
+from backend.routers.team_access import require_team_role
 from google import genai
 from psycopg2.extras import RealDictCursor
 import os
@@ -25,10 +27,56 @@ class SaveAnalysisRequest(BaseModel):
     player: dict
     analysis: str
 
+class GameAnalysisRequest(BaseModel):
+    team_id: int
+    game_id: int
+    payload: dict
+
+class SaveGameAnalysisRequest(BaseModel):
+    team_id: int
+    game_id: int
+    game: dict
+    analysis: str
+
+
+def verify_team_access(team_id: int, user_id: int, db):
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id
+            FROM teams
+            WHERE id = %s AND user_id = %s
+            """,
+            (team_id, user_id)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=403, detail="Access denied to this team")
+
+
+def verify_game_access(team_id: int, game_id: int, user_id: int, db):
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT m.id
+            FROM matches m
+            JOIN teams t ON m.team_id = t.id
+            WHERE m.id = %s
+              AND m.team_id = %s
+              AND t.user_id = %s
+            """,
+            (game_id, team_id, user_id)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=403, detail="Access denied to this game")
+
 
 # Promp AI model to analyze player
 @router.post("/analyze-player")
-async def analyze_player(data: PlayerAnalysisRequest):
+async def analyze_player(data: PlayerAnalysisRequest, user=Depends(require_user)):
     try:
         prompt = f"""
         You are a football performance analyst.
@@ -40,6 +88,33 @@ async def analyze_player(data: PlayerAnalysisRequest):
         3. Key Weaknesses
         4. Actionable Improvement Suggestions
 
+        Use BOTH:
+        - Total stats per game (totals)
+        - Quarter-by-quarter breakdowns (quarters)
+
+        When analyzing, focus on:
+
+        - Trends across quarters (e.g., improvement or decline from Q1 to Q4)
+        - Consistency vs variability within each game
+        - Signs of fatigue (strong early performance but weaker later quarters)
+        - Strong or weak halves (Q1–Q2 vs Q3–Q4)
+        - Notable spikes or drop-offs in specific quarters
+        - How performance aligns with notes/insights
+
+        For each game:
+        - Briefly summarize overall performance
+        - Highlight any important quarter-level patterns
+
+        Then provide:
+        - Overall trends across all games
+        - The player’s strongest areas
+        - The player’s weakest areas
+        - Specific, actionable coaching suggestions
+
+        - Pay special attention to selected quarters if provided
+
+        Keep the analysis concise but insightful.
+
         Data:
         {data.payload}
         """
@@ -49,21 +124,35 @@ async def analyze_player(data: PlayerAnalysisRequest):
             contents=prompt
         )
 
-        return {"analysis": response.text}
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
 
     except Exception as e:
         print("AI ERROR:", e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"analysis": "An error occurred while generating analysis."}
 
 
 # Save player analysis outputs
 @router.post("/save-player-analysis")
 def save_player_analysis(
     data: SaveAnalysisRequest,
-    db=Depends(get_db)
+    db=Depends(get_db),
+    user=Depends(require_user)
 ):
     try:
-        print("SAVE HIT")
+        require_team_role(data.team_id, user["id"], db, "editor")
 
         with db.cursor() as cur:
             cur.execute("""
@@ -93,8 +182,10 @@ def save_player_analysis(
 
 # Retrieve AI analysis outputs
 @router.get("/saved-player-analysis/{team_id}")
-def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
+def get_saved_player_analysis(team_id: int, db=Depends(get_db), user=Depends(require_user)):
     try:
+        require_team_role(team_id, user["id"], db, "viewer")
+
         with db.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT *
@@ -115,7 +206,7 @@ def get_saved_player_analysis(team_id: int, db=Depends(get_db)):
 
 # Delete AI analysis outputs
 @router.delete("/delete-player-analysis/{analysis_id}")
-def delete_player_analysis(analysis_id: int, db=Depends(get_db)):
+def delete_player_analysis(analysis_id: int, db=Depends(get_db), user=Depends(require_user)):
     try:
         with db.cursor() as cur:
             cur.execute("""
@@ -129,4 +220,171 @@ def delete_player_analysis(analysis_id: int, db=Depends(get_db)):
     except Exception as e:
         db.rollback()
         print("DELETE ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze-game")
+async def analyze_game(
+    data: GameAnalysisRequest,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        verify_game_access(data.team_id, data.game_id, user["id"], db)
+
+        prompt = f"""
+        You are an American football coaching analyst.
+
+        Analyze the following game data and provide:
+
+        1. Overall Game Summary
+        2. Offensive Strengths and Weaknesses
+        3. Defensive Strengths and Weaknesses
+        4. Special Teams Notes
+        5. Key Turning Points
+        6. Most Important Coaching Takeaways
+        7. Actionable Recommendations for the Next Game
+
+        Use BOTH:
+        - Overall game data
+        - Quarter-specific data (if available)
+
+        Focus on:
+        - Momentum shifts between quarters
+        - Strong vs weak halves (Q1–Q2 vs Q3–Q4)
+        - Key turning points by quarter
+        - Situational performance (early vs late game)
+        - How notes and stats align within specific quarters
+
+        - Pay special attention to selected quarters if provided
+
+        Keep analysis concise, practical, and coaching-focused.
+
+        Game Data:
+        {data.payload}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        analysis_text = None
+
+        try:
+            analysis_text = response.text
+        except:
+            try:
+                analysis_text = response.candidates[0].content.parts[0].text
+            except:
+                analysis_text = None
+
+        if not analysis_text:
+            analysis_text = "AI analysis unavailable. Please try again."
+
+        return {"analysis": analysis_text}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("GAME AI ERROR:", e)
+        return {"analysis": "An error occurred while generating analysis."}
+
+
+@router.post("/save-game-analysis")
+def save_game_analysis(
+    data: SaveGameAnalysisRequest,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        verify_game_access(data.team_id, data.game_id, user["id"], db)
+
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO saved_game_analysis
+                (team_id, game_id, game_name, opponent, game_date, analysis_text)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    data.team_id,
+                    data.game_id,
+                    data.game.get("name"),
+                    data.game.get("opponent"),
+                    data.game.get("date"),
+                    data.analysis
+                )
+            )
+
+        db.commit()
+        return {"message": "Saved successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print("SAVE GAME ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/saved-game-analysis/{team_id}")
+def get_saved_game_analysis(
+    team_id: int,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        verify_team_access(team_id, user["id"], db)
+
+        with db.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT *
+                FROM saved_game_analysis
+                WHERE team_id = %s
+                ORDER BY created_at DESC
+                """,
+                (team_id,)
+            )
+            rows = cur.fetchall()
+
+        return rows
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("FETCH GAME SAVED ERROR:", e)
+        return []
+
+
+@router.delete("/delete-game-analysis/{analysis_id}")
+def delete_game_analysis(
+    analysis_id: int,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        with db.cursor() as cur:
+            cur.execute(
+                """
+                DELETE FROM saved_game_analysis sga
+                USING teams t
+                WHERE sga.id = %s
+                  AND sga.team_id = t.id
+                  AND t.user_id = %s
+                RETURNING sga.id
+                """,
+                (analysis_id, user["id"])
+            )
+            deleted = cur.fetchone()
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Saved analysis not found")
+
+        db.commit()
+        return {"message": "Deleted successfully"}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        print("DELETE GAME ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))

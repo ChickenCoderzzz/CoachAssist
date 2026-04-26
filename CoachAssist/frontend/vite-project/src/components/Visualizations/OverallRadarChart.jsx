@@ -2,17 +2,6 @@
 ================================
 OverallRadarChart
 ================================
-
-Radar charts visualize a player's stat profile.
-
-Each stat becomes a point around the circle.
-
-Values are normalized to a 0–100 score so
-different stat types can be compared visually.
-
-Color coding:
-Green  → Per Snap normalization
-Yellow → Performance Ceiling normalization
 */
 
 import {
@@ -25,7 +14,7 @@ import {
   Tooltip
 } from "recharts";
 
-export default function OverallRadarChart({ data, expanded }) {
+export default function OverallRadarChart({ data, expanded, useComparisonColors = false, compareMode = "team"}) {
 
   if (!data || data.length === 0) {
     return (
@@ -45,14 +34,19 @@ export default function OverallRadarChart({ data, expanded }) {
     );
   }
 
-  /*CUSTOM TOOLTIP*/
+  /*  SPLIT TEAM / OPP DATA (ONLY WHEN ENABLED) */
+  const teamData = useComparisonColors
+    ? data.filter(d => !d.stat.includes("(Opp)"))
+    : data;
 
+  const oppData = useComparisonColors
+    ? data.filter(d => d.stat.includes("(Opp)"))
+    : [];
+
+  /* TOOLTIP */
   const CustomTooltip = ({ active, payload }) => {
-
     if (active && payload && payload.length) {
-
       const point = payload[0].payload;
-
       const raw = point.rawValue ?? point.value;
       const score = Math.round(point.value);
       const stat = point.stat;
@@ -79,20 +73,13 @@ export default function OverallRadarChart({ data, expanded }) {
           >
             Based on: {method}
           </div>
-
         </div>
       );
     }
-
     return null;
   };
 
-
-  /*
-  CUSTOM LABEL RENDERING
-  Applies color coding for normalization
-  */
-
+  /* LABEL RENDERING (UNCHANGED) */
   const renderLabel = ({ payload, x, y, textAnchor }) => {
 
     const sideOffset = expanded ? 18 : 10;
@@ -104,22 +91,19 @@ export default function OverallRadarChart({ data, expanded }) {
     if (textAnchor === "start") newX += sideOffset;
     else if (textAnchor === "end") newX -= sideOffset;
     else {
-
       if (y < 200) newY -= verticalOffset;
       else newY += verticalOffset;
-
     }
 
     const statData = data.find(d => d.stat === payload.value);
 
     let color = "#ffffff";
 
+    //  STRICT: labels only reflect normalization
     if (statData?.normalizationType === "Per Snap") {
-      color = "#22c55e";
-    }
-
-    if (statData?.normalizationType === "Ceiling") {
-      color = "#facc15";
+      color = "#22c55e"; // green
+    } else if (statData?.normalizationType === "Ceiling") {
+      color = "#facc15"; // yellow
     }
 
     return (
@@ -130,14 +114,12 @@ export default function OverallRadarChart({ data, expanded }) {
         fill={color}
         fontSize={expanded ? 16 : 14}
       >
-        {payload.value}
+        {payload.value.replace(" (Team)", "").replace(" (Opp)", "")}
       </text>
     );
   };
 
-
-  /*CHART SIZE CONTROL*/
-
+  /* SIZE */
   const chartWidth = expanded ? "900px" : "650px";
   const chartHeight = expanded ? "750px" : "550px";
 
@@ -152,19 +134,25 @@ export default function OverallRadarChart({ data, expanded }) {
       }}
     >
 
-      {/*RADAR CHART*/}
-
-      <div style={{ width: chartWidth, height: chartHeight }}>
+      <div
+        style={{
+          width: chartWidth,
+          height: chartHeight,
+          background: "#0f172a",
+          borderRadius: "10px",
+          padding: "10px"
+        }}
+      >
 
         <ResponsiveContainer width="100%" height="100%">
 
           <RadarChart
-            data={data}
+            data={teamData}   
             outerRadius={expanded ? "80%" : "70%"}
             margin={{ top: 40, right: 80, left: 80, bottom: 40 }}
           >
 
-            <PolarGrid stroke="#ffffff" />
+            <PolarGrid stroke="#94a3b8" strokeOpacity={0.4} />
 
             <PolarAngleAxis
               dataKey="stat"
@@ -182,17 +170,51 @@ export default function OverallRadarChart({ data, expanded }) {
               axisLine={false}
             />
 
-            <Radar
-              dataKey="value"
-              stroke="#22c55e"
-              strokeWidth={3}
-              fill="#22c55e"
-              fillOpacity={0.35}
-              dot={{
-                r: expanded ? 6 : 4,
-                fill: "#22c55e"
-              }}
-            />
+            {/*  TEAM RADAR */}
+            {(() => {
+              const teamColor =
+                compareMode === "opponent"
+                  ? "#ef4444"   // 🔴 make it red in opponent mode
+                  : "#3b82f6";  // 🔵 normal team color
+
+              return (
+                <Radar
+                  name="Team"
+                  data={teamData}
+                  dataKey="value"
+                  stroke={useComparisonColors ? teamColor : "#22c55e"}
+                  strokeWidth={3}
+                  fill={useComparisonColors ? teamColor : "#22c55e"}
+                  fillOpacity={0.25}
+                  dot={{
+                    r: expanded ? 6 : 4,
+                    fill: useComparisonColors ? teamColor : "#22c55e"
+                  }}
+                />
+              );
+            })()}
+            
+
+            {/*  OPPONENT RADAR */}
+            {useComparisonColors && oppData.length > 0 && (
+              <Radar
+                name="Opponent"
+                data={teamData.map((t, i) => ({
+                  ...t,
+                  value: oppData[i]?.value ?? 0
+                }))}
+                dataKey="value"
+                stroke="#ef4444"
+                strokeWidth={2}              //  slightly thinner
+                strokeDasharray="4 4"
+                fill="#ef4444"
+                fillOpacity={0.15}           //  lighter so it doesn't stack visually
+                dot={{
+                  r: expanded ? 6 : 4,
+                  fill: "#ef4444"
+                }}
+              />
+            )}
 
             <Tooltip content={<CustomTooltip />} />
 
@@ -202,17 +224,15 @@ export default function OverallRadarChart({ data, expanded }) {
 
       </div>
 
-
-      {/*NORMALIZATION LEGEND*/}
-
+      {/* LEGEND (Updated) */}
       <div
         style={{
           marginTop: "-30px",
-          background: "white",
-          color: "black",
+          background: "#111827",
+          color: "white",
+          border: "1px solid #374151",
           padding: expanded ? "14px 20px" : "10px 16px",
           borderRadius: "6px",
-          border: "1px solid #ccc",
           fontSize: expanded ? "14px" : "13px",
           lineHeight: "1.6",
           textAlign: "left"

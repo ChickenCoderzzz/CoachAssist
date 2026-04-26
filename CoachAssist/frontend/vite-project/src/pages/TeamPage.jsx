@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "../styles/teams.css";
 import defaultLogo from "../assets/default_team_logo.png";
+import TeamMembersModal from "../components/TeamMembersModal";
 
 const TEAM_COLOR_OPTIONS = [
   "#B38F8F", // red
@@ -26,6 +27,8 @@ export default function TeamPage() {
 
   const [showCreate, setShowCreate] = useState(false); //Show add game modal
   const [matchToDelete, setMatchToDelete] = useState(null); //Delete confirmation modal
+  const [showMembers, setShowMembers] = useState(false); //Show members modal
+  const [userRole, setUserRole] = useState(null); //User's role for this team
 
   const [showEditTeam, setShowEditTeam] = useState(false); //Edit team modal
   const [editName, setEditName] = useState("");
@@ -54,7 +57,12 @@ export default function TeamPage() {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then((res) => res.json())
-      .then((data) => data.team && setTeam(data.team));
+      .then((data) => {
+        if (data.team) {
+          setTeam(data.team);
+          setUserRole(data.team.user_role || "owner");
+        }
+      });
 
     //Fetch team matches
     fetch(`/teams/${teamId}/matches`, {
@@ -217,27 +225,29 @@ export default function TeamPage() {
       </div>
 
       {/* Team Actions */}
-      <div style={{ marginLeft: "40px", marginBottom: "30px", display: "flex", gap: "12px" }}>
-        <button
-          className="add-team-btn"
-          onClick={() => {
-            setEditName(team.name);
-            setEditColor(team.color || "#9DBA8A");
-            setEditDescription(team.description || "");
-            setRemoveImage(false);
-            setEditImageFile(null);
-            setEditPreviewUrl(null);
-            setShowEditTeam(true);
-          }}
-        >
-          Edit Team Details
-        </button>
+      <div style={{ marginLeft: "40px", marginBottom: "30px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+        {userRole === "owner" && (
+          <button
+            className="add-team-btn"
+            onClick={() => {
+              setEditName(team.name);
+              setEditColor(team.color || "#9DBA8A");
+              setEditDescription(team.description || "");
+              setRemoveImage(false);
+              setEditImageFile(null);
+              setEditPreviewUrl(null);
+              setShowEditTeam(true);
+            }}
+          >
+            Edit Team Details
+          </button>
+        )}
 
         <button
           className="add-team-btn tutorial-edit-roster-btn"
           onClick={() => navigate(`/teams/${teamId}/roster`)}
         >
-          Edit / View Roster
+          {userRole === "viewer" ? "View Roster" : "Edit / View Roster"}
         </button>
 
         {/* View full game history */}
@@ -263,6 +273,24 @@ export default function TeamPage() {
         >
           Calendar
         </button>
+
+        {/* Navigate to Playbook (drawboards) */}
+        <button
+          className="add-team-btn"
+          onClick={() => navigate(`/team/${teamId}/playbook`)}
+        >
+          Playbook
+        </button>
+
+        {/* Team Members (owner only) */}
+        {userRole === "owner" && (
+          <button
+            className="add-team-btn"
+            onClick={() => setShowMembers(true)}
+          >
+            Team Members
+          </button>
+        )}
       </div>
 
       {/* Games Container */}
@@ -270,9 +298,11 @@ export default function TeamPage() {
         <h2>Games</h2>
 
         <div className="dashboard-controls">
-          <button className="add-team-btn tutorial-add-game-btn" onClick={() => setShowCreate(true)}>
-            Add Game
-          </button>
+          {userRole !== "viewer" && (
+            <button className="add-team-btn tutorial-add-game-btn" onClick={() => setShowCreate(true)}>
+              Add Game
+            </button>
+          )}
 
           <input
             type="text"
@@ -292,15 +322,17 @@ export default function TeamPage() {
                 navigate(`/team/${teamId}/match/${match.id}`)
               }
             >
-              <button
-                className="game-delete"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMatchToDelete(match);
-                }}
-              >
-                X
-              </button>
+              {userRole !== "viewer" && (
+                <button
+                  className="game-delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMatchToDelete(match);
+                  }}
+                >
+                  X
+                </button>
+              )}
 
               <div className="game-title">{match.name}</div>
               <div className="game-opponent">vs {match.opponent}</div>
@@ -485,6 +517,14 @@ export default function TeamPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Team Members Modal */}
+      {showMembers && (
+        <TeamMembersModal
+          teamId={teamId}
+          onClose={() => setShowMembers(false)}
+        />
       )}
 
       {/* Delete Confirmation Modal */}

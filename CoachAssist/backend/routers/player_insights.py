@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from psycopg2.extras import RealDictCursor
 from backend.database import get_db
 from backend.routers.auth import require_user
+from backend.routers.team_access import require_game_role
 from backend.schemas.player_insights_schema import PlayerInsightsUpdate
 
 router = APIRouter(
@@ -26,32 +27,11 @@ router = APIRouter(
 
 # HELPER: Verify Game Ownership (Team Security)
 
-def verify_game_access(game_id: int, user_id: int, db):
+def verify_game_access(game_id: int, user_id: int, db, required_role: str = "viewer"):
     """
-    Ensures that the authenticated user owns the team
-    associated with the requested game.
-
-    Prevents unauthorized access to:
-    - Player stats
-    - Player notes
-    - Game analysis data
+    Ensures the user has at least the required role for the game's team.
     """
-
-    with db.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
-            SELECT m.id
-            FROM matches m
-            JOIN teams t ON m.team_id = t.id
-            WHERE m.id = %s AND t.user_id = %s
-        """, (game_id, user_id))
-
-        game = cur.fetchone()
-
-        if not game:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied to this game"
-            )
+    require_game_role(game_id, user_id, db, required_role)
 
 # GET PLAYER INSIGHTS (Stats + Notes)
 
@@ -79,18 +59,32 @@ def get_player_insights(
 
     with db.cursor(cursor_factory=RealDictCursor) as cur:
 
-        # Fetch Stats
+        # Fetch Stats (ALL QUARTERS)
         cur.execute("""
             SELECT *
             FROM player_stats
             WHERE player_id = %s AND game_id = %s
         """, (player_id, game_id))
 
-        stats = cur.fetchone()
+        stats_rows = cur.fetchall()
 
-        #Return empty object if no stats
-        if not stats:
-            stats = {}
+        # Organize by quarter
+        stats_by_quarter = {}
+
+        for row in stats_rows:
+            quarter = row.get("quarter", "overall")
+            stats_by_quarter[quarter] = row
+
+        # Compute overall totals
+        overall = {}
+
+        for row in stats_rows:
+            for key, value in row.items():
+                if key in ["id", "player_id", "game_id", "quarter", "created_at"]:
+                    continue
+                overall[key] = overall.get(key, 0) + (value or 0)
+
+        stats_by_quarter["overall"] = overall
 
         # Fetch Notes - By Wences Jacob Lorenzo
         cur.execute("""
@@ -103,7 +97,7 @@ def get_player_insights(
         notes = cur.fetchall()
 
     return {
-        "stats": stats,
+        "stats": stats_by_quarter,
         "notes": notes
     }
 
@@ -133,7 +127,7 @@ def update_player_insights(
     """
 
     user_id = user["id"]
-    verify_game_access(game_id, user_id, db)
+    verify_game_access(game_id, user_id, db, "editor")
 
     with db.cursor(cursor_factory=RealDictCursor) as cur:
         try:
@@ -147,24 +141,60 @@ def update_player_insights(
             """, (player_id, game_id))
 
             #Convert pydantic model to dictionary
-            stats_dict = data.stats.dict(exclude_unset=True)
+            stats_dict = {}
+
+            for quarter, stats in data.stats.items():
+                if quarter == "overall":
+                    continue
+
+                # If it's already a dict, use it directly
+                if isinstance(stats, dict):
+                    stats_dict[quarter] = stats
+                else:
+                    stats_dict[quarter] = stats.dict(exclude_unset=True)
 
             #Insert if stats provided
-            if stats_dict:
-                columns = ", ".join(stats_dict.keys())
-                placeholders = ", ".join(["%s"] * len(stats_dict))
-                values = list(stats_dict.values())
+            for quarter, stats in stats_dict.items():
+                if quarter == "overall":
+                    continue
+
+                if not stats:
+                    continue
+
+                # Get valid DB columns
+                cur.execute("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_name = 'player_stats'
+                """)
+                valid_columns = {row["column_name"] for row in cur.fetchall()}
+
+                # Filter only valid columns
+                excluded_columns = {"id", "player_id", "game_id", "quarter", "created_at"}
+
+                filtered_stats = {
+                    k: v for k, v in stats.items()
+                    if k in valid_columns and k not in excluded_columns
+                }
+
+                if not filtered_stats:
+                    continue
+
+                columns = ", ".join(filtered_stats.keys())
+                placeholders = ", ".join(["%s"] * len(filtered_stats))
+                values = list(filtered_stats.values())
 
                 cur.execute(
                     f"""
                     INSERT INTO player_stats (
                         player_id,
                         game_id,
+                        quarter,
                         {columns}
                     )
-                    VALUES (%s, %s, {placeholders})
+                    VALUES (%s, %s, %s, {placeholders})
                     """,
-                    [player_id, game_id] + values
+                    [player_id, game_id, quarter] + values
                 )
 
             # Replace Notes - By Wences Jacob Lorenzo
@@ -204,9 +234,9 @@ def update_player_insights(
             }
 
         except Exception as e:
-            #Roll back entire operation if failure occurs
+            print(" BACKEND ERROR:", e)   #  ADD THIS
             db.rollback()
             raise HTTPException(
                 status_code=500,
-                detail=f"Database error: {str(e)}"
+                detail=str(e)
             )

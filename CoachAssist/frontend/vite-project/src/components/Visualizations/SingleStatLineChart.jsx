@@ -2,19 +2,6 @@
 SingleStatLineChart
 
 Displays the trend of MULTIPLE stats across games.
-
-Example data:
-
-[
-  {
-    game: "UCLA",
-    opponent: "UCLA",
-    date: "2024-09-10",
-    passing_yards: 250,
-    rushing_yards: 75
-  }
-]
-
 Each stat appears as its own line.
 */
 
@@ -30,13 +17,11 @@ import {
   Legend
 } from "recharts";
 
-// CoachAssist color palette
+// CoachAssist color palette (fallback)
 const COLORS = [
-  "#4C6EF5", // blue
-  "#8E44AD", // purple
-  "#4CAF50", // green
-  "#E4572E", // orange
-  "#E3B505"  // gold
+  "#4CAF50", "#2196F3", "#FFC107", "#FF5722",
+  "#9C27B0", "#00BCD4", "#8BC34A", "#FF9800",
+  "#3F51B5", "#E91E63", "#795548", "#607D8B"
 ];
 
 // Convert stat keys to readable labels
@@ -44,14 +29,10 @@ function formatLabel(key) {
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-export default function SingleStatLineChart({ data, stats }) {
-
-  /*If no stats selected, show message instead of hiding viewer */
+export default function SingleStatLineChart({ data, stats, useComparisonColors = false, compareMode="team", useClassicColors= false }) {
 
   if (!stats || stats.length === 0) {
-
     return (
-
       <div
         className="chart-container"
         style={{
@@ -61,27 +42,16 @@ export default function SingleStatLineChart({ data, stats }) {
           justifyContent: "center"
         }}
       >
-
         <p style={{ color: "black" }}>
           Select stats to visualize
         </p>
-
       </div>
-
     );
-
   }
-
 
   /*
   Custom Tooltip
-
-  Displays:
-  - Opponent
-  - Date
-  - All stat values for that game
   */
-
   function CustomTooltip({ active, payload }) {
 
     if (active && payload && payload.length) {
@@ -109,13 +79,10 @@ export default function SingleStatLineChart({ data, stats }) {
 
           <hr style={{ margin: "4px 0" }} />
 
-          {/* Display each stat value */}
           {payload.map((entry, index) => (
 
             <div key={index}>
-
               <strong>{formatLabel(entry.dataKey)}:</strong> {entry.value}
-
             </div>
 
           ))}
@@ -129,39 +96,47 @@ export default function SingleStatLineChart({ data, stats }) {
     return null;
   }
 
+  /*  EXPANDED COLOR SETS */
+  const TEAM_COLORS = [
+    "#3b82f6", "#2563eb", "#1d4ed8",
+    "#60a5fa", "#93c5fd",
+    "#0ea5e9", "#0284c7", "#0369a1",
+    "#38bdf8", "#7dd3fc"
+  ];
+
+  const OPP_COLORS = [
+    "#ef4444", "#dc2626", "#b91c1c",
+    "#f87171", "#fca5a5",
+    "#fb7185", "#e11d48", "#be123c",
+    "#fecaca", "#fda4af"
+  ];
 
   return (
 
-    // Container controlled by CSS sizing
     <div className="chart-container">
 
-      {/* Responsive container ensures chart fills available space */}
       <ResponsiveContainer width="100%" height="100%">
 
         <LineChart
 
           data={data}
 
-          /*Same margin configuration used in the grouped bar charts*/
+          /*  UPDATED: label cutoff fix */
           margin={{
             top: 10,
             right: 15,
             left: -3,
-            bottom: 40
+            bottom: 110
           }}
 
         >
 
-          {/* White background improves readability */}
           <rect width="100%" height="100%" fill="white" />
 
-          {/* Grid lines improve readability */}
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="#ddd"
           />
-
-          {/*X Axis (games)*/}
 
           <XAxis
 
@@ -169,15 +144,15 @@ export default function SingleStatLineChart({ data, stats }) {
 
             interval={0}
 
-            angle={-45}
+            /*  UPDATED */
+            angle={-30}
 
             textAnchor="end"
 
-            dx={-20}
+            dx={-10}
+            tickMargin={20}
 
-            tickMargin={30}
-
-            height={60}
+            height={110}
 
             tick={{
               fill: "#333",
@@ -185,8 +160,6 @@ export default function SingleStatLineChart({ data, stats }) {
             }}
 
           />
-
-          {/*Y Axis (stat values)*/}
 
           <YAxis
 
@@ -203,11 +176,7 @@ export default function SingleStatLineChart({ data, stats }) {
 
           />
 
-          {/*Tooltip*/}
-
           <Tooltip content={<CustomTooltip />} />
-
-          {/*Legend*/}
 
           <Legend
             verticalAlign="bottom"
@@ -215,43 +184,58 @@ export default function SingleStatLineChart({ data, stats }) {
                 paddingTop: 18,
                 fontSize: 13
             }}
-            formatter={(value) => (
-                <span style={{ color: "black" }}>
+            formatter={(value, entry) => (
+              <span style={{ color: entry.color }}>
                 {value}
-                </span>
+              </span>
             )}
-            />
+          />
 
-          {/*Render one line per stat*/}
+          {/* Lines */}
+          {stats.map((stat, index) => {
 
-          {stats.map((stat, index) => (
+           const isOpp =
+            compareMode === "opponent" ||
+            stat.startsWith("opp_") ||
+            stat.includes("_opp");
 
-            <Line
+          let color;
 
-              key={stat}
+          if (useClassicColors) {
+            //  Player-style colors
+            color = COLORS[index % COLORS.length];
 
-              type="monotone"
+          } else if (useComparisonColors) {
+            //  Game comparison
+            color = isOpp
+              ? OPP_COLORS[index % OPP_COLORS.length]
+              : TEAM_COLORS[index % TEAM_COLORS.length];
 
-              dataKey={stat}
+          } else {
+            color = COLORS[index % COLORS.length];
+          }
 
-              name={formatLabel(stat)}
+            return (
 
-              stroke={COLORS[index % COLORS.length]}
+              <Line
+                key={stat}
+                type="monotone"
+                dataKey={stat}
+                name={formatLabel(stat)}
+                stroke={color}
+                strokeWidth={3}
+                dot={{
+                  r: 4,
+                  fill: color
+                }}
 
-              strokeWidth={3}
+                activeDot={{
+                  r: 6
+                }}
 
-              dot={{
-                r: 4,
-                fill: COLORS[index % COLORS.length]
-              }}
-
-              activeDot={{
-                r: 6
-              }}
-
-            />
-
-          ))}
+              />
+            );
+          })}
 
         </LineChart>
 

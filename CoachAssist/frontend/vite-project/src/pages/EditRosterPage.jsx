@@ -62,6 +62,7 @@ export default function EditRosterPage() {
   const [selectedGameIds, setSelectedGameIds] = useState([]); //Stores included game IDs
   const [showGameDropdown, setShowGameDropdown] = useState(false); //Controls dropdown visibility
   const [pendingPositionChange, setPendingPositionChange] = useState(false); //Handle player position change
+  const [selectedQuarter, setSelectedQuarter] = useState("all"); //Handle Quarter Selection
 
   //Form state for add/edit modal
   const [form, setForm] = useState({
@@ -82,16 +83,37 @@ export default function EditRosterPage() {
         return res.json();
       })
       .then((data) => {
-        // Sort players so priority players (starred) appear at the top.
-        // If both players have same priority, fallback to ID ordering.
-        const sorted = [...data].sort((a, b) => {
+        console.log("PLAYERS:", data);
+
+        //  STEP 1: ONLY ACTIVE PLAYERS
+        const activePlayers = data.filter((p) => p.is_active);
+
+        //  STEP 2: GROUP BY athlete_id
+        const uniquePlayersMap = {};
+
+        activePlayers.forEach((p) => {
+          const key = p.athlete_id;
+
+          if (!uniquePlayersMap[key]) {
+            uniquePlayersMap[key] = p;
+          }
+        });
+
+        const uniquePlayers = Object.values(uniquePlayersMap);
+
+        //  STEP 3: SORT
+        const sorted = uniquePlayers.sort((a, b) => {
           if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
             return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
           }
           return a.id - b.id;
         });
+
         setPlayers(sorted);
       })
+      .catch((err) => {
+        console.error("Error fetching players:", err);
+      });
   };
 
   // PRIORITY TOGGLE
@@ -131,9 +153,20 @@ export default function EditRosterPage() {
 
   // Automatically load first player when players list updates
   useEffect(() => {
-    if (players.length > 0) {
-      openPlayerHistory(players[0]);
+    if (!players.length) return;
+
+    //  If we already have a selected player, try to keep it
+    if (selectedHistoryPlayer) {
+      const updated = players.find(p => p.id === selectedHistoryPlayer.id);
+
+      if (updated) {
+        setSelectedHistoryPlayer(updated);
+        return;
+      }
     }
+
+    // fallback to first player only if none selected
+    openPlayerHistory(players[0]);
   }, [players]);
 
   //ADD PLAYER
@@ -190,28 +223,72 @@ export default function EditRosterPage() {
   };
 
   const proceedWithUpdate = async () => {
-    const res = await fetch(`/teams/players/${editPlayer.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        player_name: form.player_name.trim(),
-        jersey_number: Number(form.jersey_number),
-        position: form.position,
-        is_priority: editPlayer.is_priority ?? false,
-      }),
-    });
+    const positionChanged = editPlayer.position !== form.position;
 
-    if (!res.ok) {
-      alert("Failed to update player");
-      return;
+    try {
+      if (positionChanged) {
+        //  STEP 1: UPDATE NAME + JERSEY FIRST
+        const updateRes = await fetch(`/teams/players/${editPlayer.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            player_name: form.player_name.trim(),
+            jersey_number: Number(form.jersey_number),
+            is_priority: editPlayer.is_priority ?? false,
+          }),
+        });
+
+        if (!updateRes.ok) throw new Error("Failed to update player");
+
+        //  STEP 2: THEN SWITCH POSITION
+        const switchRes = await fetch(`/teams/players/${editPlayer.id}/switch-position`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            new_position: form.position,
+          }),
+        });
+
+        if (!switchRes.ok) throw new Error("Failed to switch position");
+
+        const newPlayer = await switchRes.json();
+
+        //  update UI correctly
+        setSelectedHistoryPlayer(newPlayer);
+        openPlayerHistory(newPlayer);
+      }
+      else {
+        // existing update logic
+        const res = await fetch(`/teams/players/${editPlayer.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            player_name: form.player_name.trim(),
+            jersey_number: Number(form.jersey_number),
+            is_priority: editPlayer.is_priority ?? false,
+          }),
+        });
+
+        if (!res.ok) throw new Error("Failed to update player");
+      }
+
+      setPendingPositionChange(false);
+      setEditPlayer(null);
+      fetchPlayers();
+
+    } catch (err) {
+      console.error(err);
+      alert("Update failed");
     }
-
-    setPendingPositionChange(false);
-    setEditPlayer(null);
-    fetchPlayers();
   };
 
   //DELETE PLAYER
@@ -511,6 +588,21 @@ export default function EditRosterPage() {
                     )}
 
                   </div>
+                  {activeHistoryTab !== "bygame" && (
+                    <div className="quarter-filter-container">
+                      <label style={{ marginRight: "8px" }}>Quarter:</label>
+                      <select
+                        value={selectedQuarter}
+                        onChange={(e) => setSelectedQuarter(e.target.value)}
+                      >
+                        <option value="all">All</option>
+                        <option value="Q1">Q1</option>
+                        <option value="Q2">Q2</option>
+                        <option value="Q3">Q3</option>
+                        <option value="Q4">Q4</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -524,6 +616,7 @@ export default function EditRosterPage() {
                     historyData={historyData}
                     selectedGameIds={selectedGameIds}
                     selectedPlayer={selectedHistoryPlayer}
+                    selectedQuarter={selectedQuarter}
                   />
                 )}
 
@@ -534,6 +627,7 @@ export default function EditRosterPage() {
                     selectedGameIds={selectedGameIds}
                     selectedPlayer={selectedHistoryPlayer}
                     unit={unit}
+                    selectedQuarter={selectedQuarter}
                   />
                 )}
 
@@ -542,6 +636,7 @@ export default function EditRosterPage() {
                   <InsightsTab
                     historyData={historyData}
                     selectedGameIds={selectedGameIds}
+                    selectedQuarter={selectedQuarter}
                   />
                 )}
 
@@ -551,7 +646,13 @@ export default function EditRosterPage() {
                   <VisTab
                     historyData={historyData}
                     selectedGameIds={selectedGameIds}
+                    selectedQuarters={
+                      selectedQuarter === "all"
+                        ? []
+                        : [selectedQuarter]
+                    }
                     selectedPlayer={selectedHistoryPlayer}
+                    useClassicColors={true}
                   />
                 )}
 
@@ -698,7 +799,7 @@ function formatLabel(key) {
     .replace(/\b\w/g, char => char.toUpperCase());
 }
 
-function MetricsTab({ historyData, selectedGameIds, selectedPlayer }) {
+function MetricsTab({ historyData, selectedGameIds, selectedPlayer, selectedQuarter }) {
   if (!selectedPlayer) return null;
 
   const positionGroups =
@@ -710,7 +811,8 @@ function MetricsTab({ historyData, selectedGameIds, selectedPlayer }) {
   ];
 
   const filteredStats = historyData.stats_by_game.filter(stat =>
-    selectedGameIds.includes(stat.game_id)
+    selectedGameIds.includes(stat.game_id) &&
+    (selectedQuarter === "all" || stat.quarter === selectedQuarter)
   );
 
   const totals = {};
@@ -778,7 +880,9 @@ function MetricsTab({ historyData, selectedGameIds, selectedPlayer }) {
 //BY GAME TAB
 //Displays a table showing player stats for each selected game
 //Also calculates and displays average stats across the selected games
-function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
+function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit, selectedQuarter }) {
+
+  const [expandedGames, setExpandedGames] = useState({});
 
    //If no player is selected, do not render anything
   if (!selectedPlayer) return null;
@@ -811,10 +915,18 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
 
   //Loop through each selected game to find stat record
   filteredGames.forEach(game => {
-    const stats =
-      historyData.stats_by_game.find(
-        s => s.game_id === game.id
-      ) || {};
+    const statsForGame = historyData.stats_by_game.filter(
+      s =>
+        s.game_id === game.id
+    );
+
+    const stats = {};
+
+    statsForGame.forEach(qStat => {
+      allowedStats.forEach(stat => {
+        stats[stat] = (stats[stat] || 0) + (qStat[stat] || 0);
+      });
+    });
 
     //Add stats to totals used for averages
     allowedStats.forEach(stat => {
@@ -844,6 +956,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
           <tr>
 
              {/* Game metadata columns */}
+            <th></th>
             <th className="date-col">Date</th>
             <th>Opponent</th>
 
@@ -858,22 +971,74 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
           {/* GAME ROWS */}
           {/* Display stats for each filtered game */}
           {filteredGames.map(game => {
-            const stats =
-              historyData.stats_by_game.find(
-                s => s.game_id === game.id
-              ) || {};
+            const statsForGame = historyData.stats_by_game.filter(
+              s => s.game_id === game.id
+            );
+
+            const stats = {};
+
+            statsForGame.forEach(qStat => {
+              allowedStats.forEach(stat => {
+                stats[stat] = (stats[stat] || 0) + (qStat[stat] || 0);
+              });
+            });
 
             return (
-              <tr key={game.id}>
-                <td className="date-col">{game.game_date}</td>
-                <td>{game.opponent}</td>
-
-                {allowedStats.map(stat => (
-                  <td key={stat}>
-                    {stats[stat] || 0}
+              <>
+                {/* MAIN GAME ROW */}
+                <tr key={game.id}>
+                  <td>
+                    <button
+                      onClick={() =>
+                        setExpandedGames(prev => ({
+                          ...prev,
+                          [game.id]: !prev[game.id]
+                        }))
+                      }
+                    >
+                      {expandedGames[game.id] ? "−" : "+"}
+                    </button>
                   </td>
-                ))}
-              </tr>
+
+                  <td className="date-col">{game.game_date}</td>
+                  <td>{game.opponent}</td>
+
+                  {allowedStats.map(stat => (
+                    <td key={stat}>{stats[stat] || 0}</td>
+                  ))}
+                </tr>
+
+                {/* QUARTER ROWS */}
+                {expandedGames[game.id] &&
+                  ["Q1", "Q2", "Q3", "Q4"].map(q => {
+                    const quarterStats = historyData.stats_by_game
+                      .filter(
+                        s =>
+                          s.game_id === game.id &&
+                          s.quarter === q
+                      )
+                      .reduce((acc, row) => {
+                        allowedStats.forEach(stat => {
+                          acc[stat] = (acc[stat] || 0) + (row[stat] || 0);
+                        });
+                        return acc;
+                      }, {});
+
+                    return (
+                      <tr key={`${game.id}-${q}`} style={{ background: "#f9f9f9" }}>
+                        <td></td>
+                        <td className="date-col" style={{ paddingLeft: "15px" }}>
+                          {q}
+                        </td>
+                        <td></td>
+
+                        {allowedStats.map(stat => (
+                          <td key={stat}>{quarterStats[stat] || 0}</td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+              </>
             );
           })}
 
@@ -886,7 +1051,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
                 background: "#f2f2f2"
               }}
             >
-              <td colSpan="2">Average</td>
+              <td colSpan="3">Average</td>
               {allowedStats.map(stat => (
                 <td key={stat}>{averages[stat]}</td>
               ))}
@@ -902,13 +1067,14 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit }) {
 
 //INSIGHTS TAB
 //Displays chronological observational notes recorded for the player during games
-function InsightsTab({ historyData, selectedGameIds }) {
+function InsightsTab({ historyData, selectedGameIds, selectedQuarter }) {
 
   //Filter notes to only those from selected games
   //Then sort them by game date
   const filteredNotes = historyData.notes
     .filter(note =>
-      selectedGameIds.includes(note.game_id)
+      selectedGameIds.includes(note.game_id) &&
+      (selectedQuarter === "all" || note.quarter === selectedQuarter)
     )
     .sort((a, b) =>
       new Date(a.game_date) - new Date(b.game_date)
@@ -928,6 +1094,7 @@ function InsightsTab({ historyData, selectedGameIds }) {
 
             {/* Recorded observation */}
             <th className="insight-note">Note</th>
+            <th className="insight-quarter">Quarter</th>
 
             {/* Timestamp within the game */}
             <th className="insight-time">Time</th>
@@ -941,7 +1108,12 @@ function InsightsTab({ historyData, selectedGameIds }) {
             <tr key={`${note.game_date}-${note.note}`}>
               <td className="insight-date">{note.game_date}</td>
               <td className="insight-opponent">{note.opponent}</td>
+              <td className="insight-quarter">
+                {note.quarter || "—"}
+              </td>
+
               <td className="insight-note-cell">{note.note}</td>
+
               <td className="insight-time">{note.time}</td>
             </tr>
           ))}
