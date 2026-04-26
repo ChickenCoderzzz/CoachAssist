@@ -279,23 +279,14 @@ export default function useVideos(teamId, matchId) {
                 }
             );
 
+            const data = await res.json();
+
             if (!res.ok) {
-                const text = await res.text();
-                alert("Clip failed: " + text);
+                alert("Clip failed: " + JSON.stringify(data));
                 return;
             }
 
-            const newClip = await res.json();
-
-            // add new clip to list
-            setVideoList(prev => [newClip, ...prev]);
-
-            // set as active
-            setVideoSrc(newClip.playback_url);
-            setVideoName(newClip.filename);
-
-            // close modal
-            setClipTarget(null);
+            return data; // { status, job_id }
 
         } catch (err) {
             alert("Clip error: " + err);

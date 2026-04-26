@@ -118,6 +118,116 @@ def process_video_upload(user_id, team_id, match_id, video_id, job_id, temp_path
         cur.close()
         db.close()
 
+
+#background task for video clipping
+def process_clip_video(
+    user_id,
+    team_id,
+    match_id,
+    source_video_id,
+    job_id,
+    start,
+    end
+):
+    db = get_db()
+    cur = db.cursor()
+
+    try:
+        update_upload_job(cur, job_id, status="processing", progress=5, step="downloading")
+        db.commit()
+
+        # fetch source video
+        cur.execute("""
+            SELECT storage_path, filename
+            FROM videos
+            WHERE id = %s AND user_id = %s AND team_id = %s AND match_id = %s
+        """, (source_video_id, user_id, team_id, match_id))
+
+        video = cur.fetchone()
+        if not video:
+            raise Exception("Video not found")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            input_path = os.path.join(tmpdir, "input.mp4")
+            output_path = os.path.join(tmpdir, "clip.mp4")
+
+            # download
+            blob = bucket.blob(video["storage_path"])
+            blob.download_to_filename(input_path)
+
+            update_upload_job(cur, job_id, progress=20, step="clipping")
+            db.commit()
+
+            duration = end - start
+
+            # clip with ffmpeg
+            result = subprocess.run([
+                "ffmpeg",
+                "-ss", str(start),
+                "-i", input_path,
+                "-t", str(duration),
+                "-c", "copy",
+                output_path
+            ], capture_output=True)
+
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.decode())
+
+            update_upload_job(cur, job_id, progress=40, step="uploading")
+            db.commit()
+
+            # upload with progress
+            clip_filename = f"clip_{uuid.uuid4().hex}.mp4"
+            storage_path = f"users/{user_id}/matches/{match_id}/{clip_filename}"
+
+            blob_out = bucket.blob(storage_path)
+
+            upload_video_with_progress(
+                output_path,
+                blob_out,
+                job_id=job_id,
+                cur=cur,
+                db=db,
+                base_progress=40,
+                progress_span=50  # 40 → 90
+            )
+
+            blob_out.content_type = "video/mp4"
+            blob_out.patch()
+
+        # insert DB record
+        update_upload_job(cur, job_id, progress=90, step="saving")
+        db.commit()
+
+        cur.execute("""
+            INSERT INTO videos (
+                user_id, team_id, match_id,
+                provider, provider_video_id,
+                storage_path, filename
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id,
+            team_id,
+            match_id,
+            "firebase",
+            None,
+            storage_path,
+            clip_filename
+        ))
+
+        update_upload_job(cur, job_id, status="done", progress=100, step="completed")
+        db.commit()
+        logger.info(f"[CLIP] job {job_id} completed")
+
+    except Exception as e:
+        update_upload_job(cur, job_id, status="failed", step=str(e)[:100])
+        db.commit()
+
+    finally:
+        cur.close()
+        db.close()
+
 #verify that the match is owned by the requester and is avaliable to store videos under
 def verify_match_ownership(team_id: int, match_id: int, user_id: int):
     db = get_db()
@@ -694,12 +804,13 @@ def rename_video(
     return updated_video
 
 #clipping method
-@router.post("/{video_id}/clip")
+@router.post("/{video_id}/clip", status_code=202)
 def clip_video(
     team_id: int,
     match_id: int,
     video_id: int,
     payload: ClipVideoSchema,
+    background_tasks: BackgroundTasks,
     user=Depends(require_user)
 ):
     verify_match_ownership(team_id, match_id, user["id"])
@@ -711,100 +822,49 @@ def clip_video(
     cur = db.cursor()
 
     try:
-        # Get original video
-        cur.execute(
-            """
-            SELECT storage_path, filename
-            FROM videos
-            WHERE id = %s
-              AND user_id = %s
-              AND team_id = %s
-              AND match_id = %s
-            """,
-            (video_id, user["id"], team_id, match_id)
-        )
+        # validate source exists
+        cur.execute("""
+            SELECT id FROM videos
+            WHERE id = %s AND user_id = %s AND team_id = %s AND match_id = %s
+        """, (video_id, user["id"], team_id, match_id))
 
-        video = cur.fetchone()
-
-        if not video:
+        if not cur.fetchone():
             raise HTTPException(404, "Video not found")
 
-        if not video["storage_path"]:
-            raise HTTPException(400, "Only Firebase videos can be clipped")
-
-        # create temp files
-        with tempfile.TemporaryDirectory() as tmpdir:
-            input_path = os.path.join(tmpdir, "input.mp4")
-            output_path = os.path.join(tmpdir, "output.mp4")
-
-            # download from Firebase
-            blob = bucket.blob(video["storage_path"])
-            blob.download_to_filename(input_path)
-
-            duration = payload.end - payload.start
-
-            # run FFmpeg
-            cmd = [
-                "ffmpeg",
-                "-ss", str(payload.start),
-                "-i", input_path,
-                "-t", str(duration),
-                "-c", "copy",
-                output_path
-            ]
-
-            result = subprocess.run(cmd, capture_output=True)
-
-            if result.returncode != 0:
-                raise HTTPException(500, f"FFmpeg failed: {result.stderr.decode()}")
-
-            # upload clipped file
-            clip_filename = f"clip_{uuid.uuid4().hex}.mp4"
-            clip_storage_path = f"users/{user['id']}/matches/{match_id}/{clip_filename}"
-
-            clip_blob = bucket.blob(clip_storage_path)
-            clip_blob.upload_from_filename(output_path)
-            clip_blob.content_type = "video/mp4"
-            clip_blob.patch()
-
-        # save to DB
-        cur.execute(
-            """
-            INSERT INTO videos (
-                user_id,
-                team_id,
-                match_id,
-                provider,
-                provider_video_id,
-                storage_path,
-                filename
+        # create upload job
+        cur.execute("""
+            INSERT INTO upload_jobs (
+                video_id, user_id, team_id, match_id,
+                status, progress, step
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, filename, created_at
-            """,
-            (
-                user["id"],
-                team_id,
-                match_id,
-                "firebase",
-                None,
-                clip_storage_path,
-                clip_filename
-            )
-        )
+            VALUES (%s, %s, %s, %s, 'queued', 0, 'queued')
+            RETURNING id
+        """, (video_id, user["id"], team_id, match_id))
 
-        new_video = cur.fetchone()
+        job_id = cur.fetchone()["id"]
         db.commit()
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(400, f"Clip failed: {e}")
+        logger.info(f"[CLIP] Created upload job {job_id}")
 
     finally:
         cur.close()
         db.close()
 
-    return new_video
+    # start background clipping
+    background_tasks.add_task(
+        process_clip_video,
+        user["id"],
+        team_id,
+        match_id,
+        video_id,
+        job_id,
+        payload.start,
+        payload.end
+    )
+
+    return {
+        "status": "queued",
+        "job_id": job_id
+    }
 
 
 #upscaling method
