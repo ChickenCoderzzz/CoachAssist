@@ -571,6 +571,9 @@ const [gameMetrics, setGameMetrics] = useState({});
         return false;
     });
 
+    const currentVideo = videoSrc
+        ? videoList.find((v) => v.playback_url === videoSrc)
+        : null;
 
     return (
         <div className="analyze-game-container">
@@ -705,7 +708,11 @@ const [gameMetrics, setGameMetrics] = useState({});
                 {/* LEFT COLUMN - Updated Format - Wences Jacob Lorenzo*/}
                 <div className="video-column">
                     {/* Video Player Section */}
-                    <div className="video-player-section">
+                    <div
+                        className={`video-player-section ${
+                            activeTab === "Game State" ? "align-with-game-state-table" : ""
+                        }`}
+                    >
                         {videoSrc ? (
                             <video
                                 ref={videoRef}
@@ -718,20 +725,13 @@ const [gameMetrics, setGameMetrics] = useState({});
                                 Upload a video to begin analysis
                             </div>
                         )}
-                    </div>
-
-                    {/* Per-video annotation overlay (drawboard) */}
-                    {videoSrc && (() => {
-                        const currentVideo = videoList.find((v) => v.playback_url === videoSrc);
-                        if (!currentVideo) return null;
-                        return (
-                            <div style={{ marginTop: '10px' }}>
+                        {currentVideo && (
+                            <>
                                 <button
-                                    className="add-team-btn"
+                                    className="video-annotation-btn"
                                     onClick={() => setShowVideoAnnotations(true)}
-                                    style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
                                 >
-                                    Open annotations
+                                    Annotate
                                 </button>
                                 {showVideoAnnotations && (
                                     <VideoAnnotationOverlay
@@ -744,9 +744,9 @@ const [gameMetrics, setGameMetrics] = useState({});
                                         onClose={() => setShowVideoAnnotations(false)}
                                     />
                                 )}
-                            </div>
-                        );
-                    })()}
+                            </>
+                        )}
+                    </div>
                  </div>
 
                 {/* RIGHT COLUMN */}
@@ -756,7 +756,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                         <div className="game-view-toggle">
                             <button
                                 className="tab-button"
-                                style={gameView === "state" ? { transform: "translate(2px,2px)", boxShadow: "none" } : {}}
+                                style={gameView === "state" ? { boxShadow: "none" } : {}}
                                 onClick={() => setGameView("state")}
                             >
                                 Game State Table
@@ -764,7 +764,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                             <button
                                 className="tab-button"
-                                style={gameView === "metrics" ? { transform: "translate(2px,2px)", boxShadow: "none" } : {}}
+                                style={gameView === "metrics" ? { boxShadow: "none" } : {}}
                                 onClick={() => setGameView("metrics")}
                             >
                                 Quantitative Metrics

@@ -1,5 +1,6 @@
 /* Container for the whole page area (below navbar) */
 .analyze-game-container {
+    --analysis-panel-height: 500px;
     padding: 20px 40px;
     max-width: 1400px;
     margin: 0 auto;
@@ -60,10 +61,10 @@
 }
 
 .table-column {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    height: 500px; 
     min-height: 0;      
 }
 
@@ -74,6 +75,12 @@
     grid-template-columns: repeat(2, 280px);
     gap: 16px;
     justify-content: center; 
+}
+
+.metrics-container {
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 8px 12px;
 }
 
 .metrics-container .stat-field {
@@ -124,9 +131,14 @@
 }
 
 .game-view-toggle {
+    position: absolute;
+    top: -48px;
+    right: 0;
+    z-index: 4;
     display: flex;
     gap: 6px;
-    margin-bottom: 10px;
+    margin: 0;
+    justify-content: flex-end;
 }
 
 .game-view-toggle .tab-button {
@@ -162,11 +174,14 @@
     position: relative;
     width: 100%;
     max-width: 800px;
-    padding-top: 56.25%;
-    /* 16:9 container */
+    height: var(--analysis-panel-height);
     background: #000;
     overflow: hidden;
     /* ensures video can't expand beyond container */
+}
+
+.video-player-section.align-with-game-state-table {
+    margin-top: 0;
 }
 
 /* Actual <video> element */
@@ -184,6 +199,26 @@
     display: block;
     /* avoid inline spacing issues */
     background-color: #000;
+}
+
+.video-annotation-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+    background: #b9c9f0;
+    border: 2px solid #000;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 2px 2px 0 #000;
+}
+
+.video-annotation-btn:hover {
+    background: #a9baf0;
 }
 
 
@@ -311,8 +346,8 @@
     background-color: #fff;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    max-height: 100%;
+    height: var(--analysis-panel-height);
+    max-height: var(--analysis-panel-height);
     /* Ensure it doesn't overflow parent */
     /* BORDERS: Outer Top/Left. Cells will provide Bottom/Right. 
        Standardized to 2px for consistency */

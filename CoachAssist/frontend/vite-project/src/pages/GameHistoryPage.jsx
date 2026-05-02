@@ -388,10 +388,10 @@ return (
 
         {/* HEADER */}
         <div className="game-history-header">
-            <h1>Game History</h1>
             <button className="go-back-btn" onClick={() => navigate(`/team/${teamId}`)}>
-                Go Back
+                ← Back to Team
             </button>
+            <h1>Game History</h1>
         </div>
 
         {/* TOGGLE */}
@@ -536,7 +536,7 @@ return (
         {/* ================= VISUALIZATIONS ================= */}
         {activeView === "visualizations" && (
 
-        <div style={{ width: "100%", padding: "20px" }}>
+        <div className="game-history-viz-panel">
 
             <h2>Game Visualizations ({valueMode === "average" ? "Average" : "Total"})</h2>
 
@@ -930,4 +930,3 @@ return (
 
 
 }
-
