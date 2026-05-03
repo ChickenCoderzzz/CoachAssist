@@ -80,18 +80,34 @@ def process_video_upload(user_id, team_id, match_id, video_id, job_id, temp_path
         update_upload_job(cur, job_id, status="processing", progress=10, step="uploading")
         db.commit()
 
+
+        # detect extension
+        ext = os.path.splitext(original_filename)[1].lower()
+
+        final_path = temp_path
+        # if not mp4, convert to mp4
+        if ext != ".mp4":
+            logger.info(f"[UPLOAD] Converting {original_filename} to MP4")
+
+            update_upload_job(cur, job_id, progress=15, step="converting")
+            db.commit()
+
+            final_path = convert_to_mp4(temp_path)
+            original_filename = os.path.splitext(original_filename)[0] + ".mp4"
+
+        
         filename = f"{user_id}_{match_id}_{original_filename}"
         storage_path = f"users/{user_id}/matches/{match_id}/{filename}"
 
         blob = bucket.blob(storage_path)
 
         upload_video_with_progress(
-            temp_path,
+            final_path,
             blob,
             job_id=job_id,
             cur=cur,
             db=db,
-            base_progress=10,
+            base_progress=20,
             progress_span=80
         )
 
@@ -102,10 +118,11 @@ def process_video_upload(user_id, team_id, match_id, video_id, job_id, temp_path
         cur.execute(
             """
             UPDATE videos
-            SET storage_path = %s
+            SET storage_path = %s,
+                filename = %s
             WHERE id = %s
             """,
-            (storage_path, video_id)
+            (storage_path, original_filename, video_id)
         )
 
         update_upload_job(cur, job_id, status="done", progress=100, step="completed")
@@ -116,8 +133,41 @@ def process_video_upload(user_id, team_id, match_id, video_id, job_id, temp_path
         db.commit()
 
     finally:
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception as e:
+            logger.warning(f"Failed to delete temp_path: {e}")
+
+        try:
+            if 'final_path' in locals() and final_path != temp_path and os.path.exists(final_path):
+                os.remove(final_path)
+        except Exception as e:
+            logger.warning(f"Failed to delete final_path: {e}")
+
         cur.close()
         db.close()
+
+#mp4 conversion method
+def convert_to_mp4(input_path: str) -> str:
+    output_path = input_path + "_converted.mp4"
+
+    result = subprocess.run([
+        "ffmpeg",
+        "-y",  # overwrite if exists
+        "-i", input_path,
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "aac",
+        "-movflags", "+faststart",
+        output_path
+    ], capture_output=True)
+
+    if result.returncode != 0:
+        raise RuntimeError(f"FFmpeg conversion failed: {result.stderr.decode()}")
+
+    return output_path
 
 
 #background task for video clipping
@@ -617,7 +667,9 @@ def upload_video(
 
     try:
         # 1. Save temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        ext = os.path.splitext(file.filename)[1].lower()
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
             shutil.copyfileobj(file.file, tmp)
             temp_path = tmp.name
 
