@@ -817,7 +817,9 @@ function MetricsTab({ historyData, selectedGameIds, selectedPlayer, selectedQuar
 
   const totals = {};
   const averages = {};
-  const gameCount = filteredStats.length;
+  const gameCount = selectedGameIds.length;
+
+  const safeGameCount = gameCount || 1;
 
   filteredStats.forEach(game => {
     allowedStats.forEach(statKey => {
@@ -827,10 +829,7 @@ function MetricsTab({ historyData, selectedGameIds, selectedPlayer, selectedQuar
   });
 
   allowedStats.forEach(statKey => {
-    averages[statKey] =
-      gameCount > 0
-        ? (totals[statKey] / gameCount).toFixed(2)
-        : 0;
+    averages[statKey] = Number((totals[statKey] / safeGameCount).toFixed(2));
   });
 
   return (
@@ -910,6 +909,8 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit, selecte
   //Track how many games are included
   const gameCount = filteredGames.length;
 
+  const safeGameCount = gameCount || 1;
+
   //Object to accumulate totals for average calculation
   const averages = {};
 
@@ -937,10 +938,7 @@ function ByGameTab({ historyData, selectedGameIds, selectedPlayer, unit, selecte
 
    //Convert totals into averages
   allowedStats.forEach(stat => {
-    averages[stat] =
-      gameCount > 0
-        ? (averages[stat] / gameCount).toFixed(2)
-        : 0;
+    averages[stat] = Number((averages[stat] / safeGameCount).toFixed(2));
   });
 
   return (

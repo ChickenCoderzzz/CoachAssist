@@ -24,6 +24,17 @@ const allStatKeys = [
     "time_of_possession"
 ];
 
+const EFFICIENCY_STATS = [
+    "third_down_conversions",
+    "third_down_attempts",
+    "time_of_possession"
+];
+
+const NEGATIVE_STATS = [
+    "turnovers",
+    "penalties"
+];
+
 const [matches, setMatches] = useState([]);
 const [loading, setLoading] = useState(true);
 
@@ -85,6 +96,13 @@ useEffect(() => {
         setVizChart("bar");
     }
 }, [vizMode]);
+
+//Change to team when going from Both on one viz to radar
+useEffect(() => {
+    if (vizChart === "radar" && compareMode === "both") {
+        setCompareMode("team");
+    }
+}, [vizChart, compareMode]);
 
 useEffect(() => {
     const handleClick = (e) => {
@@ -168,7 +186,10 @@ const filteredStats = filteredGames.flatMap(g => {
 
 //Calculate totals for stats - Wences Jacob Lorenzo
 const totals = {};
-let count = filteredStats.length;
+let count = filteredGames.length;
+
+//Safeguard
+if (valueMode === "average" && count === 0) count = 1;
 
 filteredStats.forEach(row => {
     allStatKeys.forEach(stat => {
@@ -184,44 +205,60 @@ filteredStats.forEach(row => {
 
 if (valueMode === "average" && count > 0) {
     allStatKeys.forEach(stat => {
-        totals[stat] = totals[stat] / count;
+        totals[stat] = Number((totals[stat] / count).toFixed(2)); //Team 
 
-        //  Opponent average
         totals[`opp_${stat}`] =
-            totals[`opp_${stat}`] / count;
+            Number((totals[`opp_${stat}`] / count).toFixed(2)); //Opponent
     });
 }
 
 //Calculate overall data
 const overallData = selectedStats.flatMap(stat => {
 
+    let normalizationType = "Production Based";
+
+    if (EFFICIENCY_STATS.includes(stat)) {
+        normalizationType = "Efficiency Based";
+    }
+    else if (NEGATIVE_STATS.includes(stat)) {
+        normalizationType = "Negative Impact";
+    }
+
     if (compareMode === "both") {
+
         return [
             {
                 stat: `${formatStat(stat)} (Team)`,
-                value: totals[stat] || 0
+                value: totals[stat] || 0,
+                normalizationType
             },
             {
                 stat: `${formatStat(stat)} (Opp)`,
-                value: totals[`opp_${stat}`] || 0
+                value: totals[`opp_${stat}`] || 0,
+                normalizationType
             }
         ];
+
     }
 
-    const key = compareMode === "opponent"
-        ? `opp_${stat}`
-        : stat;
+    const key =
+        compareMode === "opponent"
+            ? `opp_${stat}`
+            : stat;
 
     return [{
         stat: formatStat(stat),
-        value: totals[key] || 0
+        value: totals[key] || 0,
+        normalizationType
     }];
+
 });
 
 //Retrieve data per game
 const perGameData = filteredGames.map(game => {
 
     const statsForGame = filteredStats.filter(s => s.game_id === game.id);
+    const gameCount = filteredGames.length || 1;
 
     const row = {
         game: game.opponent,
@@ -243,12 +280,12 @@ const perGameData = filteredGames.map(game => {
 
         row[stat] =
             valueMode === "average" && statsForGame.length > 0
-                ? teamTotal / statsForGame.length
+                ? Number((teamTotal / gameCount).toFixed(2))
                 : teamTotal;
 
         row[`opp_${stat}`] =
             valueMode === "average" && statsForGame.length > 0
-                ? oppTotal / statsForGame.length
+                ? Number((oppTotal / gameCount).toFixed(2))
                 : oppTotal;
             });
 
@@ -279,12 +316,12 @@ const perQuarterData = ["Q1","Q2","Q3","Q4"]
 
         row[stat] =
             valueMode === "average" && statsForQuarter.length > 0
-                ? teamTotal / statsForQuarter.length
+                ? Number((teamTotal / filteredGames.length).toFixed(2))
                 : teamTotal;
 
         row[`opp_${stat}`] =
             valueMode === "average" && statsForQuarter.length > 0
-                ? oppTotal / statsForQuarter.length
+                ? Number((oppTotal / filteredGames.length).toFixed(2))
                 : oppTotal;
     });
 

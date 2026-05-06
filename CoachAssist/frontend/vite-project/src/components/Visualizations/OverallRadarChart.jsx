@@ -95,15 +95,30 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
       else newY += verticalOffset;
     }
 
-    const statData = data.find(d => d.stat === payload.value);
+    const cleanPayload = payload.value
+      .replace(" (Team)", "")
+      .replace(" (Opp)", "");
+
+    const statData = data.find(d => {
+
+      const cleanStat = d.stat
+        .replace(" (Team)", "")
+        .replace(" (Opp)", "");
+
+      return cleanStat === cleanPayload;
+
+    });
 
     let color = "#ffffff";
 
-    //  STRICT: labels only reflect normalization
-    if (statData?.normalizationType === "Per Snap") {
-      color = "#22c55e"; // green
-    } else if (statData?.normalizationType === "Ceiling") {
-      color = "#facc15"; // yellow
+    if (statData?.normalizationType === "Efficiency Based") {
+  color = "#22c55e";
+    }
+    else if (statData?.normalizationType === "Production Based") {
+      color = "#facc15";
+    }
+    else if (statData?.normalizationType === "Negative Impact") {
+      color = "#ef4444";
     }
 
     return (
@@ -245,16 +260,22 @@ export default function OverallRadarChart({ data, expanded, useComparisonColors 
 
         <div>
           <span style={{ color: "#22c55e", fontWeight: "bold" }}>
-            ● Per Snap
+            ● Efficiency Based
           </span>
-          {" "}– Normalized by playtime
+          {" "}– Adjusted relative to opportunities/snaps
         </div>
 
         <div>
           <span style={{ color: "#facc15", fontWeight: "bold" }}>
-            ● Ceiling
+            ● Production Based
           </span>
-          {" "}– Normalized by expected max
+          {" "}– Scaled against expected maximum production
+        </div>
+        <div>
+          <span style={{ color: "#ef4444", fontWeight: "bold" }}>
+            ● Negative Impact
+          </span>
+          {" "}– Lower values improve performance score
         </div>
 
       </div>
