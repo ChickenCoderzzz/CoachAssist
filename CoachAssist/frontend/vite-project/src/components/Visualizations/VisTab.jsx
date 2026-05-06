@@ -38,6 +38,9 @@ const CEILING_NORMALIZED_STATS = [
   "rushing_yards",
   "rushing_tds",
   "touchdowns",
+];
+
+const NEGATIVE_STATS = [
   "turnovers",
   "interceptions_thrown",
   "penalties"
@@ -192,7 +195,7 @@ const safeQuarters = selectedQuarters || [];
     // Convert to average if needed
     if (valueMode === "average" && count > 0) {
         allowedStats.forEach(stat => {
-            totals[stat] = totals[stat] / count;
+            totals[stat] = Number((totals[stat] / count).toFixed(2));
         });
     }
 
@@ -212,10 +215,7 @@ const safeQuarters = selectedQuarters || [];
 
     const radarData = selectedStats.map(stat => {
 
-    const raw = filteredStats.reduce(
-        (sum, s) => sum + (s[stat] || 0),
-        0
-    );
+    const raw = totals[stat] || 0;
 
     let score;
     let normalizationType;
@@ -231,7 +231,7 @@ const safeQuarters = selectedQuarters || [];
         100
         );
 
-        normalizationType = "Per Snap";
+        normalizationType = "Efficiency Based";
 
     }
 
@@ -241,12 +241,28 @@ const safeQuarters = selectedQuarters || [];
 
         const ceiling = STAT_CEILINGS[stat] || 100;
 
-        score = Math.min(
+        const normalized = Math.min(
         (raw / ceiling) * 100,
         100
         );
 
-        normalizationType = "Ceiling";
+        // NEGATIVE IMPACT STATS
+        if (NEGATIVE_STATS.includes(stat)) {
+
+        score = 100 - normalized;
+
+        normalizationType = "Negative Impact";
+
+        }
+
+        // POSITIVE PRODUCTION STATS
+        else {
+
+        score = normalized;
+
+        normalizationType = "Production Based";
+
+        }
 
     }
 
@@ -254,7 +270,7 @@ const safeQuarters = selectedQuarters || [];
 
         stat: formatLabel(stat),
 
-        rawValue: raw,
+        rawValue: Number(raw.toFixed(2)),
 
         value: score,
 
@@ -303,7 +319,7 @@ const safeQuarters = selectedQuarters || [];
 
             row[keyName] =
                 valueMode === "average" && divisor > 0
-                ? total / divisor
+                ? Number((total / divisor).toFixed(2))
                 : total;
         });
 
@@ -312,8 +328,8 @@ const safeQuarters = selectedQuarters || [];
     });
 
     const perQuarterData = ["Q1","Q2","Q3","Q4"]
-.filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
-.map(q => {
+    .filter(q => safeQuarters.length === 0 || safeQuarters.includes(q))
+    .map(q => {
 
     const statsForQuarter = filteredStats.filter(s => s.quarter === q);
 
@@ -346,12 +362,12 @@ const safeQuarters = selectedQuarters || [];
             if (compareMode === "both") {
                 row[`${stat}_team_${i}`] =
                     valueMode === "average" && gameCount > 0
-                        ? teamTotal / gameCount
+                        ? Number((teamTotal / gameCount).toFixed(2))
                         : teamTotal;
 
                 row[`${stat}_opp_${i}`] =
                     valueMode === "average" && gameCount > 0
-                        ? oppTotal / gameCount
+                        ? Number((oppTotal / gameCount).toFixed(2))
                         : oppTotal;
 
             } else {
@@ -367,7 +383,7 @@ const safeQuarters = selectedQuarters || [];
 
                     row[keyName] =
                     valueMode === "average" && gameCount > 0
-                        ? total / gameCount
+                        ? Number((total / gameCount).toFixed(2))
                         : total;
             }
         });
