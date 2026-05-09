@@ -188,11 +188,6 @@ export default function GuidedTour() {
       return;
     }
 
-    if (isPrevAction) {
-      setStepIndex(Math.max(0, index - 1));
-      return;
-    }
-
     if (type === EVENTS.TARGET_NOT_FOUND) {
       const updatedVisibleSteps = visibleSteps
         .slice(0, index)
@@ -213,9 +208,15 @@ export default function GuidedTour() {
       return;
     }
 
-    if (type === EVENTS.STEP_AFTER && isNextAction) {
-      const nextIndex = index + 1;
+    if (type === EVENTS.STEP_AFTER) {
+      if (isPrevAction) {
+        setStepIndex(Math.max(0, index - 1));
+        return;
+      }
 
+      if (!isNextAction) return;
+
+      const nextIndex = index + 1;
       if (nextIndex >= visibleSteps.length) {
         markCurrentTutorialSeen();
         return;
