@@ -15,6 +15,8 @@ import os
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
+# Initialize Gemini client using environment variable API key
+# Ensure GEMINI_API_KEY is configured in the backend environment
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
@@ -50,7 +52,12 @@ class SaveGameAnalysisRequest(BaseModel):
     game: dict
     analysis: str
 
+# ================= ACCESS CONTROL HELPERS =================
+# These helper functions validate whether the authenticated
+# user has permission to access specific team, game,
+# or player-related resources.
 
+# Verify that the requesting user owns or has access to the specified team before allowing operations
 def verify_team_access(team_id: int, user_id: int, db):
     with db.cursor() as cur:
         cur.execute(
@@ -66,7 +73,7 @@ def verify_team_access(team_id: int, user_id: int, db):
     if not row:
         raise HTTPException(status_code=403, detail="Access denied to this team")
 
-
+# Ensure the player belongs to the requested team and that the user has authorization to access player data
 def verify_game_access(team_id: int, game_id: int, user_id: int, db):
     with db.cursor() as cur:
         cur.execute(
@@ -86,6 +93,7 @@ def verify_game_access(team_id: int, game_id: int, user_id: int, db):
         raise HTTPException(status_code=403, detail="Access denied to this game")
 
 
+# Ensure the player belongs to the requested team and that the user has authorization to access player data
 def verify_player_access(team_id: int, player_id: int, user_id: int, db):
     with db.cursor() as cur:
         cur.execute(
@@ -199,7 +207,7 @@ def save_player_analysis(
                 data.analysis
             ))
 
-        db.commit()  # 🔥 REQUIRED
+        db.commit()  #  REQUIRED
 
         print("SAVE SUCCESS")
 
@@ -253,7 +261,7 @@ def delete_player_analysis(analysis_id: int, db=Depends(get_db), user=Depends(re
         print("DELETE ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-
+#Prompt Gemini to analyze game data
 @router.post("/analyze-game")
 async def analyze_game(
     data: GameAnalysisRequest,
@@ -326,7 +334,7 @@ async def analyze_game(
         print("GAME AI ERROR:", e)
         return {"analysis": "An error occurred while generating analysis."}
 
-
+#PRompt Gemini to compare game data
 @router.post("/compare-games")
 async def compare_games(
     data: GameComparisonRequest,
@@ -399,7 +407,7 @@ async def compare_games(
         print("COMPARE GAMES AI ERROR:", e)
         return {"comparison": "An error occurred while generating comparison."}
 
-
+#Prompt gemini to compare player data
 @router.post("/compare-players")
 async def compare_players(
     data: PlayerComparisonRequest,
@@ -494,7 +502,7 @@ async def compare_players(
         print("COMPARE PLAYERS AI ERROR:", e)
         return {"comparison": "An error occurred while generating comparison."}
 
-
+# Retrieve previously saved AI-generated analyses ordered by newest entries first
 @router.post("/save-game-analysis")
 def save_game_analysis(
     data: SaveGameAnalysisRequest,
@@ -559,7 +567,7 @@ def get_saved_game_analysis(
         print("FETCH GAME SAVED ERROR:", e)
         return []
 
-
+# Remove saved AI analysis entry from the database
 @router.delete("/delete-game-analysis/{analysis_id}")
 def delete_game_analysis(
     analysis_id: int,

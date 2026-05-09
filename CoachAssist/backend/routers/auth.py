@@ -359,6 +359,7 @@ def forgot_password_request(data: ForgotPasswordRequestSchema):
 
     return {"message": "Password reset code sent."}
 
+#Verify when forgetting password
 @router.post("/forgot-password/verify")
 def forgot_password_verify(data: ForgotPasswordVerifySchema):
     db = get_db()
@@ -435,6 +436,7 @@ def request_password_change(user=Depends(require_user)):
 
     return {"message": "Verification code sent."}
 
+#Email verify when changing password
 @router.post("/profile/verify-password-change")
 def verify_password_change(
     data: VerifyProfilePasswordChangeSchema,
