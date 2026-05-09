@@ -753,7 +753,7 @@ export default function PlayerAnalysisPage() {
 
   return (
     <div className="player-analysis-page">
-      <div className="top-buttons">
+      <div className="top-buttons tutorial-player-analysis-title">
         <button
           className={`top-btn ${mode === "analyze" ? "active" : ""}`}
           onClick={() => setMode("analyze")}

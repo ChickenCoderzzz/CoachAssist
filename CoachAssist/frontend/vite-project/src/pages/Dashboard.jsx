@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/teams.css";
 import defaultLogo from "../assets/default_team_logo.png";
@@ -36,8 +36,7 @@ export default function Dashboard() {
 
   const navigate = useNavigate();
 
-  //Fetch teams
-  useEffect(() => {
+  const fetchTeams = useCallback(() => {
     fetch("/teams/", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -48,6 +47,13 @@ export default function Dashboard() {
         setTeams(data.teams || []);
       });
   }, []);
+
+  useEffect(() => {
+    fetchTeams();
+    const handleRefresh = () => fetchTeams();
+    window.addEventListener("teams:refresh", handleRefresh);
+    return () => window.removeEventListener("teams:refresh", handleRefresh);
+  }, [fetchTeams]);
 
   //Create team (Updated for image + loading)
   const handleCreateTeam = async () => {

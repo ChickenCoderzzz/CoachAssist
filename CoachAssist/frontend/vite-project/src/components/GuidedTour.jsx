@@ -1,11 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Joyride, ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-
-const DASHBOARD_KEY = "coachassist_tutorial_dashboard_seen";
-const ANALYZE_KEY = "coachassist_tutorial_analyze_seen";
-const TEAM_KEY = "coachassist_tutorial_team_seen";
+import { findTutorial } from "./tutorials";
 
 export default function GuidedTour() {
   const { user } = useAuth();
@@ -13,88 +10,11 @@ export default function GuidedTour() {
 
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [pendingStart, setPendingStart] = useState(false);
   const [targetCheckTick, setTargetCheckTick] = useState(0);
+  const [restartCount, setRestartCount] = useState(0);
 
-  const isDashboardRoute = location.pathname === "/dashboard";
-  const isAnalyzeRoute = /^\/team\/[^/]+\/match\/[^/]+$/.test(location.pathname);
-  const isTeamRoute = /^\/team\/[^/]+$/.test(location.pathname);
-
-  const dashboardSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-dashboard-title",
-        title: "Dashboard",
-        content: "This is your main hub for managing teams.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-add-team-btn",
-        title: "Create Team",
-        content: "Start by creating a team here.",
-      },
-    ],
-    []
-  );
-
-  const analyzeSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-analyze-title",
-        title: "Analyze Game",
-        content: "This page is where you review game state and player tables.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-export-btn",
-        title: "Export PDF",
-        content: "Use this button to export the current player unit table as a PDF.",
-      },
-    ],
-    []
-  );
-
-  const teamSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-team-title",
-        title: "Team Workspace",
-        content: "This page is your team hub for games, roster, and history.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-add-game-btn",
-        title: "Add Game",
-        content: "Create a new game entry here before analyzing film and stats.",
-      },
-      {
-        target: ".tutorial-edit-roster-btn",
-        title: "Manage Roster",
-        content: "Open roster management to add/edit players and review player history.",
-      },
-    ],
-    []
-  );
-
-  const currentTutorial = useMemo(() => {
-    if (isDashboardRoute) {
-      return { key: DASHBOARD_KEY, steps: dashboardSteps };
-    }
-    if (isTeamRoute) {
-      return { key: TEAM_KEY, steps: teamSteps };
-    }
-    if (isAnalyzeRoute) {
-      return { key: ANALYZE_KEY, steps: analyzeSteps };
-    }
-    return null;
-  }, [
-    isDashboardRoute,
-    isTeamRoute,
-    isAnalyzeRoute,
-    dashboardSteps,
-    teamSteps,
-    analyzeSteps,
-  ]);
-
+  const currentTutorial = findTutorial(location.pathname);
   const activeSteps = currentTutorial?.steps ?? [];
   const tutorialKey = currentTutorial?.key ?? null;
 
@@ -107,62 +27,66 @@ export default function GuidedTour() {
     return -1;
   };
 
-  const markCurrentTutorialSeen = () => {
-    if (tutorialKey) {
-      localStorage.setItem(tutorialKey, "true");
-    }
+  const endTour = () => {
     setRun(false);
     setStepIndex(0);
+    setPendingStart(false);
   };
 
+  // Reset state on route change — a tour from a previous page should not carry over
   useEffect(() => {
-    if (!user || !currentTutorial || run) return;
-    if (tutorialKey && localStorage.getItem(tutorialKey) === "true") return;
+    setRun(false);
+    setStepIndex(0);
+    setPendingStart(false);
+  }, [tutorialKey]);
 
-    const intervalId = window.setInterval(() => {
-      setTargetCheckTick((tick) => tick + 1);
+  // Listen for user-initiated restart (Navbar "Tutorial" / Help button)
+  useEffect(() => {
+    const handleRestart = () => {
+      if (!currentTutorial) return;
+      setStepIndex(0);
+      setRun(false);
+      setPendingStart(true);
+      setRestartCount((c) => c + 1);
+    };
+    window.addEventListener("tutorial:restart", handleRestart);
+    return () => window.removeEventListener("tutorial:restart", handleRestart);
+  }, [currentTutorial]);
+
+  // While waiting for targets to render, poll the DOM
+  useEffect(() => {
+    if (!pendingStart || run) return;
+    const id = window.setInterval(() => {
+      setTargetCheckTick((t) => t + 1);
     }, 300);
+    return () => window.clearInterval(id);
+  }, [pendingStart, run]);
 
-    return () => window.clearInterval(intervalId);
-  }, [user, currentTutorial, tutorialKey, run]);
-
+  // When a start is pending and the target exists, kick off the tour
   useEffect(() => {
-    if (!user || !currentTutorial) {
-      setRun(false);
-      setStepIndex(0);
-      return;
-    }
-
-    if (localStorage.getItem(tutorialKey) === "true") {
-      setRun(false);
-      setStepIndex(0);
-      return;
-    }
+    if (!pendingStart || !user || !currentTutorial) return;
 
     const nextValidIndex = findNextValidStepIndex(stepIndex);
-    if (nextValidIndex === -1) {
-      setRun(false);
-      return;
-    }
-
+    if (nextValidIndex === -1) return;
     if (nextValidIndex !== stepIndex) {
       setStepIndex(nextValidIndex);
       return;
     }
 
     setRun(true);
-  }, [user, currentTutorial, tutorialKey, stepIndex, activeSteps, targetCheckTick]);
+    setPendingStart(false);
+  }, [pendingStart, user, currentTutorial, stepIndex, activeSteps, targetCheckTick]);
 
-  const handleCallback = (data) => {
+  const handleEvent = (data) => {
     const { action, status, type, index } = data;
 
-    if (action === ACTIONS.PREV || action === "prev") {
+    if (action === ACTIONS.PREV) {
       setStepIndex(Math.max(0, index - 1));
       return;
     }
 
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-      markCurrentTutorialSeen();
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED || action === ACTIONS.SKIP) {
+      endTour();
       return;
     }
 
@@ -170,14 +94,14 @@ export default function GuidedTour() {
       const nextIndex = index + 1;
 
       if (nextIndex >= activeSteps.length) {
-        markCurrentTutorialSeen();
+        endTour();
         return;
       }
 
       if (type === EVENTS.TARGET_NOT_FOUND) {
         const validIndex = findNextValidStepIndex(nextIndex);
         if (validIndex === -1) {
-          markCurrentTutorialSeen();
+          endTour();
           return;
         }
         setStepIndex(validIndex);
@@ -192,15 +116,20 @@ export default function GuidedTour() {
 
   return (
     <Joyride
+      key={`${tutorialKey}-${restartCount}`}
       steps={activeSteps}
       run={run}
       stepIndex={stepIndex}
       continuous
-      showProgress
-      showSkipButton
       scrollToFirstStep
-      disableScrolling
-      callback={handleCallback}
+      onEvent={handleEvent}
+      options={{
+        showProgress: true,
+        skipBeacon: true,
+        buttons: ["back", "skip", "primary"],
+        closeButtonAction: "skip",
+        zIndex: 12000,
+      }}
       locale={{
         back: "Back",
         close: "Finish",
@@ -208,7 +137,6 @@ export default function GuidedTour() {
         next: "Next",
         skip: "Skip",
       }}
-      styles={{ options: { zIndex: 12000 } }}
     />
   );
 }

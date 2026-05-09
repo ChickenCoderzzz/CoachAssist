@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
-import "../styles/teams.css";
+import { findTutorial } from "./tutorials";
+import "../styles/navbar.css";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -10,22 +11,22 @@ export default function Navbar() {
   const [notifError, setNotifError] = useState("");
   const dropdownRef = useRef(null);
 
-  const fetchInvites = () => {
+  const fetchInvites = useCallback(() => {
     fetch("/team-members/my-invites", {
       headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
     })
       .then((res) => res.json())
       .then((data) => setInvites(data.invites || []))
       .catch(() => {});
-  };
+  }, []);
 
   useEffect(() => {
     fetchInvites();
-    const interval = setInterval(fetchInvites, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    const handleFocus = () => fetchInvites();
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [fetchInvites]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -49,10 +50,9 @@ export default function Navbar() {
         return;
       }
       fetchInvites();
-      // Reload dashboard so the newly joined team appears
-      if (window.location.pathname === "/dashboard") {
-        window.location.reload();
-      } else {
+      // Tell Dashboard (and any other listeners) to refetch their team list
+      window.dispatchEvent(new CustomEvent("teams:refresh"));
+      if (window.location.pathname !== "/dashboard") {
         navigate("/dashboard");
       }
     } catch {
@@ -78,202 +78,103 @@ export default function Navbar() {
     }
   };
 
-  const clearCurrentPageTutorialKey = () => {
-    const path = window.location.pathname;
-
-    if (path === "/dashboard") {
-      localStorage.removeItem("coachassist_tutorial_dashboard_seen");
-      return true;
+  const handleTutorialClick = () => {
+    if (findTutorial(window.location.pathname)) {
+      // Tell GuidedTour to restart in place — no reload
+      window.dispatchEvent(new CustomEvent("tutorial:restart"));
+    } else {
+      navigate("/tutorial");
     }
+  };
 
-    if (/^\/team\/[^/]+$/.test(path)) {
-      localStorage.removeItem("coachassist_tutorial_team_seen");
-      return true;
-    }
-
-    if (/^\/team\/[^/]+\/match\/[^/]+$/.test(path)) {
-      localStorage.removeItem("coachassist_tutorial_analyze_seen");
-      return true;
-    }
-
-    return false;
+  const toggleDropdown = () => {
+    setShowDropdown((prev) => {
+      const next = !prev;
+      if (next) fetchInvites();
+      return next;
+    });
   };
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "85px",
-        background: "#222",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 30px",
-        boxSizing: "border-box",
-        position: "fixed",
-        top: 0,
-        left: 0,
-        zIndex: 1000,
-      }}
-    >
-      {/* Logo → goes to dashboard */}
-      <img
-        src={logo}
-        alt="CoachAssist Logo"
-        style={{ height: "65px", cursor: "pointer" }}
+    <div className="navbar">
+      <button
+        type="button"
+        className="navbar-logo-button"
         onClick={() => navigate("/dashboard")}
-      />
+        aria-label="Go to dashboard"
+      >
+        <img src={logo} alt="CoachAssist" className="navbar-logo" />
+      </button>
 
-      {/* Spacer pushes links to right */}
-      <div style={{ flexGrow: 1 }}></div>
+      <div className="navbar-spacer" />
 
-      {/* Profile */}
-      <span
-        style={{
-          color: "white",
-          marginRight: "25px",
-          fontSize: "1.2rem",
-          cursor: "pointer",
-        }}
+      <button
+        type="button"
+        className="navbar-link"
         onClick={() => navigate("/profile")}
       >
         Profile
-      </span>
+      </button>
 
-      {/* Tutorial */}
-      <span
-        style={{
-          color: "white",
-          marginRight: "25px",
-          fontSize: "1.2rem",
-          cursor: "pointer",
-        }}
-        onClick={() => {
-          const cleared = clearCurrentPageTutorialKey();
-          if (cleared) {
-            window.location.reload();
-          }
-        }}
+      <button
+        type="button"
+        className="navbar-link"
+        onClick={handleTutorialClick}
       >
         Tutorial
-      </span>
+      </button>
 
-      {/* Notifications */}
-      <div ref={dropdownRef} style={{ position: "relative" }}>
-        <span
-          style={{
-            color: "white",
-            fontSize: "1.2rem",
-            cursor: "pointer",
-            position: "relative",
-          }}
-          onClick={() => {
-            setShowDropdown((prev) => {
-              const next = !prev;
-              if (next) fetchInvites();
-              return next;
-            });
-          }}
+      <div ref={dropdownRef} className="navbar-notifications">
+        <button
+          type="button"
+          className="navbar-link navbar-notifications-trigger"
+          onClick={toggleDropdown}
+          aria-haspopup="menu"
+          aria-expanded={showDropdown}
         >
           Notifications
           {invites.length > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: "-8px",
-                right: "-14px",
-                background: "#d32f2f",
-                color: "#fff",
-                fontSize: "11px",
-                fontWeight: "bold",
-                width: "20px",
-                height: "20px",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
+            <span className="navbar-notification-badge" aria-label={`${invites.length} pending invites`}>
               {invites.length}
             </span>
           )}
-        </span>
+        </button>
 
-        {/* Dropdown */}
         {showDropdown && (
-          <div
-            style={{
-              position: "absolute",
-              top: "40px",
-              right: 0,
-              width: "340px",
-              background: "#3a3a3a",
-              border: "2px solid #000",
-              borderRadius: "12px",
-              padding: "16px",
-              color: "#fff",
-              zIndex: 1001,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-            }}
-          >
-            <h4 style={{ margin: "0 0 12px 0", fontSize: "15px" }}>
-              Notifications
-            </h4>
+          <div className="navbar-dropdown" role="menu">
+            <h4>Notifications</h4>
 
             {notifError && (
-              <p style={{ color: "#ff9b9b", fontSize: "12px", margin: "0 0 8px 0" }}>
-                {notifError}
-              </p>
+              <p className="navbar-dropdown-error">{notifError}</p>
             )}
 
             {invites.length === 0 ? (
-              <p style={{ fontSize: "13px", color: "#aaa", margin: 0 }}>
-                No new notifications
-              </p>
+              <p className="navbar-dropdown-empty">No new notifications</p>
             ) : (
               invites.map((inv) => (
-                <div
-                  key={inv.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 0",
-                    borderBottom: "1px solid #555",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "13px" }}>
+                <div key={inv.id} className="navbar-invite">
+                  <div className="navbar-invite-info">
+                    <div className="navbar-invite-team">
                       <strong>{inv.team_name}</strong>
                     </div>
-                    <div style={{ fontSize: "11px", color: "#aaa" }}>
+                    <div className="navbar-invite-role">
                       Invited as{" "}
-                      <span
-                        className={`role-badge ${inv.role}`}
-                        style={{ marginLeft: 0 }}
-                      >
+                      <span className={`role-badge ${inv.role}`}>
                         {inv.role.charAt(0).toUpperCase() + inv.role.slice(1)}
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "6px" }}>
+                  <div className="navbar-invite-actions">
                     <button
+                      type="button"
                       className="confirm-yes"
-                      style={{
-                        padding: "3px 10px",
-                        fontSize: "12px",
-                        margin: 0,
-                      }}
                       onClick={() => handleAccept(inv.id)}
                     >
                       Accept
                     </button>
                     <button
+                      type="button"
                       className="confirm-cancel"
-                      style={{
-                        padding: "3px 10px",
-                        fontSize: "12px",
-                        margin: 0,
-                      }}
                       onClick={() => handleDecline(inv.id)}
                     >
                       Decline

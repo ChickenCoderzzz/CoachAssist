@@ -428,7 +428,7 @@ return (
             <button className="go-back-btn" onClick={() => navigate(`/team/${teamId}`)}>
                 ← Back to Team
             </button>
-            <h1>Game History</h1>
+            <h1 className="tutorial-history-title">Game History</h1>
         </div>
 
         {/* TOGGLE */}

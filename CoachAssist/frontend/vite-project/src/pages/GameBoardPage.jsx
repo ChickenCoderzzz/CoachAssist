@@ -113,7 +113,7 @@ export default function GameBoardPage() {
         >
           ← Back to Game
         </button>
-        <h1>Game Boards</h1>
+        <h1 className="tutorial-gameboard-title">Game Boards</h1>
       </div>
 
       <div className="dashboard-container">

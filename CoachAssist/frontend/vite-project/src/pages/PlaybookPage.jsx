@@ -100,7 +100,7 @@ export default function PlaybookPage() {
         >
           ← Back to Team
         </button>
-        <h1>Playbook</h1>
+        <h1 className="tutorial-playbook-title">Playbook</h1>
       </div>
 
       <div className="dashboard-container">

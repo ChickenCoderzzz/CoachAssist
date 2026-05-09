@@ -1,0 +1,77 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  margin: 0 0 var(--space-3) 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Shared confirm-dialog buttons (used across delete confirmations app-wide) */
+.confirm-yes {
+  background: var(--confirm-bg);
+  border: 2px solid var(--border-strong);
+  padding: 6px 16px;
+  margin-top: var(--space-3);
+  font-weight: bold;
+}
+
+.confirm-cancel {
+  background: var(--cancel-bg);
+  border: 2px solid var(--border-strong);
+  padding: 6px 16px;
+  margin-top: var(--space-2);
+  font-weight: bold;
+}
+
+/* Role badges (used in invites + team member lists) */
+.role-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-xs);
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-left: var(--space-2);
+  vertical-align: middle;
+}
+
+.role-badge.editor {
+  background: var(--accent-blue);
+}
+
+.role-badge.viewer {
+  background: var(--border-default);
+}

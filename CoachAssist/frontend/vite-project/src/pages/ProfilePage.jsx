@@ -25,7 +25,7 @@ export default function ProfilePage() {
         />
 
         {/* Display user information */}
-        <h2 style={{ color: "white", marginBottom: "20px" }}>
+        <h2 className="tutorial-profile-title" style={{ color: "white", marginBottom: "20px" }}>
           Profile
         </h2>
 

@@ -26,6 +26,7 @@ import GameBoardPage from "./pages/GameBoardPage.jsx";
 import Navbar from "./components/Navbar.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import GuidedTour from "./components/GuidedTour.jsx";
+import HelpButton from "./components/HelpButton.jsx";
 
 function App() {
   // Get current location
@@ -38,7 +39,6 @@ function App() {
     "/login",
     "/signup",
     "/verify-email",
-    "/verify-email",
     "/forgotpassword",
   ];
 
@@ -49,6 +49,7 @@ function App() {
     <>
       <GuidedTour />
       {!shouldHideNavbar && <Navbar />}
+      {!shouldHideNavbar && <HelpButton />}
 
       <Routes>
         <Route path="/" element={<LandingPage />} />

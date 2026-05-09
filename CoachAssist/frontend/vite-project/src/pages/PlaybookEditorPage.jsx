@@ -21,7 +21,7 @@ export default function PlaybookEditorPage() {
   const canEdit = userRole === "owner" || userRole === "editor";
 
   return (
-    <div style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
+    <div className="tutorial-playbook-editor" style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
       <button
         className="add-team-btn"
         onClick={() => navigate(`/team/${teamId}/playbook`)}

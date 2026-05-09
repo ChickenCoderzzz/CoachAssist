@@ -342,7 +342,7 @@ export default function EditRosterPage() {
     <div className="edit-roster-page">
 
       {/* Page Title */}
-      <h2>View / Edit Roster</h2>
+      <h2 className="tutorial-roster-title">View / Edit Roster</h2>
 
       {/* UNIT TABS */}
       <div className="unit-buttons">

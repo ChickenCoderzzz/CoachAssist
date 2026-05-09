@@ -168,7 +168,7 @@ export default function TeamCalendarPage() {
     <div className="calendar-page">
       {/* Header */}
       <div className="calendar-header">
-        <h1>Team Calendar</h1>
+        <h1 className="tutorial-calendar-title">Team Calendar</h1>
         <button className="add-team-btn" onClick={() => navigate(`/team/${teamId}`)}>
           ← Back to Team
         </button>

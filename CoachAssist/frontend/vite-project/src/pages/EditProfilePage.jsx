@@ -59,7 +59,7 @@ export default function EditProfilePage() {
           style={{ width: "140px", marginBottom: "20px" }}
         />
 
-        <h2 style={{ color: "white", marginBottom: "20px" }}>
+        <h2 className="tutorial-edit-profile-title" style={{ color: "white", marginBottom: "20px" }}>
           Change Password
         </h2>
 
