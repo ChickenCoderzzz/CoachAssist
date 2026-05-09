@@ -2,6 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import "../styles/teams.css";
+import {
+  getDefaultTutorialForPath,
+  notifyTutorialUnavailable,
+  requestTutorialReplay,
+} from "../tutorial/tutorialSteps";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -78,25 +83,14 @@ export default function Navbar() {
     }
   };
 
-  const clearCurrentPageTutorialKey = () => {
-    const path = window.location.pathname;
-
-    if (path === "/dashboard") {
-      localStorage.removeItem("coachassist_tutorial_dashboard_seen");
-      return true;
+  const replayCurrentPageTutorial = () => {
+    const tutorial = getDefaultTutorialForPath(window.location.pathname);
+    if (!tutorial) {
+      notifyTutorialUnavailable("No guided tutorial is available here yet. Opening the Tutorial hub.");
+      navigate("/tutorial");
+      return;
     }
-
-    if (/^\/team\/[^/]+$/.test(path)) {
-      localStorage.removeItem("coachassist_tutorial_team_seen");
-      return true;
-    }
-
-    if (/^\/team\/[^/]+\/match\/[^/]+$/.test(path)) {
-      localStorage.removeItem("coachassist_tutorial_analyze_seen");
-      return true;
-    }
-
-    return false;
+    requestTutorialReplay(tutorial.id);
   };
 
   return (
@@ -148,10 +142,7 @@ export default function Navbar() {
           cursor: "pointer",
         }}
         onClick={() => {
-          const cleared = clearCurrentPageTutorialKey();
-          if (cleared) {
-            window.location.reload();
-          }
+          replayCurrentPageTutorial();
         }}
       >
         Tutorial

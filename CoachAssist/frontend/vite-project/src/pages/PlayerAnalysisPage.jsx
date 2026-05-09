@@ -104,12 +104,26 @@ export default function PlayerAnalysisPage() {
   const [gameDataError, setGameDataError] = useState("");
   const [selectedMatchMeta, setSelectedMatchMeta] = useState(null);
   const [selectedGameState, setSelectedGameState] = useState(null);
+  const [selectedGameMetrics, setSelectedGameMetrics] = useState(null);
   const [selectedGameUnits, setSelectedGameUnits] = useState({ offense: [], defense: [], special: [] });
   const [gameAiResult, setGameAiResult] = useState(null);
   const [gameSelectedQuarters, setGameSelectedQuarters] = useState(["all"]);
   const [showGameQuarterDropdown, setShowGameQuarterDropdown] = useState(false);
   const [gameLoadingAI, setGameLoadingAI] = useState(false);
   const [gameSaveMessage, setGameSaveMessage] = useState("");
+  const [comparisonGameOneId, setComparisonGameOneId] = useState("");
+  const [comparisonGameTwoId, setComparisonGameTwoId] = useState("");
+  const [comparisonType, setComparisonType] = useState("games");
+  const [comparisonUnit, setComparisonUnit] = useState("offense");
+  const [comparisonPlayers, setComparisonPlayers] = useState([]);
+  const [comparisonPlayerOneId, setComparisonPlayerOneId] = useState("");
+  const [comparisonPlayerTwoId, setComparisonPlayerTwoId] = useState("");
+  const [comparisonGameScope, setComparisonGameScope] = useState("all");
+  const [comparisonSelectedGameIds, setComparisonSelectedGameIds] = useState([]);
+  const [showComparisonGameDropdown, setShowComparisonGameDropdown] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState(null);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [comparisonError, setComparisonError] = useState("");
 
   // ================= SAVED GAME ANALYSIS =================
   const [savedGameList, setSavedGameList] = useState([]);
@@ -171,7 +185,7 @@ export default function PlayerAnalysisPage() {
   }, [mode, teamId]);
 
   useEffect(() => {
-    if (mode === "game") {
+    if (mode === "game" || mode === "comparison") {
       setMatchesLoading(true);
       fetch(`/teams/${teamId}/matches`, {
         headers: authHeaders,
@@ -181,6 +195,48 @@ export default function PlayerAnalysisPage() {
         .finally(() => setMatchesLoading(false));
     }
   }, [mode, teamId]);
+
+  useEffect(() => {
+    if (!(mode === "comparison" && comparisonType === "players")) return;
+
+    fetch(`/teams/${teamId}/players?unit=${comparisonUnit}`, {
+      headers: authHeaders,
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const activePlayers = (data || []).filter((p) => p.is_active);
+        const uniquePlayersMap = {};
+
+        activePlayers.forEach((p) => {
+          const key = p.athlete_id;
+          if (!uniquePlayersMap[key]) {
+            uniquePlayersMap[key] = p;
+          }
+        });
+
+        const uniquePlayers = Object.values(uniquePlayersMap);
+        const sorted = uniquePlayers.sort((a, b) => {
+          if ((b.is_priority ? 1 : 0) !== (a.is_priority ? 1 : 0)) {
+            return (b.is_priority ? 1 : 0) - (a.is_priority ? 1 : 0);
+          }
+          return a.id - b.id;
+        });
+
+        setComparisonPlayers(sorted);
+      });
+  }, [mode, comparisonType, comparisonUnit, teamId]);
+
+  useEffect(() => {
+    if (mode !== "comparison") return;
+    if (comparisonType !== "players") return;
+
+    if (comparisonGameScope === "all") {
+      setComparisonSelectedGameIds([]);
+      return;
+    }
+
+    setComparisonSelectedGameIds(sortedMatches.map((m) => m.id));
+  }, [mode, comparisonType, comparisonGameScope]);
 
   useEffect(() => {
     if (mode === "saved-game") {
@@ -492,81 +548,107 @@ export default function PlayerAnalysisPage() {
     });
   };
 
+  const fetchGameAnalysisDataset = async (matchId) => {
+    const includeAll =
+      gameSelectedQuarters.length === 0 ||
+      gameSelectedQuarters.includes("all");
+
+    const [matchResResult, gameStateResResult, metricsResResult] = await Promise.allSettled([
+      fetch(`/teams/matches/${matchId}`, { headers: authHeaders }),
+      fetch(`/games/${matchId}/state`, { headers: authHeaders }),
+      fetch(`/games/${matchId}/metrics`, { headers: authHeaders }),
+    ]);
+
+    if (
+      matchResResult.status !== "fulfilled" ||
+      gameStateResResult.status !== "fulfilled" ||
+      !matchResResult.value.ok ||
+      !gameStateResResult.value.ok
+    ) {
+      throw new Error("Failed to fetch game details.");
+    }
+
+    const matchJson = await matchResResult.value.json();
+    const gameStateJson = await gameStateResResult.value.json();
+    let gameMetricsJson = null;
+
+    if (metricsResResult.status === "fulfilled" && metricsResResult.value.ok) {
+      try {
+        const metricsData = await metricsResResult.value.json();
+        gameMetricsJson = metricsData?.metrics || null;
+      } catch {
+        gameMetricsJson = null;
+      }
+    }
+
+    const unitsPayload = { offense: [], defense: [], special: [] };
+
+    for (const unitName of ["offense", "defense", "special"]) {
+      const playersRes = await fetch(`/teams/${teamId}/players?unit=${unitName}`, {
+        headers: authHeaders,
+      });
+
+      const unitPlayers = playersRes.ok ? await playersRes.json() : [];
+
+      const playerRows = await Promise.all(
+        (unitPlayers || []).map(async (p) => {
+          const insightRes = await fetch(`/games/${matchId}/players/${p.id}`, {
+            headers: authHeaders,
+          });
+
+          let insightData = { stats: {}, notes: [] };
+          if (insightRes.ok) {
+            insightData = await insightRes.json();
+          }
+
+          return {
+            player: {
+              id: p.id,
+              name: p.player_name,
+              position: p.position,
+              jersey_number: p.jersey_number,
+            },
+            stats: Array.isArray(insightData.stats)
+              ? insightData.stats[0] || {}
+              : (typeof insightData.stats === "object" && insightData.stats !== null
+                  ? insightData.stats
+                  : {}),
+            notes: Array.isArray(insightData.notes)
+              ? insightData.notes.filter(
+                  (n) =>
+                    includeAll ||
+                    gameSelectedQuarters.includes(n?.quarter || "")
+                )
+              : [],
+          };
+        })
+      );
+
+      unitsPayload[unitName] = playerRows;
+    }
+
+    return {
+      game: matchJson.match || null,
+      gameState: gameStateJson || {},
+      gameMetrics: gameMetricsJson,
+      units: unitsPayload,
+    };
+  };
+
   const loadGameData = async (match) => {
     setSelectedMatch(match);
     setGameAiResult(null);
     setGameSaveMessage("");
     setGameDataError("");
+    setSelectedGameMetrics(null);
     setGameDataLoading(true);
 
-    const includeAll =
-      gameSelectedQuarters.length === 0 ||
-      gameSelectedQuarters.includes("all");
-
     try {
-      const [matchRes, gameStateRes] = await Promise.all([
-        fetch(`/teams/matches/${match.id}`, { headers: authHeaders }),
-        fetch(`/games/${match.id}/state`, { headers: authHeaders }),
-      ]);
-
-      if (!matchRes.ok || !gameStateRes.ok) {
-        throw new Error("Failed to fetch game details.");
-      }
-
-      const matchJson = await matchRes.json();
-      const gameStateJson = await gameStateRes.json();
-
-      const unitsPayload = { offense: [], defense: [], special: [] };
-
-      for (const unitName of ["offense", "defense", "special"]) {
-        const playersRes = await fetch(`/teams/${teamId}/players?unit=${unitName}`, {
-          headers: authHeaders,
-        });
-
-        const unitPlayers = playersRes.ok ? await playersRes.json() : [];
-
-        const playerRows = await Promise.all(
-          (unitPlayers || []).map(async (p) => {
-            const insightRes = await fetch(`/games/${match.id}/players/${p.id}`, {
-              headers: authHeaders,
-            });
-
-            let insightData = { stats: {}, notes: [] };
-            if (insightRes.ok) {
-              insightData = await insightRes.json();
-            }
-
-            return {
-              player: {
-                id: p.id,
-                name: p.player_name,
-                position: p.position,
-                jersey_number: p.jersey_number,
-              },
-
-              stats: Array.isArray(insightData.stats)
-                ? insightData.stats[0] || {}
-                : (typeof insightData.stats === "object" && insightData.stats !== null
-                    ? insightData.stats
-                    : {}),
-
-              notes: Array.isArray(insightData.notes)
-                ? insightData.notes.filter(
-                    (n) =>
-                      includeAll ||
-                      gameSelectedQuarters.includes(n?.quarter || "")
-                  )
-                : [],
-            };
-          })
-        );
-
-        unitsPayload[unitName] = playerRows;
-      }
-
-      setSelectedMatchMeta(matchJson.match || match);
-      setSelectedGameState(gameStateJson || {});
-      setSelectedGameUnits(unitsPayload);
+      const gameData = await fetchGameAnalysisDataset(match.id);
+      setSelectedMatchMeta(gameData.game || match);
+      setSelectedGameState(gameData.gameState);
+      setSelectedGameMetrics(gameData.gameMetrics);
+      setSelectedGameUnits(gameData.units);
     } catch (err) {
       console.error("LOAD GAME DATA ERROR:", err);
       setGameDataError("Failed to load game analysis data.");
@@ -575,12 +657,10 @@ export default function PlayerAnalysisPage() {
     }
   };
 
-  const buildGamePayload = () => {
+  const buildGamePayloadFromData = ({ game, gameState, gameMetrics, units }) => {
     const includeAll =
       gameSelectedQuarters.length === 0 ||
       gameSelectedQuarters.includes("all");
-
-    const game = selectedMatchMeta || selectedMatch;
 
     //  Helper to filter stats
     const filterStats = (statsObj) => {
@@ -607,6 +687,40 @@ export default function PlayerAnalysisPage() {
       );
     };
 
+    const filterGameMetrics = () => {
+      if (!gameMetrics || typeof gameMetrics !== "object") {
+        return null;
+      }
+
+      const quarterOrder = ["Q1", "Q2", "Q3", "Q4"];
+      const filtered = {};
+
+      if (
+        gameMetrics.overall &&
+        typeof gameMetrics.overall === "object" &&
+        Object.keys(gameMetrics.overall).length > 0
+      ) {
+        filtered.overall = gameMetrics.overall;
+      }
+
+      quarterOrder.forEach((quarter) => {
+        if (!includeAll && !gameSelectedQuarters.includes(quarter)) {
+          return;
+        }
+
+        const quarterMetrics = gameMetrics?.[quarter];
+        if (
+          quarterMetrics &&
+          typeof quarterMetrics === "object" &&
+          Object.keys(quarterMetrics).length > 0
+        ) {
+          filtered[quarter] = quarterMetrics;
+        }
+      });
+
+      return Object.keys(filtered).length > 0 ? filtered : null;
+    };
+
     return {
       game: {
         id: game?.id,
@@ -620,28 +734,29 @@ export default function PlayerAnalysisPage() {
 
       //  Filtered game state
       game_state: {
-        "Game State": (selectedGameState?.["Game State"] || []).filter(
+        "Game State": (gameState?.["Game State"] || []).filter(
           (g) =>
             includeAll ||
             gameSelectedQuarters.includes(g?.quarter || "")
         ),
       },
+      game_metrics: filterGameMetrics(),
 
       //  Filtered units
       units: {
-        offense: (selectedGameUnits.offense || []).map((p) => ({
+        offense: (units?.offense || []).map((p) => ({
           ...p,
           stats: filterStats(p.stats),
           notes: filterNotes(p.notes),
         })),
 
-        defense: (selectedGameUnits.defense || []).map((p) => ({
+        defense: (units?.defense || []).map((p) => ({
           ...p,
           stats: filterStats(p.stats),
           notes: filterNotes(p.notes),
         })),
 
-        special: (selectedGameUnits.special || []).map((p) => ({
+        special: (units?.special || []).map((p) => ({
           ...p,
           stats: filterStats(p.stats),
           notes: filterNotes(p.notes),
@@ -650,11 +765,21 @@ export default function PlayerAnalysisPage() {
 
       //  Summary metrics (already filtered upstream via notes logic)
       summary_metrics: {
-        offense: aggregateUnitStats(selectedGameUnits.offense || []),
-        defense: aggregateUnitStats(selectedGameUnits.defense || []),
-        special: aggregateUnitStats(selectedGameUnits.special || []),
+        offense: aggregateUnitStats(units?.offense || []),
+        defense: aggregateUnitStats(units?.defense || []),
+        special: aggregateUnitStats(units?.special || []),
       },
     };
+  };
+
+  const buildGamePayload = () => {
+    const game = selectedMatchMeta || selectedMatch;
+    return buildGamePayloadFromData({
+      game,
+      gameState: selectedGameState,
+      gameMetrics: selectedGameMetrics,
+      units: selectedGameUnits,
+    });
   };
 
   const runGameAIAnalysis = async () => {
@@ -698,6 +823,252 @@ export default function PlayerAnalysisPage() {
       console.error("GAME AI ERROR:", err);
     } finally {
       setGameLoadingAI(false);
+    }
+  };
+
+  const fetchPlayerHistoryData = async (playerId) => {
+    const res = await fetch(`/players/${playerId}/history`, {
+      headers: authHeaders,
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch player history.");
+    }
+
+    return res.json();
+  };
+
+  const buildPlayerComparisonSidePayload = (player, history) => {
+    const selectedGameSet =
+      comparisonGameScope === "selected"
+        ? new Set((comparisonSelectedGameIds || []).map((id) => Number(id)))
+        : null;
+
+    const games = (history?.games || []).filter((g) => {
+      if (!selectedGameSet) return true;
+      return selectedGameSet.has(Number(g.id));
+    });
+
+    const statsByGame = Array.isArray(history?.stats_by_game)
+      ? history.stats_by_game
+      : [];
+    const notes = Array.isArray(history?.notes)
+      ? history.notes
+      : [];
+
+    const gameRows = games.map((game) => {
+      const gameStatsRows = statsByGame.filter(
+        (s) => Number(s.game_id) === Number(game.id)
+      );
+      const gameNotesRows = notes.filter(
+        (n) => Number(n.game_id) === Number(game.id)
+      );
+
+      const totals = gameStatsRows.reduce((acc, row) => {
+        Object.entries(row).forEach(([key, value]) => {
+          if (
+            ["id", "player_id", "game_id", "quarter", "created_at"].includes(key)
+          ) {
+            return;
+          }
+          acc[key] = (acc[key] || 0) + Number(value || 0);
+        });
+        return acc;
+      }, {});
+
+      const quarters = gameStatsRows.reduce((acc, row) => {
+        const quarter = row?.quarter;
+        if (!quarter) return acc;
+
+        const quarterStats = {};
+        Object.entries(row).forEach(([key, value]) => {
+          if (
+            ["id", "player_id", "game_id", "quarter", "created_at"].includes(key)
+          ) {
+            return;
+          }
+          quarterStats[key] = Number(value || 0);
+        });
+
+        acc[quarter] = quarterStats;
+        return acc;
+      }, {});
+
+      const insights = gameNotesRows.map((n) => ({
+        note: n.note,
+        time: n.time,
+        quarter: n.quarter,
+        opponent: n.opponent,
+        date: n.game_date,
+      }));
+
+      return {
+        game_id: game.id,
+        opponent: game.opponent,
+        date: game.game_date,
+        team_score: game.team_score,
+        opponent_score: game.opponent_score,
+        totals,
+        quarters,
+        insights,
+      };
+    });
+
+    return {
+      player: {
+        id: player.id,
+        name: player.player_name,
+        jersey_number: player.jersey_number,
+        position: player.position,
+        unit: player.unit,
+      },
+      games: gameRows,
+    };
+  };
+
+  const runComparisonAIAnalysis = async () => {
+    if (comparisonType === "players") {
+      const playerOneId = Number(comparisonPlayerOneId);
+      const playerTwoId = Number(comparisonPlayerTwoId);
+
+      if (!playerOneId || !playerTwoId || playerOneId === playerTwoId) {
+        setComparisonError("Please select two different players.");
+        return;
+      }
+
+      if (
+        comparisonGameScope === "selected" &&
+        (!comparisonSelectedGameIds || comparisonSelectedGameIds.length === 0)
+      ) {
+        setComparisonError("Select at least one game for the selected game scope.");
+        return;
+      }
+
+      const playerOne = comparisonPlayers.find((p) => Number(p.id) === playerOneId);
+      const playerTwo = comparisonPlayers.find((p) => Number(p.id) === playerTwoId);
+
+      if (!playerOne || !playerTwo) {
+        setComparisonError("Selected players are unavailable for this unit.");
+        return;
+      }
+
+      setComparisonLoading(true);
+      setComparisonError("");
+      setComparisonResult(null);
+
+      try {
+        const [playerOneHistory, playerTwoHistory] = await Promise.all([
+          fetchPlayerHistoryData(playerOneId),
+          fetchPlayerHistoryData(playerTwoId),
+        ]);
+
+        const payload = {
+          player_one: buildPlayerComparisonSidePayload(playerOne, playerOneHistory),
+          player_two: buildPlayerComparisonSidePayload(playerTwo, playerTwoHistory),
+        };
+
+        const res = await fetch("http://127.0.0.1:8000/ai/compare-players", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...authHeaders,
+          },
+          body: JSON.stringify({
+            team_id: Number(teamId),
+            player_one_id: playerOneId,
+            player_two_id: playerTwoId,
+            payload,
+          }),
+        });
+
+        let data = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+
+        if (!res.ok) {
+          setComparisonError("Failed to generate comparison.");
+          return;
+        }
+
+        setComparisonResult(data?.comparison || "No comparison available.");
+      } catch (err) {
+        console.error("COMPARE PLAYERS ERROR:", err);
+        setComparisonError("Failed to generate comparison.");
+      } finally {
+        setComparisonLoading(false);
+      }
+
+      return;
+    }
+
+    const gameOneId = Number(comparisonGameOneId);
+    const gameTwoId = Number(comparisonGameTwoId);
+
+    if (!gameOneId || !gameTwoId || gameOneId === gameTwoId) {
+      setComparisonError("Please select two different games.");
+      return;
+    }
+
+    setComparisonLoading(true);
+    setComparisonError("");
+    setComparisonResult(null);
+
+    try {
+      const [gameOneData, gameTwoData] = await Promise.all([
+        fetchGameAnalysisDataset(gameOneId),
+        fetchGameAnalysisDataset(gameTwoId),
+      ]);
+
+      const payload = {
+        game_one: buildGamePayloadFromData({
+          game: gameOneData.game,
+          gameState: gameOneData.gameState,
+          gameMetrics: gameOneData.gameMetrics,
+          units: gameOneData.units,
+        }),
+        game_two: buildGamePayloadFromData({
+          game: gameTwoData.game,
+          gameState: gameTwoData.gameState,
+          gameMetrics: gameTwoData.gameMetrics,
+          units: gameTwoData.units,
+        }),
+      };
+
+      const res = await fetch("http://127.0.0.1:8000/ai/compare-games", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders,
+        },
+        body: JSON.stringify({
+          team_id: Number(teamId),
+          game_one_id: gameOneId,
+          game_two_id: gameTwoId,
+          payload,
+        }),
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (!res.ok) {
+        setComparisonError("Failed to generate comparison.");
+        return;
+      }
+
+      setComparisonResult(data?.comparison || "No comparison available.");
+    } catch (err) {
+      console.error("COMPARE GAMES ERROR:", err);
+      setComparisonError("Failed to generate comparison.");
+    } finally {
+      setComparisonLoading(false);
     }
   };
 
@@ -751,32 +1122,78 @@ export default function PlayerAnalysisPage() {
     (a, b) => new Date(b.game_date) - new Date(a.game_date)
   );
 
+  const metricMetaFields = ["id", "game_id", "quarter", "created_at"];
+  const metricsQuarterOrder = ["Q1", "Q2", "Q3", "Q4"];
+  const includeAllGameQuarters =
+    gameSelectedQuarters.length === 0 ||
+    gameSelectedQuarters.includes("all");
+  const visibleMetricQuarters = metricsQuarterOrder.filter(
+    (quarter) => includeAllGameQuarters || gameSelectedQuarters.includes(quarter)
+  );
+  const overallMetrics = selectedGameMetrics?.overall || {};
+  const quarterMetricsForDisplay = visibleMetricQuarters
+    .map((quarter) => ({
+      quarter,
+      values: selectedGameMetrics?.[quarter] || {},
+    }))
+    .filter((row) =>
+      Object.keys(row.values).some((key) => !metricMetaFields.includes(key))
+    );
+  const metricKeysForDisplay = Array.from(
+    new Set([
+      ...Object.keys(overallMetrics).filter((key) => !metricMetaFields.includes(key)),
+      ...quarterMetricsForDisplay.flatMap((row) =>
+        Object.keys(row.values).filter((key) => !metricMetaFields.includes(key))
+      ),
+    ])
+  ).sort();
+  const hasGameMetrics =
+    metricKeysForDisplay.length > 0 || quarterMetricsForDisplay.length > 0;
+  const selectedComparisonPlayerOne = comparisonPlayers.find(
+    (p) => Number(p.id) === Number(comparisonPlayerOneId)
+  );
+  const selectedComparisonPlayerTwo = comparisonPlayers.find(
+    (p) => Number(p.id) === Number(comparisonPlayerTwoId)
+  );
+  const comparisonPositionsDiffer =
+    comparisonType === "players" &&
+    selectedComparisonPlayerOne &&
+    selectedComparisonPlayerTwo &&
+    selectedComparisonPlayerOne.position !== selectedComparisonPlayerTwo.position;
+
   return (
     <div className="player-analysis-page">
-      <div className="top-buttons">
+      <div className="top-buttons tutorial-ai-tabs">
         <button
-          className={`top-btn ${mode === "analyze" ? "active" : ""}`}
+          className={`top-btn tutorial-player-analysis-tab ${mode === "analyze" ? "active" : ""}`}
           onClick={() => setMode("analyze")}
         >
           Player Analysis
         </button>
 
         <button
-          className={`top-btn ${mode === "game" ? "active" : ""}`}
+          className={`top-btn tutorial-game-ai-tab ${mode === "game" ? "active" : ""}`}
           onClick={() => setMode("game")}
         >
           Game Analysis
         </button>
 
         <button
-          className={`top-btn ${mode === "saved-player" ? "active" : ""}`}
+          className={`top-btn tutorial-comparison-tab ${mode === "comparison" ? "active" : ""}`}
+          onClick={() => setMode("comparison")}
+        >
+          AI Comparison
+        </button>
+
+        <button
+          className={`top-btn tutorial-saved-player-tab ${mode === "saved-player" ? "active" : ""}`}
           onClick={() => setMode("saved-player")}
         >
           Saved Player Analysis
         </button>
 
         <button
-          className={`top-btn ${mode === "saved-game" ? "active" : ""}`}
+          className={`top-btn tutorial-saved-game-tab ${mode === "saved-game" ? "active" : ""}`}
           onClick={() => setMode("saved-game")}
         >
           Saved Game Analysis
@@ -793,7 +1210,7 @@ export default function PlayerAnalysisPage() {
             <>
               <h2>Select Player</h2>
 
-              <div className="unit-buttons">
+              <div className="unit-buttons tutorial-player-unit-filter">
                 {["offense", "defense", "special"].map((u) => (
                   <button
                     key={u}
@@ -805,7 +1222,10 @@ export default function PlayerAnalysisPage() {
                 ))}
               </div>
 
-              <div className="table-container">
+              <div className="table-container tutorial-player-select-table">
+                {players.length === 0 && (
+                  <p className="tutorial-player-empty">No active players found for this unit.</p>
+                )}
                 <table className="player-table white-bg">
                   <thead className={`table-header-${unit}`}>
                     <tr>
@@ -1069,7 +1489,7 @@ export default function PlayerAnalysisPage() {
               </div>
 
               <div className="ai-button-wrapper">
-                <button className="ai-button" onClick={runAIAnalysis}>
+                <button className="ai-button tutorial-analysis-run" onClick={runAIAnalysis}>
                   Analyze Player with AI
                 </button>
               </div>
@@ -1112,7 +1532,7 @@ export default function PlayerAnalysisPage() {
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button className="save-analysis-btn" onClick={saveAnalysis} disabled={!aiResult}>
+                    <button className="save-analysis-btn tutorial-analysis-save" onClick={saveAnalysis} disabled={!aiResult}>
                       Save Analysis
                     </button>
 
@@ -1130,7 +1550,7 @@ export default function PlayerAnalysisPage() {
       )}
 
       {mode === "game" && (
-        <div className="saved-container game-analysis-shell">
+        <div className="saved-container game-analysis-shell tutorial-game-ai-section">
           <h2>Game Analysis</h2>
 
           {!selectedMatch && (
@@ -1140,7 +1560,10 @@ export default function PlayerAnalysisPage() {
               {matchesLoading ? (
                 <p>Loading games...</p>
               ) : (
-                <div className="table-scroll-container">
+                <div className="table-scroll-container tutorial-game-ai-list">
+                  {sortedMatches.length === 0 && (
+                    <p className="tutorial-game-ai-empty">No games are available yet.</p>
+                  )}
                   <table className="player-table white-bg">
                     <thead className="insights-header">
                       <tr>
@@ -1184,6 +1607,7 @@ export default function PlayerAnalysisPage() {
                   setSelectedMatch(null);
                   setSelectedMatchMeta(null);
                   setSelectedGameState(null);
+                  setSelectedGameMetrics(null);
                   setSelectedGameUnits({ offense: [], defense: [], special: [] });
                   setGameAiResult(null);
                   setGameDataError("");
@@ -1344,10 +1768,44 @@ export default function PlayerAnalysisPage() {
                           Offensive, defensive, and special teams insights are derived from player stats and notes for this selected game.
                         </p>
                       </div>
+
+                      <div className="game-analysis-card">
+                        <h3>Game Metrics</h3>
+                        {!hasGameMetrics ? (
+                          <p className="table-desc">No game metrics recorded for this game.</p>
+                        ) : (
+                          <div className="table-scroll-container">
+                            <table className="player-table white-bg">
+                              <thead className="insights-header">
+                                <tr>
+                                  <th>Metric</th>
+                                  <th>Overall</th>
+                                  {quarterMetricsForDisplay.map((row) => (
+                                    <th key={`metric-quarter-${row.quarter}`}>{row.quarter}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {metricKeysForDisplay.map((metricKey) => (
+                                  <tr key={`metric-key-${metricKey}`}>
+                                    <td>{metricKey.replace(/_/g, " ")}</td>
+                                    <td>{overallMetrics?.[metricKey] ?? "—"}</td>
+                                    {quarterMetricsForDisplay.map((row) => (
+                                      <td key={`metric-cell-${metricKey}-${row.quarter}`}>
+                                        {row.values?.[metricKey] ?? "—"}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="ai-button-wrapper game-analysis-action">
-                      <button className="ai-button" onClick={runGameAIAnalysis}>
+                      <button className="ai-button tutorial-game-ai-run" onClick={runGameAIAnalysis}>
                         Analyze Game with AI
                       </button>
                     </div>
@@ -1380,7 +1838,7 @@ export default function PlayerAnalysisPage() {
 
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                           <button
-                            className="save-analysis-btn"
+                            className="save-analysis-btn tutorial-game-ai-save"
                             onClick={saveGameAnalysis}
                             disabled={!gameAiResult}
                           >
@@ -1399,6 +1857,278 @@ export default function PlayerAnalysisPage() {
                 )}
               </div>
             </>
+          )}
+        </div>
+      )}
+
+      {mode === "comparison" && (
+        <div className="saved-container game-analysis-shell">
+          <h2>AI Comparison</h2>
+          <p className="table-desc">
+            Compare games or players side-by-side to understand what changed in performance.
+          </p>
+
+          {matchesLoading ? (
+            <p>Loading games...</p>
+          ) : (
+            <div className="game-analysis-selected">
+              <div className="game-analysis-card tutorial-comparison-type">
+                <h3>Comparison Type</h3>
+                <div className="unit-buttons" style={{ marginBottom: 0 }}>
+                  <button
+                    className={`unit-btn ${comparisonType === "games" ? "active" : ""}`}
+                    onClick={() => {
+                      setComparisonType("games");
+                      setComparisonError("");
+                      setComparisonResult(null);
+                    }}
+                  >
+                    Compare Games
+                  </button>
+                  <button
+                    className={`unit-btn ${comparisonType === "players" ? "active" : ""}`}
+                    onClick={() => {
+                      setComparisonType("players");
+                      setComparisonError("");
+                      setComparisonResult(null);
+                    }}
+                  >
+                    Compare Players
+                  </button>
+                </div>
+              </div>
+
+              {comparisonType === "games" && (
+                <>
+              <div className="game-analysis-card tutorial-comparison-selectors">
+                <h3>Select Games to Compare</h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "12px", marginTop: "10px" }}>
+                  <div>
+                    <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Select Game 1</label>
+                    <select
+                      value={comparisonGameOneId}
+                      onChange={(e) => {
+                        setComparisonGameOneId(e.target.value);
+                        setComparisonError("");
+                      }}
+                      style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                    >
+                      <option value="">Choose a game</option>
+                      {sortedMatches.map((m) => (
+                        <option key={`comparison-game-one-${m.id}`} value={m.id}>
+                          {m.game_date} | {m.name} vs {m.opponent}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Select Game 2</label>
+                    <select
+                      value={comparisonGameTwoId}
+                      onChange={(e) => {
+                        setComparisonGameTwoId(e.target.value);
+                        setComparisonError("");
+                      }}
+                      style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                    >
+                      <option value="">Choose a game</option>
+                      {sortedMatches.map((m) => (
+                        <option key={`comparison-game-two-${m.id}`} value={m.id}>
+                          {m.game_date} | {m.name} vs {m.opponent}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+                </>
+              )}
+
+              {comparisonType === "players" && (
+                <div className="game-analysis-card tutorial-comparison-selectors">
+                  <h3>Select Players to Compare</h3>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px", marginTop: "10px" }}>
+                    <div>
+                      <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Unit</label>
+                      <select
+                        value={comparisonUnit}
+                        onChange={(e) => {
+                          setComparisonUnit(e.target.value);
+                          setComparisonPlayerOneId("");
+                          setComparisonPlayerTwoId("");
+                          setComparisonError("");
+                        }}
+                        style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                      >
+                        <option value="offense">Offense</option>
+                        <option value="defense">Defense</option>
+                        <option value="special">Special</option>
+                      </select>
+                      <p className="table-desc" style={{ marginTop: "6px", marginBottom: 0 }}>
+                        Tip: Comparing players at the same position gives more direct statistical insights.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Player 1</label>
+                      <select
+                        value={comparisonPlayerOneId}
+                        onChange={(e) => {
+                          setComparisonPlayerOneId(e.target.value);
+                          setComparisonError("");
+                        }}
+                        style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                      >
+                        <option value="">Choose player</option>
+                        {comparisonPlayers.map((p) => (
+                          <option key={`comparison-player-one-${p.id}`} value={p.id}>
+                            #{p.jersey_number} {p.player_name} ({p.position})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Player 2</label>
+                      <select
+                        value={comparisonPlayerTwoId}
+                        onChange={(e) => {
+                          setComparisonPlayerTwoId(e.target.value);
+                          setComparisonError("");
+                        }}
+                        style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                      >
+                        <option value="">Choose player</option>
+                        {comparisonPlayers.map((p) => (
+                          <option key={`comparison-player-two-${p.id}`} value={p.id}>
+                            #{p.jersey_number} {p.player_name} ({p.position})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+                    <div>
+                      <label style={{ display: "block", marginBottom: "6px", fontWeight: "bold" }}>Game Scope</label>
+                      <select
+                        value={comparisonGameScope}
+                        onChange={(e) => {
+                          setComparisonGameScope(e.target.value);
+                          setComparisonError("");
+                        }}
+                        style={{ width: "100%", padding: "8px", border: "2px solid black", borderRadius: "8px" }}
+                      >
+                        <option value="all">All Games</option>
+                        <option value="selected">Selected Games</option>
+                      </select>
+                    </div>
+
+                    {comparisonGameScope === "selected" && (
+                      <div className="dropdown-container" style={{ marginTop: 0 }}>
+                        <button
+                          className="dropdown-btn"
+                          onClick={() => setShowComparisonGameDropdown((prev) => !prev)}
+                        >
+                          Select Games ({comparisonSelectedGameIds.length}) ▼
+                        </button>
+
+                        {showComparisonGameDropdown && (
+                          <div className="dropdown-menu">
+                            <label className="dropdown-item">
+                              <input
+                                type="checkbox"
+                                checked={comparisonSelectedGameIds.length === sortedMatches.length}
+                                onChange={() => {
+                                  setComparisonSelectedGameIds((prev) =>
+                                    prev.length === sortedMatches.length ? [] : sortedMatches.map((m) => m.id)
+                                  );
+                                }}
+                              />
+                              All Games
+                            </label>
+
+                            <div className="dropdown-divider" />
+
+                            {sortedMatches.map((m) => (
+                              <label key={`comparison-scope-game-${m.id}`} className="dropdown-item">
+                                <input
+                                  type="checkbox"
+                                  checked={comparisonSelectedGameIds.includes(m.id)}
+                                  onChange={() => {
+                                    setComparisonSelectedGameIds((prev) =>
+                                      prev.includes(m.id)
+                                        ? prev.filter((id) => id !== m.id)
+                                        : [...prev, m.id]
+                                    );
+                                  }}
+                                />
+                                {m.game_date} | {m.opponent}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {comparisonPositionsDiffer && (
+                <div
+                  style={{
+                    backgroundColor: "#fff6d8",
+                    border: "1px solid #e0c46a",
+                    borderRadius: "8px",
+                    padding: "10px 12px",
+                    color: "#5f4a00",
+                    fontWeight: 500,
+                  }}
+                >
+                  These players play different positions. Comparison will focus on role-specific performance and observations rather than direct statistical comparison.
+                </div>
+              )}
+
+              <div className="ai-button-wrapper game-analysis-action">
+                <button className="ai-button tutorial-comparison-run" onClick={runComparisonAIAnalysis}>
+                  {comparisonType === "players"
+                    ? "Compare Players with AI"
+                    : "Compare Games with AI"}
+                </button>
+              </div>
+
+              {comparisonError && (
+                <p style={{ color: "#b10000", textAlign: "center" }}>{comparisonError}</p>
+              )}
+
+              {comparisonLoading && (
+                <p style={{ textAlign: "center", marginTop: "10px" }}>
+                  Generating comparison...
+                </p>
+              )}
+
+              {comparisonResult && (
+                <div className="game-analysis-result-card">
+                  <h3>AI Comparison Result</h3>
+                  <div className="ai-analysis-text">
+                    {formatAnalysisText(comparisonResult).map((line, i) => (
+                      <p
+                        key={i}
+                        className={
+                          line.isHeader
+                            ? "ai-header"
+                            : line.isNumbered
+                            ? "ai-numbered"
+                            : "ai-line"
+                        }
+                      >
+                        {line.text}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1447,7 +2177,7 @@ export default function PlayerAnalysisPage() {
 
           <div className="saved-player-layout">
             <div className="saved-list">
-              <div style={{ marginBottom: "10px" }}>
+              <div className="tutorial-saved-player-filters" style={{ marginBottom: "10px" }}>
                 <select
                   value={filterUnit}
                   onChange={(e) => setFilterUnit(e.target.value)}
@@ -1479,6 +2209,11 @@ export default function PlayerAnalysisPage() {
                 />
               </div>
 
+              {savedList.length === 0 && (
+                <p className="tutorial-saved-player-empty">No saved player analysis yet.</p>
+              )}
+
+              <div className="tutorial-saved-player-list">
               {savedList
                 .filter((item) => {
                   const listUnit = getUnit(item.position);
@@ -1534,6 +2269,7 @@ export default function PlayerAnalysisPage() {
                     <small>{new Date(item.created_at).toLocaleString()}</small>
                   </div>
                 ))}
+              </div>
             </div>
 
             <div className="saved-detail">
@@ -1572,7 +2308,10 @@ export default function PlayerAnalysisPage() {
           <h2>Saved Game Analysis</h2>
 
           <div className="saved-player-layout">
-            <div className="saved-list">
+            <div className="saved-list tutorial-saved-game-list">
+              {savedGameList.length === 0 && (
+                <p className="tutorial-saved-game-empty">No saved game analysis yet.</p>
+              )}
               {savedGameList.map((item) => (
                 <div
                   key={item.id}

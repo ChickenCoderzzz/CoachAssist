@@ -82,6 +82,7 @@ def get_players(
 def export_players_pdf(
     team_id: int,
     unit: Optional[UnitType] = None,
+    match_id: Optional[int] = None,
     db=Depends(get_db),
     user=Depends(require_user)
 ):
@@ -93,7 +94,7 @@ def export_players_pdf(
     query = """
         SELECT id, athlete_id, team_id, player_name, jersey_number, unit, position, is_priority, is_active
         FROM indv_players
-        WHERE team_id = %s
+        WHERE team_id = %s AND is_active = TRUE
     """
     params = [team_id]
 
@@ -105,32 +106,338 @@ def export_players_pdf(
 
     cur.execute(query, tuple(params))
     players = cur.fetchall()
+
+    player_ids = [p["id"] for p in players]
+    stats_by_player = {}
+    notes_by_player = {}
+
+    if match_id and player_ids:
+        placeholders = ", ".join(["%s"] * len(player_ids))
+
+        cur.execute(f"""
+            SELECT *
+            FROM player_stats
+            WHERE game_id = %s AND player_id IN ({placeholders})
+        """, [match_id] + player_ids)
+
+        stat_rows = cur.fetchall()
+        excluded_stat_columns = {"id", "player_id", "game_id", "quarter", "created_at"}
+
+        for row in stat_rows:
+            player_id = row["player_id"]
+            player_stats = stats_by_player.setdefault(player_id, {})
+
+            for key, value in row.items():
+                if key in excluded_stat_columns or value is None:
+                    continue
+                player_stats[key] = player_stats.get(key, 0) + value
+
+        cur.execute(f"""
+            SELECT player_id, note, time, quarter
+            FROM player_notes
+            WHERE game_id = %s AND player_id IN ({placeholders})
+            ORDER BY created_at ASC
+        """, [match_id] + player_ids)
+
+        for row in cur.fetchall():
+            note = row.get("note")
+            if not note:
+                continue
+            notes_by_player.setdefault(row["player_id"], []).append(row)
+
     cur.close()
 
-    pdf = FPDF()
+    unit_titles = {
+        "offense": "Offensive Unit Report",
+        "defense": "Defensive Unit Report",
+        "special": "Special Teams Unit Report",
+    }
+
+    def clean_text(value):
+        return str(value or "").encode("latin-1", "replace").decode("latin-1")
+
+    def title_case_name(value):
+        return clean_text(value).strip().title()
+
+    preferred_metric_order = [
+        "snaps_played",
+        "penalties",
+        "turnovers",
+        "touchdowns",
+        "pass_attempts",
+        "pass_completions",
+        "passing_yards",
+        "passing_tds",
+        "interceptions_thrown",
+        "rush_attempts",
+        "rushing_yards",
+        "rushing_tds",
+        "targets",
+        "receptions",
+        "receiving_yards",
+        "receiving_tds",
+        "drops",
+        "lead_blocks",
+        "pass_block_snaps",
+        "run_block_snaps",
+        "sacks_allowed",
+        "bad_snaps",
+        "tackles",
+        "tackles_for_loss",
+        "sacks",
+        "forced_fumbles",
+        "interceptions",
+        "passes_defended",
+        "targets_allowed",
+        "completions_allowed",
+        "field_goals_made",
+        "field_goals_attempted",
+        "extra_points_made",
+        "punts",
+        "punt_yards",
+        "punts_inside_20",
+        "kick_returns",
+        "kick_return_yards",
+        "kick_return_tds",
+        "punt_returns",
+        "punt_return_yards",
+        "punt_return_tds",
+        "total_snaps",
+    ]
+
+    stat_label_overrides = {
+        "snaps_played": "Snaps Played",
+        "penalties": "Penalties",
+        "turnovers": "Turnovers",
+        "touchdowns": "Touchdowns",
+        "passing_tds": "Passing TDs",
+        "rushing_tds": "Rushing TDs",
+        "receiving_tds": "Receiving TDs",
+        "kick_return_tds": "Kick Return TDs",
+        "punt_return_tds": "Punt Return TDs",
+    }
+
+    def format_stat_label(value):
+        if value in stat_label_overrides:
+            return stat_label_overrides[value]
+        return clean_text(value).replace("_", " ").title()
+
+    def ordered_metric_keys(keys):
+        order_lookup = {key: index for index, key in enumerate(preferred_metric_order)}
+        return sorted(keys, key=lambda key: (order_lookup.get(key, len(order_lookup)), key))
+
+    def has_recorded_metric_value(metric_key):
+        return any(
+            (player_stats.get(metric_key) or 0) != 0
+            for player_stats in stats_by_player.values()
+        )
+
+    def wrap_text(pdf_obj, text, width):
+        words = clean_text(text).split()
+        if not words:
+            return [""]
+
+        max_width = width - 6
+        lines = []
+        current = ""
+
+        for word in words:
+            if pdf_obj.get_string_width(word) > max_width:
+                if current:
+                    lines.append(current)
+                    current = ""
+
+                chunk = ""
+                for char in word:
+                    candidate = f"{chunk}{char}"
+                    if pdf_obj.get_string_width(candidate) <= max_width:
+                        chunk = candidate
+                    else:
+                        lines.append(chunk)
+                        chunk = char
+
+                if chunk:
+                    current = chunk
+                continue
+
+            candidate = f"{current} {word}".strip()
+            if pdf_obj.get_string_width(candidate) <= max_width:
+                current = candidate
+            else:
+                if current:
+                    lines.append(current)
+                current = word
+
+        if current:
+            lines.append(current)
+        return lines
+
+    def draw_wrapped_table(pdf_obj, columns, rows, font_size=8):
+        line_height = 5
+        vertical_padding = 3
+        min_row_height = 11
+        header_height = max(9, max(len(wrap_text(pdf_obj, column["label"], column["width"])) for column in columns) * 4 + 4)
+
+        def draw_header():
+            pdf_obj.set_font("Helvetica", "B", font_size)
+            x = pdf_obj.get_x()
+            y = pdf_obj.get_y()
+            current_x = x
+
+            for column in columns:
+                pdf_obj.rect(current_x, y, column["width"], header_height)
+                for line_index, line in enumerate(wrap_text(pdf_obj, column["label"], column["width"])):
+                    pdf_obj.set_xy(current_x + 2, y + 2 + (line_index * 4))
+                    pdf_obj.cell(column["width"] - 4, 4, line)
+                current_x += column["width"]
+
+            pdf_obj.set_xy(x, y + header_height)
+            pdf_obj.set_font("Helvetica", "", font_size)
+
+        draw_header()
+
+        if not rows:
+            pdf_obj.cell(sum(c["width"] for c in columns), min_row_height, "No data available.", border=1, ln=True)
+            return
+
+        for row in rows:
+            wrapped_cells = [
+                wrap_text(pdf_obj, row.get(column["key"], ""), column["width"])
+                for column in columns
+            ]
+            row_height = max(
+                min_row_height,
+                max(len(lines) for lines in wrapped_cells) * line_height + vertical_padding * 2
+            )
+
+            if pdf_obj.get_y() + row_height > pdf_obj.page_break_trigger:
+                pdf_obj.add_page(orientation="L")
+                draw_header()
+
+            x = pdf_obj.get_x()
+            y = pdf_obj.get_y()
+            current_x = x
+
+            for column in columns:
+                pdf_obj.rect(current_x, y, column["width"], row_height)
+                current_x += column["width"]
+
+            current_x = x
+            for column, lines in zip(columns, wrapped_cells):
+                for line_index, line in enumerate(lines):
+                    pdf_obj.set_xy(current_x + 3, y + vertical_padding + (line_index * line_height))
+                    pdf_obj.cell(column["width"] - 6, line_height, line)
+                current_x += column["width"]
+
+            pdf_obj.set_xy(x, y + row_height)
+
+    pdf = FPDF(orientation="L")
     pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.add_page()
+    pdf.add_page(orientation="L")
 
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, f"Team {team_id} Player Table", ln=True)
+    pdf.cell(0, 10, unit_titles.get(unit, "Unit Report"), ln=True)
+    pdf.ln(2)
 
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(20, 8, "#", border=1)
-    pdf.cell(80, 8, "Name", border=1)
-    pdf.cell(35, 8, "Unit", border=1)
-    pdf.cell(35, 8, "Position", border=1, ln=True)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, "Player Metrics", ln=True)
 
-    pdf.set_font("Helvetica", "", 10)
+    metric_keys = ordered_metric_keys({
+        key
+        for player_stats in stats_by_player.values()
+        for key in player_stats.keys()
+        if has_recorded_metric_value(key)
+    })
+    metric_rows = []
+    insight_rows = []
 
-    for p in players:
-        pdf.cell(20, 8, str(p["jersey_number"]), border=1)
-        pdf.cell(80, 8, p["player_name"], border=1)
-        pdf.cell(35, 8, p["unit"], border=1)
-        pdf.cell(35, 8, p["position"], border=1, ln=True)
+    for player in players:
+        player_stats = stats_by_player.get(player["id"], {})
+        metric_row = {
+            "jersey": clean_text(player["jersey_number"]),
+            "name": title_case_name(player["player_name"]),
+            "position": clean_text(player["position"]).upper(),
+        }
+
+        for metric_key in metric_keys:
+            metric_value = player_stats.get(metric_key)
+            metric_row[metric_key] = clean_text(metric_value if metric_value is not None else 0)
+
+        metric_rows.append(metric_row)
+
+        for note in notes_by_player.get(player["id"], []):
+            insight_rows.append({
+                "player": title_case_name(player["player_name"]),
+                "jersey": clean_text(player["jersey_number"]),
+                "position": clean_text(player["position"]).upper(),
+                "observation": note.get("note") or "",
+            })
+
+    base_columns = [
+        {"key": "jersey", "label": "#", "width": 14},
+        {"key": "name", "label": "Name", "width": 48},
+        {"key": "position", "label": "Position", "width": 26},
+    ]
+    available_metric_width = 273 - sum(column["width"] for column in base_columns)
+
+    if metric_keys:
+        max_metrics_per_table = 8
+        metric_chunks = [
+            metric_keys[index:index + max_metrics_per_table]
+            for index in range(0, len(metric_keys), max_metrics_per_table)
+        ]
+
+        for chunk_index, metric_chunk in enumerate(metric_chunks):
+            if chunk_index > 0:
+                pdf.ln(6)
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.cell(0, 7, f"Additional Metrics ({chunk_index + 1})", ln=True)
+
+            metric_width = available_metric_width / len(metric_chunk)
+            metric_columns = [
+                {"key": metric_key, "label": format_stat_label(metric_key), "width": metric_width}
+                for metric_key in metric_chunk
+            ]
+
+            draw_wrapped_table(
+                pdf,
+                base_columns + metric_columns,
+                metric_rows,
+                font_size=8 if len(metric_columns) <= 6 else 7,
+            )
+    else:
+        draw_wrapped_table(
+            pdf,
+            base_columns + [{"key": "metrics", "label": "Metrics", "width": available_metric_width}],
+            [{**row, "metrics": "No metrics recorded"} for row in metric_rows],
+            font_size=8,
+        )
+
+    pdf.ln(8)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, "Player Insights / Observations", ln=True)
+
+    if insight_rows:
+        draw_wrapped_table(
+            pdf,
+            [
+                {"key": "player", "label": "Player", "width": 55},
+                {"key": "jersey", "label": "Jersey #", "width": 25},
+                {"key": "position", "label": "Position", "width": 30},
+                {"key": "observation", "label": "Observation / Insight", "width": 163},
+            ],
+            insight_rows,
+            font_size=8,
+        )
+    else:
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 8, "No player insights available for this unit.", ln=True)
 
     pdf_bytes = pdf.output(dest="S")
     if isinstance(pdf_bytes, str):
         pdf_bytes = pdf_bytes.encode("latin-1")
+    else:
+        pdf_bytes = bytes(pdf_bytes)
 
     return Response(
         content=pdf_bytes,

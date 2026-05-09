@@ -32,6 +32,18 @@ class GameAnalysisRequest(BaseModel):
     game_id: int
     payload: dict
 
+class GameComparisonRequest(BaseModel):
+    team_id: int
+    game_one_id: int
+    game_two_id: int
+    payload: dict
+
+class PlayerComparisonRequest(BaseModel):
+    team_id: int
+    player_one_id: int
+    player_two_id: int
+    payload: dict
+
 class SaveGameAnalysisRequest(BaseModel):
     team_id: int
     game_id: int
@@ -72,6 +84,25 @@ def verify_game_access(team_id: int, game_id: int, user_id: int, db):
 
     if not row:
         raise HTTPException(status_code=403, detail="Access denied to this game")
+
+
+def verify_player_access(team_id: int, player_id: int, user_id: int, db):
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.id
+            FROM indv_players p
+            JOIN teams t ON p.team_id = t.id
+            WHERE p.id = %s
+              AND p.team_id = %s
+              AND t.user_id = %s
+            """,
+            (player_id, team_id, user_id)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=403, detail="Access denied to this player")
 
 
 # Promp AI model to analyze player
@@ -248,6 +279,7 @@ async def analyze_game(
         Use BOTH:
         - Overall game data
         - Quarter-specific data (if available)
+        - The game_metrics section (overall and quarter-by-quarter)
 
         Focus on:
         - Momentum shifts between quarters
@@ -255,8 +287,13 @@ async def analyze_game(
         - Key turning points by quarter
         - Situational performance (early vs late game)
         - How notes and stats align within specific quarters
+        - How game_metrics supports conclusions about momentum, execution, and efficiency
 
         - Pay special attention to selected quarters if provided
+
+        Rules:
+        - Do not invent statistics that are not present in the payload.
+        - If a metric is missing, state that it is unavailable instead of assuming values.
 
         Keep analysis concise, practical, and coaching-focused.
 
@@ -288,6 +325,174 @@ async def analyze_game(
     except Exception as e:
         print("GAME AI ERROR:", e)
         return {"analysis": "An error occurred while generating analysis."}
+
+
+@router.post("/compare-games")
+async def compare_games(
+    data: GameComparisonRequest,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        if data.game_one_id == data.game_two_id:
+            raise HTTPException(status_code=400, detail="Select two different games for comparison")
+
+        verify_game_access(data.team_id, data.game_one_id, user["id"], db)
+        verify_game_access(data.team_id, data.game_two_id, user["id"], db)
+
+        prompt = f"""
+        You are an American football coaching analyst.
+
+        Compare the two provided games and explain why performance changed between them.
+        This is a side-by-side comparison task, not a single-game analysis.
+
+        Provide:
+        1. Overall Comparison Summary
+        2. Biggest Differences Between Games
+        3. Why Performance Improved or Declined
+        4. Key Metric Differences
+        5. Unit-by-Unit Comparison
+        6. Player/Note Pattern Differences
+        7. Coaching Takeaways for Future Games
+
+        Use:
+        - game metadata
+        - game_state observations
+        - game_metrics (overall and quarter-by-quarter)
+        - unit summaries
+        - player stats and notes
+
+        Rules:
+        - Do not invent statistics that are not present in the payload.
+        - Only use metrics, observations, and notes provided in the payload.
+        - If a value is missing, state it is unavailable.
+        - Do not claim causation unless the data supports it; use cautious language when needed.
+
+        Keep the response concise, practical, and coaching-focused.
+
+        Comparison Data:
+        {data.payload}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        comparison_text = None
+
+        try:
+            comparison_text = response.text
+        except:
+            try:
+                comparison_text = response.candidates[0].content.parts[0].text
+            except:
+                comparison_text = None
+
+        if not comparison_text:
+            comparison_text = "AI comparison unavailable. Please try again."
+
+        return {"comparison": comparison_text}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("COMPARE GAMES AI ERROR:", e)
+        return {"comparison": "An error occurred while generating comparison."}
+
+
+@router.post("/compare-players")
+async def compare_players(
+    data: PlayerComparisonRequest,
+    db=Depends(get_db),
+    user=Depends(require_user)
+):
+    try:
+        if data.player_one_id == data.player_two_id:
+            raise HTTPException(status_code=400, detail="Select two different players for comparison")
+
+        verify_player_access(data.team_id, data.player_one_id, user["id"], db)
+        verify_player_access(data.team_id, data.player_two_id, user["id"], db)
+
+        player_one_position = (
+            (data.payload or {})
+            .get("player_one", {})
+            .get("player", {})
+            .get("position")
+        )
+        player_two_position = (
+            (data.payload or {})
+            .get("player_two", {})
+            .get("player", {})
+            .get("position")
+        )
+        positions_differ = (
+            bool(player_one_position) and
+            bool(player_two_position) and
+            player_one_position != player_two_position
+        )
+
+        cross_position_guidance = ""
+        if positions_differ:
+            cross_position_guidance = """
+        Position Context:
+        - The two players play different positions.
+        - Focus on comparing their role-specific contributions, strengths, and situational impact rather than direct stat equivalence.
+        - When positions differ, avoid misleading stat comparisons and instead explain differences in responsibilities and impact on the game.
+            """
+
+        prompt = f"""
+        You are an American football coaching analyst.
+
+        Compare the two provided players using only the supplied data.
+        This is a side-by-side player comparison task, not a single-player analysis.
+
+        Provide:
+        1. Overall Player Comparison
+        2. Key Statistical Differences
+        3. Strengths and Weaknesses
+        4. Situational Performance
+        5. Consistency Across Games
+        6. Notes/Observation Pattern Differences
+        7. Coaching Recommendation
+
+        Rules:
+        - Do not invent statistics.
+        - Only compare based on the provided payload.
+        - If data is missing, state it is unavailable.
+        - Do not automatically label one player as better unless supported by the data.
+        - Use cautious coaching language such as "based on the available data."
+{cross_position_guidance}
+
+        Keep the response concise, practical, and coaching-focused.
+
+        Player Comparison Data:
+        {data.payload}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        comparison_text = None
+
+        try:
+            comparison_text = response.text
+        except:
+            try:
+                comparison_text = response.candidates[0].content.parts[0].text
+            except:
+                comparison_text = None
+
+        if not comparison_text:
+            comparison_text = "AI comparison unavailable. Please try again."
+
+        return {"comparison": comparison_text}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("COMPARE PLAYERS AI ERROR:", e)
+        return {"comparison": "An error occurred while generating comparison."}
 
 
 @router.post("/save-game-analysis")

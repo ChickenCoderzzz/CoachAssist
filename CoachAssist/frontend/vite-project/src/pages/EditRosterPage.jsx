@@ -342,10 +342,10 @@ export default function EditRosterPage() {
     <div className="edit-roster-page">
 
       {/* Page Title */}
-      <h2>View / Edit Roster</h2>
+      <h2 className="tutorial-roster-title">View / Edit Roster</h2>
 
       {/* UNIT TABS */}
-      <div className="unit-buttons">
+      <div className="unit-buttons tutorial-roster-units">
         {["offense", "defense", "special"].map((u) => (
           <button
             key={u}
@@ -368,7 +368,7 @@ export default function EditRosterPage() {
         {/* LEFT COLUMN */}
         <div className="roster-left">
 
-          <table className={`roster-table ${unit}`}>
+          <table className={`roster-table ${unit} tutorial-roster-table`}>
             <thead>
               <tr>
               <th className="num-col">No.</th>
@@ -408,7 +408,7 @@ export default function EditRosterPage() {
                   </td>
 
                   {/* Action Buttons */}
-                  <td className="actions">
+                  <td className="actions tutorial-roster-player-actions">
                     <button
                       title="View Player History"
                       onClick={() => openPlayerHistory(p)}
@@ -444,7 +444,7 @@ export default function EditRosterPage() {
 
           {/* Add Player Button */}
           <button
-            className="add-player-wide"
+            className="add-player-wide tutorial-roster-add-player"
             onClick={() => setShowAdd(true)}
           >
             Add Player +
@@ -453,7 +453,7 @@ export default function EditRosterPage() {
         </div> {/* END roster-left */}
 
         {/* RIGHT COLUMN */}
-        <div className="history-panel">
+        <div className="history-panel tutorial-roster-history-panel">
 
           {/* Only render history panel if a player is selected and history data is loaded */}
           {selectedHistoryPlayer && historyData && (

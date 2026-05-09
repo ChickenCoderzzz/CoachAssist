@@ -56,12 +56,12 @@ export default function DeleteAccountPage() {
     >
       {/* Delete confirmation card */}
       <DarkCard width="420px" padding="40px">
-        <h2 style={{ color: "white", marginBottom: "15px" }}>
+        <h2 className="tutorial-delete-account-title" style={{ color: "white", marginBottom: "15px" }}>
           Delete Account
         </h2>
 
         {/* Warning message */}
-        <p style={{ color: "#ffb3b3", marginBottom: "20px" }}>
+        <p className="tutorial-delete-account-warning" style={{ color: "#ffb3b3", marginBottom: "20px" }}>
           Are you sure you want to delete your account?
           <br />
           <strong>This action cannot be undone.</strong>
@@ -76,6 +76,7 @@ export default function DeleteAccountPage() {
 
         {/* Confirm delete button */}
         <button
+          className="tutorial-delete-account-confirm"
           style={{
             width: "100%",
             padding: "12px",
@@ -93,6 +94,7 @@ export default function DeleteAccountPage() {
 
         {/* Cancel button (return to profile) */}
         <button
+          className="tutorial-delete-account-cancel"
           style={{
             width: "100%",
             padding: "12px",

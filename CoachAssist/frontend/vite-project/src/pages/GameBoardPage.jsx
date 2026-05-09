@@ -90,7 +90,7 @@ export default function GameBoardPage() {
 
   if (boardId) {
     return (
-      <div style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
+      <div className="tutorial-game-board-editor" style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
         <button
           className="add-team-btn"
           onClick={() => navigate(`/team/${teamId}/match/${matchId}/board`)}
@@ -98,7 +98,9 @@ export default function GameBoardPage() {
         >
           ← Back to Boards
         </button>
-        <DrawboardWorkspace boardId={boardId} canEdit={canEdit} />
+        <div className="tutorial-drawboard-workspace">
+          <DrawboardWorkspace boardId={boardId} canEdit={canEdit} />
+        </div>
       </div>
     );
   }
@@ -113,14 +115,14 @@ export default function GameBoardPage() {
         >
           ← Back to Game
         </button>
-        <h1>Game Boards</h1>
+        <h1 className="tutorial-game-boards-title">Game Boards</h1>
       </div>
 
       <div className="dashboard-container">
         <h2>Boards for this game</h2>
         <div className="dashboard-controls">
           {canEdit && (
-            <button className="add-team-btn" onClick={() => setShowCreate(true)}>
+            <button className="add-team-btn tutorial-game-boards-new" onClick={() => setShowCreate(true)}>
               New board
             </button>
           )}
@@ -128,10 +130,10 @@ export default function GameBoardPage() {
 
         {loading && <p>Loading…</p>}
         {!loading && boards.length === 0 && (
-          <p className="muted">No boards yet for this game.</p>
+          <p className="muted tutorial-game-boards-empty">No boards yet for this game.</p>
         )}
 
-        <div className="team-grid">
+        <div className="team-grid tutorial-game-boards-list">
           {boards.map((b) => (
             <div
               key={b.id}

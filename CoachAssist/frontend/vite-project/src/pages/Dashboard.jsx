@@ -150,13 +150,14 @@ export default function Dashboard() {
         {/* Controls: Add + Search left, filter right on same row */}
         <div className="dashboard-controls">
           <button
-            className="add-team-btn tutorial-add-team-btn"
+            className="add-team-btn tutorial-add-team-btn tutorial-dashboard-add-team"
             onClick={() => setShowCreate(true)}
           >
             Add Team
           </button>
 
           <input
+            className="tutorial-dashboard-search"
             type="text"
             placeholder="Search for Team"
             value={search}
@@ -197,7 +198,7 @@ export default function Dashboard() {
         {/* Team grid */}
         <div className="team-grid">
           {teams.length === 0 && (
-            <p style={{ fontStyle: "italic" }}>
+            <p className="tutorial-dashboard-empty" style={{ fontStyle: "italic" }}>
               No teams yet. Create one to get started.
             </p>
           )}
@@ -214,7 +215,7 @@ export default function Dashboard() {
           {filteredTeams.map((team) => (
             <div
               key={team.id}
-              className="team-card"
+              className="team-card tutorial-dashboard-team-card"
               onClick={() => navigate(`/team/${team.id}`)}
             >
               {/* Delete Button (owner only) */}

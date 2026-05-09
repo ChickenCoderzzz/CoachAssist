@@ -100,7 +100,7 @@ export default function PlaybookPage() {
         >
           ← Back to Team
         </button>
-        <h1>Playbook</h1>
+        <h1 className="tutorial-playbook-title">Playbook</h1>
       </div>
 
       <div className="dashboard-container">
@@ -108,7 +108,7 @@ export default function PlaybookPage() {
 
         <div className="dashboard-controls">
           {canEdit && (
-            <button className="add-team-btn" onClick={() => setShowCreate(true)}>
+            <button className="add-team-btn tutorial-playbook-new-board" onClick={() => setShowCreate(true)}>
               New board
             </button>
           )}
@@ -116,10 +116,10 @@ export default function PlaybookPage() {
 
         {loading && <p>Loading…</p>}
         {!loading && boards.length === 0 && (
-          <p className="muted">No playbook boards yet.</p>
+          <p className="muted tutorial-playbook-empty">No playbook boards yet.</p>
         )}
 
-        <div className="team-grid">
+        <div className="team-grid tutorial-playbook-board-list">
           {boards.map((b) => (
             <div
               key={b.id}

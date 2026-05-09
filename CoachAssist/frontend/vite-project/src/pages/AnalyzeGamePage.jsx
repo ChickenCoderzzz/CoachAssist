@@ -515,6 +515,48 @@ const [gameMetrics, setGameMetrics] = useState({});
     };
 
     const handleExport = () => {
+        const downloadPdf = async (res, filename) => {
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(`Export failed (${res.status}): ${text || res.statusText}`);
+            }
+
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        };
+
+        if (activeTab === "Game State" && gameView === "state") {
+            fetch(`/games/${matchId}/state/export/pdf`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                    title: "Game State Report - General",
+                    metrics: gameMetrics,
+                    rows: (allTableData["Game State"] || []).map((row) => ({
+                        observation: row.text || row.observation || "",
+                        time: row.time || "",
+                        quarter: row.quarter || "",
+                    })),
+                }),
+            })
+                .then((res) => downloadPdf(res, `game_${matchId}_state_general.pdf`))
+                .catch((err) => {
+                    console.error("General game state PDF export failed:", err);
+                    alert(`Failed to export PDF. ${err.message || ""}`);
+                });
+            return;
+        }
+
         const unitMap = {
             Offensive: "offense",
             Defensive: "defense",
@@ -523,34 +565,23 @@ const [gameMetrics, setGameMetrics] = useState({});
 
         const unit = unitMap[activeTab];
         if (!unit) {
-            alert("PDF export is only available for Offensive, Defensive, and Special tabs.");
+            alert("PDF export is available for the Game State Table, Offensive, Defensive, and Special tabs.");
             return;
         }
 
-        fetch(`/teams/${teamId}/players/export/pdf?unit=${unit}`, {
+        const unitExportUrl = matchId
+            ? `/teams/${teamId}/players/export/pdf?unit=${unit}&match_id=${matchId}`
+            : `/teams/${teamId}/players/export/pdf?unit=${unit}`;
+
+        fetch(unitExportUrl, {
             headers: {
                 Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
         })
-            .then(async (res) => {
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || "Export failed");
-                }
-
-                const blob = await res.blob();
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `team_${teamId}_${unit}_players.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
-            })
+            .then((res) => downloadPdf(res, `team_${teamId}_${unit}_players.pdf`))
             .catch((err) => {
-                console.error("Export failed:", err);
-                alert("Failed to export PDF.");
+                console.error(`${activeTab} unit PDF export failed:`, err);
+                alert(`Failed to export PDF. ${err.message || ""}`);
             });
     };
 
@@ -583,7 +614,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                         {teamId && (
                             <button
-                                className="add-team-btn"
+                                className="add-team-btn tutorial-analysis-upload-video"
                                 onClick={() => navigate(`/team/${teamId}`)}
                                 style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
                             >
@@ -633,7 +664,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                                 </div>
                             )}
                             <button
-                                className="add-team-btn"
+                                className="add-team-btn tutorial-analysis-edit-game"
                                 onClick={() => document.getElementById("video-upload").click()}
                                 style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
                             >
@@ -644,7 +675,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                         {match && (
                             <button
-                                className="add-team-btn"
+                                className="add-team-btn tutorial-analysis-boards"
                                 onClick={() => setShowEdit(true)}
                                 style={{ margin: 0, padding: '8px 16px', fontSize: '14px' }}
                             >
@@ -664,7 +695,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                     </div>
                 </div>
 
-                <div className="analyze-tabs" style={{ alignSelf: 'flex-start' }}>
+                <div className="analyze-tabs tutorial-analysis-tabs" style={{ alignSelf: 'flex-start' }}>
                     <button
                         className="tab-button"
                         style={activeTab === "Game State" ? { transform: "translate(2px, 2px)", boxShadow: "none" } : {}}
@@ -709,7 +740,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                 <div className="video-column">
                     {/* Video Player Section */}
                     <div
-                        className={`video-player-section ${
+                        className={`video-player-section tutorial-analysis-video ${
                             activeTab === "Game State" ? "align-with-game-state-table" : ""
                         }`}
                     >
@@ -788,7 +819,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                     ) : activeTab === "Game State" && gameView === "state" ? (
 
                         // ORIGINAL GAME STATE TABLE (unchanged)
-                        <div className="game-state-table-container">
+                        <div className="game-state-table-container tutorial-analysis-table">
                             <div className="table-title-header">{tableHeaderTitle}</div>
 
                             {/*Edited by Wences Jacob Lorenzo*/}
@@ -865,7 +896,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                             </div>
 
                             <div className="table-footer-row">
-                                <button className="add-row-btn" onClick={handleAddRow}>
+                                <button className="add-row-btn tutorial-analysis-add-row" onClick={handleAddRow}>
                                     Add Row +
                                 </button>
                             </div>
@@ -873,7 +904,7 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                     ) : activeTab === "Game State" && gameView === "metrics" ? (
 
-                        <div className="game-state-table-container">
+                        <div className="game-state-table-container tutorial-analysis-table">
                             <div className="table-title-header">
                                 Game Metrics - Quantitative
                             </div>
@@ -1005,7 +1036,7 @@ const [gameMetrics, setGameMetrics] = useState({});
                     ) : (
 
                         // PLAYER TABLE REPLACES GAME STATE TABLE
-                        <div className="game-state-table-container analysis-side-table">
+                        <div className="game-state-table-container analysis-side-table tutorial-analysis-table">
                             {/* Dynamic header color based on unit */}
                             <div
                                 className={`table-title-header ${activeTab === "Offensive"
@@ -1068,10 +1099,10 @@ const [gameMetrics, setGameMetrics] = useState({});
 
                 {/* Footer Buttons */}
                 <div className="footer-buttons">
-                    <button className="action-btn save" onClick={handleSave}>
+                    <button className="action-btn save tutorial-analysis-save-exit" onClick={handleSave}>
                         Save Changes and Exit
                     </button>
-                    <button className="action-btn export tutorial-export-btn" onClick={handleExport}>
+                    <button className="action-btn export tutorial-export-btn tutorial-analysis-export" onClick={handleExport}>
                         Export Current Table
                     </button>
                     <button className="action-btn exit" onClick={handleExit}>

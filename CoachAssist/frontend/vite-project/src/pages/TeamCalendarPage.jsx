@@ -168,7 +168,7 @@ export default function TeamCalendarPage() {
     <div className="calendar-page">
       {/* Header */}
       <div className="calendar-header">
-        <h1>Team Calendar</h1>
+        <h1 className="tutorial-calendar-title">Team Calendar</h1>
         <button className="add-team-btn" onClick={() => navigate(`/team/${teamId}`)}>
           ← Back to Team
         </button>
@@ -177,14 +177,20 @@ export default function TeamCalendarPage() {
       {/* Calendar */}
       <div className="calendar-container">
         {/* Month navigation */}
-        <div className="calendar-nav">
+        <div className="calendar-nav tutorial-calendar-nav">
           <button className="calendar-nav-btn" onClick={goBack}>←</button>
           <h2>{MONTHS[month]} {year}</h2>
           <button className="calendar-nav-btn" onClick={goForward}>→</button>
         </div>
 
+        {matches.length === 0 && (
+          <p className="tutorial-calendar-empty" style={{ margin: "0 0 12px" }}>
+            No games yet.
+          </p>
+        )}
+
         {/* Grid */}
-        <div className="calendar-grid">
+        <div className="calendar-grid tutorial-calendar-grid">
           {/* Day headers */}
           {DAYS.map((d) => (
             <div key={d} className="calendar-day-header">{d}</div>
@@ -215,7 +221,7 @@ export default function TeamCalendarPage() {
                       onMouseLeave={() => setHoveredId((id) => (id === m.id ? null : id))}
                     >
                       <button
-                        className={`calendar-game ${result}`}
+                        className={`calendar-game ${result} tutorial-calendar-event`}
                         onClick={() => navigate(`/team/${teamId}/match/${m.id}`)}
                       >
                         vs {m.opponent}

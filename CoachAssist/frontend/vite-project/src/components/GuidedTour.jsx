@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { Joyride, ACTIONS, EVENTS, STATUS } from "react-joyride";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Joyride, { ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import {
+  TUTORIAL_REPLAY_EVENT,
+  TUTORIAL_RESET_EVENT,
+  TUTORIAL_UNAVAILABLE_EVENT,
+  getDefaultTutorialForPath,
+  getTutorialById,
+} from "../tutorial/tutorialSteps";
 
-const DASHBOARD_KEY = "coachassist_tutorial_dashboard_seen";
-const ANALYZE_KEY = "coachassist_tutorial_analyze_seen";
-const TEAM_KEY = "coachassist_tutorial_team_seen";
+const TARGET_CHECK_INTERVAL_MS = 300;
+const UNAVAILABLE_TIMEOUT_MS = 3500;
 
 export default function GuidedTour() {
   const { user } = useAuth();
@@ -14,106 +20,104 @@ export default function GuidedTour() {
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [targetCheckTick, setTargetCheckTick] = useState(0);
-
-  const isDashboardRoute = location.pathname === "/dashboard";
-  const isAnalyzeRoute = /^\/team\/[^/]+\/match\/[^/]+$/.test(location.pathname);
-  const isTeamRoute = /^\/team\/[^/]+$/.test(location.pathname);
-
-  const dashboardSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-dashboard-title",
-        title: "Dashboard",
-        content: "This is your main hub for managing teams.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-add-team-btn",
-        title: "Create Team",
-        content: "Start by creating a team here.",
-      },
-    ],
-    []
-  );
-
-  const analyzeSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-analyze-title",
-        title: "Analyze Game",
-        content: "This page is where you review game state and player tables.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-export-btn",
-        title: "Export PDF",
-        content: "Use this button to export the current player unit table as a PDF.",
-      },
-    ],
-    []
-  );
-
-  const teamSteps = useMemo(
-    () => [
-      {
-        target: ".tutorial-team-title",
-        title: "Team Workspace",
-        content: "This page is your team hub for games, roster, and history.",
-        disableBeacon: true,
-      },
-      {
-        target: ".tutorial-add-game-btn",
-        title: "Add Game",
-        content: "Create a new game entry here before analyzing film and stats.",
-      },
-      {
-        target: ".tutorial-edit-roster-btn",
-        title: "Manage Roster",
-        content: "Open roster management to add/edit players and review player history.",
-      },
-    ],
-    []
-  );
+  const [forcedTutorialId, setForcedTutorialId] = useState(null);
+  const [replayNonce, setReplayNonce] = useState(0);
+  const [notice, setNotice] = useState("");
+  const [visibleSteps, setVisibleSteps] = useState([]);
+  const unavailableNoticeShownRef = useRef(false);
 
   const currentTutorial = useMemo(() => {
-    if (isDashboardRoute) {
-      return { key: DASHBOARD_KEY, steps: dashboardSteps };
+    if (forcedTutorialId) {
+      const forcedTutorial = getTutorialById(forcedTutorialId);
+      if (forcedTutorial?.routePattern.test(location.pathname)) {
+        return forcedTutorial;
+      }
     }
-    if (isTeamRoute) {
-      return { key: TEAM_KEY, steps: teamSteps };
-    }
-    if (isAnalyzeRoute) {
-      return { key: ANALYZE_KEY, steps: analyzeSteps };
-    }
-    return null;
-  }, [
-    isDashboardRoute,
-    isTeamRoute,
-    isAnalyzeRoute,
-    dashboardSteps,
-    teamSteps,
-    analyzeSteps,
-  ]);
+
+    return getDefaultTutorialForPath(location.pathname);
+  }, [forcedTutorialId, location.pathname]);
 
   const activeSteps = currentTutorial?.steps ?? [];
   const tutorialKey = currentTutorial?.key ?? null;
 
-  const targetExists = (target) => !!target && !!document.querySelector(target);
+  const targetExists = (target) => {
+    if (!target) return false;
+    if (target === "body") return true;
+    const element = document.querySelector(target);
+    if (!element) return false;
 
-  const findNextValidStepIndex = (startIdx) => {
-    for (let i = startIdx; i < activeSteps.length; i += 1) {
-      if (targetExists(activeSteps[i]?.target)) return i;
-    }
-    return -1;
+    const style = window.getComputedStyle(element);
+    return (
+      style.display !== "none" &&
+      style.visibility !== "hidden" &&
+      element.getClientRects().length > 0
+    );
+  };
+
+  const getVisibleSteps = () =>
+    activeSteps.filter((step) => targetExists(step?.target));
+
+  const stepsMatch = (firstSteps, secondSteps) =>
+    firstSteps.length === secondSteps.length &&
+    firstSteps.every((step, index) => step === secondSteps[index]);
+
+  const showNotice = (message) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(""), UNAVAILABLE_TIMEOUT_MS);
   };
 
   const markCurrentTutorialSeen = () => {
     if (tutorialKey) {
       localStorage.setItem(tutorialKey, "true");
+      window.dispatchEvent(new CustomEvent(TUTORIAL_RESET_EVENT));
     }
     setRun(false);
     setStepIndex(0);
+    setVisibleSteps([]);
+    setForcedTutorialId(null);
   };
+
+  useEffect(() => {
+    const handleReplay = (event) => {
+      const tutorialId = event.detail?.tutorialId || null;
+      const requestedTutorial = tutorialId ? getTutorialById(tutorialId) : null;
+      const nextTutorial = requestedTutorial || getDefaultTutorialForPath(location.pathname);
+
+      if (!nextTutorial || !nextTutorial.routePattern.test(location.pathname)) {
+        showNotice("No guided tutorial is available on this page yet. Open the Tutorial hub to replay another page.");
+        return;
+      }
+
+      localStorage.removeItem(nextTutorial.key);
+      setForcedTutorialId(nextTutorial.id);
+      setStepIndex(0);
+      setVisibleSteps([]);
+      unavailableNoticeShownRef.current = false;
+      setRun(false);
+      setReplayNonce((nonce) => nonce + 1);
+      setTargetCheckTick((tick) => tick + 1);
+    };
+
+    const handleUnavailable = (event) => {
+      showNotice(event.detail?.message || "No tutorial available for this page yet.");
+    };
+
+    window.addEventListener(TUTORIAL_REPLAY_EVENT, handleReplay);
+    window.addEventListener(TUTORIAL_UNAVAILABLE_EVENT, handleUnavailable);
+
+    return () => {
+      window.removeEventListener(TUTORIAL_REPLAY_EVENT, handleReplay);
+      window.removeEventListener(TUTORIAL_UNAVAILABLE_EVENT, handleUnavailable);
+    };
+  }, [location.pathname]);
+
+  useEffect(() => {
+    setRun(false);
+    setStepIndex(0);
+    setVisibleSteps([]);
+    setForcedTutorialId(null);
+    unavailableNoticeShownRef.current = false;
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!user || !currentTutorial || run) return;
@@ -121,66 +125,99 @@ export default function GuidedTour() {
 
     const intervalId = window.setInterval(() => {
       setTargetCheckTick((tick) => tick + 1);
-    }, 300);
+    }, TARGET_CHECK_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [user, currentTutorial, tutorialKey, run]);
+  }, [user, currentTutorial, tutorialKey, run, replayNonce]);
 
   useEffect(() => {
     if (!user || !currentTutorial) {
       setRun(false);
       setStepIndex(0);
+      if (visibleSteps.length > 0) {
+        setVisibleSteps([]);
+      }
       return;
     }
 
     if (localStorage.getItem(tutorialKey) === "true") {
       setRun(false);
       setStepIndex(0);
+      if (visibleSteps.length > 0) {
+        setVisibleSteps([]);
+      }
       return;
     }
 
-    const nextValidIndex = findNextValidStepIndex(stepIndex);
-    if (nextValidIndex === -1) {
+    const nextVisibleSteps = getVisibleSteps();
+
+    if (nextVisibleSteps.length === 0) {
       setRun(false);
+      if (activeSteps.length > 0 && !unavailableNoticeShownRef.current) {
+        showNotice("Some tutorial steps are unavailable because features are hidden for your role or no data exists yet.");
+        unavailableNoticeShownRef.current = true;
+      }
       return;
     }
 
-    if (nextValidIndex !== stepIndex) {
-      setStepIndex(nextValidIndex);
+    if (!stepsMatch(visibleSteps, nextVisibleSteps)) {
+      setRun(false);
+      setStepIndex(0);
+      setVisibleSteps(nextVisibleSteps);
+      unavailableNoticeShownRef.current = false;
       return;
     }
 
     setRun(true);
-  }, [user, currentTutorial, tutorialKey, stepIndex, activeSteps, targetCheckTick]);
+  }, [user, currentTutorial, tutorialKey, activeSteps, visibleSteps, targetCheckTick, replayNonce]);
 
   const handleCallback = (data) => {
     const { action, status, type, index } = data;
+    const isCloseAction = action === ACTIONS.CLOSE || action === "close";
+    const isSkipAction = action === ACTIONS.SKIP || action === "skip";
+    const isNextAction = action === ACTIONS.NEXT || action === "next";
+    const isPrevAction = action === ACTIONS.PREV || action === "prev";
 
-    if (action === ACTIONS.PREV || action === "prev") {
-      setStepIndex(Math.max(0, index - 1));
-      return;
-    }
-
-    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+    if (
+      isCloseAction ||
+      isSkipAction ||
+      status === STATUS.FINISHED ||
+      status === STATUS.SKIPPED
+    ) {
       markCurrentTutorialSeen();
       return;
     }
 
-    if (type === EVENTS.STEP_AFTER || type === EVENTS.TARGET_NOT_FOUND) {
-      const nextIndex = index + 1;
+    if (isPrevAction) {
+      setStepIndex(Math.max(0, index - 1));
+      return;
+    }
 
-      if (nextIndex >= activeSteps.length) {
+    if (type === EVENTS.TARGET_NOT_FOUND) {
+      const updatedVisibleSteps = visibleSteps
+        .slice(0, index)
+        .concat(
+          visibleSteps
+            .slice(index + 1)
+            .filter((step) => targetExists(step?.target))
+        );
+
+      if (index >= updatedVisibleSteps.length) {
         markCurrentTutorialSeen();
+        showNotice("Some tutorial steps were skipped because those features are not available right now.");
         return;
       }
 
-      if (type === EVENTS.TARGET_NOT_FOUND) {
-        const validIndex = findNextValidStepIndex(nextIndex);
-        if (validIndex === -1) {
-          markCurrentTutorialSeen();
-          return;
-        }
-        setStepIndex(validIndex);
+      setVisibleSteps(updatedVisibleSteps);
+      setStepIndex(index);
+      return;
+    }
+
+    if (type === EVENTS.STEP_AFTER && isNextAction) {
+      const nextIndex = index + 1;
+
+      if (nextIndex >= visibleSteps.length) {
+        markCurrentTutorialSeen();
         return;
       }
 
@@ -188,27 +225,50 @@ export default function GuidedTour() {
     }
   };
 
-  if (!user || !currentTutorial) return null;
-
   return (
-    <Joyride
-      steps={activeSteps}
-      run={run}
-      stepIndex={stepIndex}
-      continuous
-      showProgress
-      showSkipButton
-      scrollToFirstStep
-      disableScrolling
-      callback={handleCallback}
-      locale={{
-        back: "Back",
-        close: "Finish",
-        last: "Finish",
-        next: "Next",
-        skip: "Skip",
-      }}
-      styles={{ options: { zIndex: 12000 } }}
-    />
+    <>
+      {notice && (
+        <div
+          style={{
+            position: "fixed",
+            top: "96px",
+            right: "24px",
+            zIndex: 13000,
+            maxWidth: "360px",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            border: "2px solid #222",
+            background: "#fff8d6",
+            color: "#222",
+            boxShadow: "0 8px 18px rgba(0,0,0,0.18)",
+            fontWeight: 600,
+          }}
+        >
+          {notice}
+        </div>
+      )}
+
+      {user && currentTutorial && visibleSteps.length > 0 && (
+        <Joyride
+          steps={visibleSteps}
+          run={run}
+          stepIndex={stepIndex}
+          continuous
+          showProgress
+          showSkipButton
+          scrollToFirstStep
+          disableScrolling
+          callback={handleCallback}
+          locale={{
+            back: "Back",
+            close: "Finish",
+            last: "Finish",
+            next: "Next",
+            skip: "Skip",
+          }}
+          styles={{ options: { zIndex: 12000 } }}
+        />
+      )}
+    </>
   );
 }

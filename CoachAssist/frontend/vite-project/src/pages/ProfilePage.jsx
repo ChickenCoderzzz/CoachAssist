@@ -25,22 +25,25 @@ export default function ProfilePage() {
         />
 
         {/* Display user information */}
-        <h2 style={{ color: "white", marginBottom: "20px" }}>
+        <h2 className="tutorial-profile-title" style={{ color: "white", marginBottom: "20px" }}>
           Profile
         </h2>
 
-        <p style={{ color: "white" }}>
-          <strong>Email:</strong> {user?.email || "Not set"}
-        </p>
-        <p style={{ color: "white" }}>
-          <strong>Username:</strong> {user?.username || "Not set"}
-        </p>
-        <p style={{ color: "white" }}>
-          <strong>Full Name:</strong> {user?.full_name || "Not set"}
-        </p>
+        <div className="tutorial-profile-details">
+          <p style={{ color: "white" }}>
+            <strong>Email:</strong> {user?.email || "Not set"}
+          </p>
+          <p style={{ color: "white" }}>
+            <strong>Username:</strong> {user?.username || "Not set"}
+          </p>
+          <p style={{ color: "white" }}>
+            <strong>Full Name:</strong> {user?.full_name || "Not set"}
+          </p>
+        </div>
 
         {/* Change password */}
         <button
+          className="tutorial-profile-settings"
           style={{
             marginTop: "25px",
             width: "100%",
@@ -58,6 +61,7 @@ export default function ProfilePage() {
 
         {/* Delete account by Wences Jacob Lorenzo*/}
         <button
+          className="tutorial-profile-delete"
           style={{
             marginTop: "15px",
             width: "100%",
@@ -75,6 +79,7 @@ export default function ProfilePage() {
 
         {/* Log Out */}
         <button
+          className="tutorial-profile-logout"
           style={{
             marginTop: "15px",
             width: "100%",

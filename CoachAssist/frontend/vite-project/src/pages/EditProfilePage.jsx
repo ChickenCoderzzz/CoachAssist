@@ -59,7 +59,7 @@ export default function EditProfilePage() {
           style={{ width: "140px", marginBottom: "20px" }}
         />
 
-        <h2 style={{ color: "white", marginBottom: "20px" }}>
+        <h2 className="tutorial-edit-profile-title" style={{ color: "white", marginBottom: "20px" }}>
           Change Password
         </h2>
 
@@ -79,6 +79,7 @@ export default function EditProfilePage() {
 
         {/* Send Verification Code Button. Added by Wences Jacob Lorenzo*/}
         <button
+          className="tutorial-edit-profile-send"
           style={{
             width: "100%",
             padding: "12px",
@@ -97,6 +98,7 @@ export default function EditProfilePage() {
 
         {/* Back Button. Added by Wences Jacob Lorenzo */}
         <button
+          className="tutorial-edit-profile-back"
           style={{
             width: "100%",
             padding: "12px",

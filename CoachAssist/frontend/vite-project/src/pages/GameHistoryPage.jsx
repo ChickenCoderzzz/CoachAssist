@@ -428,11 +428,11 @@ return (
             <button className="go-back-btn" onClick={() => navigate(`/team/${teamId}`)}>
                 ← Back to Team
             </button>
-            <h1>Game History</h1>
+            <h1 className="tutorial-history-title">Game History</h1>
         </div>
 
         {/* TOGGLE */}
-        <div className="history-view-toggle">
+        <div className="history-view-toggle tutorial-history-toggle">
             <button className={activeView === "table" ? "active" : ""} onClick={() => setActiveView("table")}>
                 Game Table
             </button>
@@ -446,7 +446,10 @@ return (
 
         {/* ================= GAME TABLE ================= */}
         {activeView === "table" && (
-            <div className="game-history-table-wrapper">
+            <div className="game-history-table-wrapper tutorial-history-table">
+                {sortedMatches.length === 0 && (
+                    <p className="tutorial-history-empty">No games saved yet.</p>
+                )}
                 <table className="game-history-table">
                     <thead>
                         <tr>
@@ -573,7 +576,7 @@ return (
         {/* ================= VISUALIZATIONS ================= */}
         {activeView === "visualizations" && (
 
-        <div className="game-history-viz-panel">
+        <div className="game-history-viz-panel tutorial-history-visualizations">
 
             <h2>Game Visualizations ({valueMode === "average" ? "Average" : "Total"})</h2>
 

@@ -21,7 +21,7 @@ export default function PlaybookEditorPage() {
   const canEdit = userRole === "owner" || userRole === "editor";
 
   return (
-    <div style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
+    <div className="tutorial-playbook-editor" style={{ paddingTop: "110px", paddingBottom: "60px", paddingLeft: "40px", paddingRight: "40px" }}>
       <button
         className="add-team-btn"
         onClick={() => navigate(`/team/${teamId}/playbook`)}
@@ -29,7 +29,9 @@ export default function PlaybookEditorPage() {
       >
         ← Back to Playbook
       </button>
-      <DrawboardWorkspace boardId={boardId} canEdit={canEdit} />
+      <div className="tutorial-drawboard-workspace">
+        <DrawboardWorkspace boardId={boardId} canEdit={canEdit} />
+      </div>
     </div>
   );
 }

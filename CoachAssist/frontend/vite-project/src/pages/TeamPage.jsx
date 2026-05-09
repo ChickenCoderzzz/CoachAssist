@@ -228,7 +228,7 @@ export default function TeamPage() {
       <div style={{ marginLeft: "40px", marginBottom: "30px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
         {userRole === "owner" && (
           <button
-            className="add-team-btn"
+            className="add-team-btn tutorial-team-edit-details"
             onClick={() => {
               setEditName(team.name);
               setEditColor(team.color || "#9DBA8A");
@@ -244,7 +244,7 @@ export default function TeamPage() {
         )}
 
         <button
-          className="add-team-btn tutorial-edit-roster-btn"
+          className="add-team-btn tutorial-edit-roster-btn tutorial-team-roster"
           onClick={() => navigate(`/teams/${teamId}/roster`)}
         >
           {userRole === "viewer" ? "View Roster" : "Edit / View Roster"}
@@ -252,7 +252,7 @@ export default function TeamPage() {
 
         {/* View full game history */}
         <button
-          className="add-team-btn"
+          className="add-team-btn tutorial-team-history"
           onClick={() => navigate(`/team/${teamId}/history`)}
         >
           Game History
@@ -260,7 +260,7 @@ export default function TeamPage() {
 
         {/* Navigate to AI Analysis */}
         <button
-          className="add-team-btn"
+          className="add-team-btn tutorial-team-analysis"
           onClick={() => navigate(`/team/${teamId}/analysis`)}
         >
           AI Analysis
@@ -268,7 +268,7 @@ export default function TeamPage() {
 
         {/* Navigate to Calendar */}
         <button
-          className="add-team-btn"
+          className="add-team-btn tutorial-team-calendar"
           onClick={() => navigate(`/team/${teamId}/calendar`)}
         >
           Calendar
@@ -276,7 +276,7 @@ export default function TeamPage() {
 
         {/* Navigate to Playbook (drawboards) */}
         <button
-          className="add-team-btn"
+          className="add-team-btn tutorial-team-playbook"
           onClick={() => navigate(`/team/${teamId}/playbook`)}
         >
           Playbook
@@ -285,7 +285,7 @@ export default function TeamPage() {
         {/* Team Members (owner only) */}
         {userRole === "owner" && (
           <button
-            className="add-team-btn"
+            className="add-team-btn tutorial-team-members"
             onClick={() => setShowMembers(true)}
           >
             Team Members
@@ -299,7 +299,7 @@ export default function TeamPage() {
 
         <div className="dashboard-controls">
           {userRole !== "viewer" && (
-            <button className="add-team-btn tutorial-add-game-btn" onClick={() => setShowCreate(true)}>
+            <button className="add-team-btn tutorial-add-game-btn tutorial-team-add-game" onClick={() => setShowCreate(true)}>
               Add Game
             </button>
           )}
@@ -314,6 +314,11 @@ export default function TeamPage() {
 
         {/* Game Cards */}
         <div className="team-grid">
+          {filteredMatches.length === 0 && (
+            <p className="tutorial-team-empty-games" style={{ fontStyle: "italic" }}>
+              No games yet.
+            </p>
+          )}
           {filteredMatches.map((match) => (
             <div
               key={match.id}
