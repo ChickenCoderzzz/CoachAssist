@@ -1,5 +1,9 @@
 # CoachAssist
 
+<p align="center">
+  <img src="CoachAssistLogo.png" width="900">
+</p>
+
 CoachAssist is a football analytics and game analysis platform designed to help coaches and analysts manage teams, review game footage, track player performance, and generate data-driven insights through interactive visualizations and AI-assisted tools.
 
 CoachAssist is intended to run locally in a development environment for academic demonstration purposes. The project is fully deployable and includes the required backend/frontend source code, configuration structure, dependency setup, and startup instructions necessary to run the application locally.
