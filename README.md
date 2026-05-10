@@ -15,6 +15,23 @@ CoachAssist was developed as a capstone project focused on improving football an
 
 ---
 
+# Important Notes
+
+Before running CoachAssist, please read through the setup instructions provided in this README or in the linked Developer Guide at the end of this README
+
+This project requires additional configuration files and external dependencies that are intentionally excluded from the repository for security reasons.
+
+Required setup items include:
+- `.env` configuration file 
+- `firebase_key.json` Firebase credentials file 
+- PostgreSQL database setup
+- FFmpeg installation
+- Real-ESRGAN setup for AI upscaling
+
+If you require access to the necessary configuration files or setup assistance, please contact the project developers.
+
+---
+
 # Features
 
 ## Team Management
@@ -30,7 +47,12 @@ CoachAssist was developed as a capstone project focused on improving football an
 - Position and unit-based player organization
 
 ## Game Analysis
-- Track offensive, defensive, and special teams statistics
+- Upload and manage game footage
+  - Firebase cloud video storage
+  - YouTube video support
+  - AI video upscaling using Real-ESRGAN
+  - FFmpeg-based video processing
+- Track offensive, defensive, and special teams statistics and insights
 - Store game metrics and game state data
 - Filter statistics by:
   - Quarter
@@ -47,16 +69,9 @@ CoachAssist was developed as a capstone project focused on improving football an
 - Quarterly analysis charts
 - Statistical trend visualizations
 
-## Video Features
-- Upload and manage game footage
-- Firebase cloud video storage
-- YouTube video support
-- AI video upscaling using Real-ESRGAN
-- FFmpeg-based video processing
-
 ## AI Features
 - Google Gemini API integration
-- AI-assisted football analysis functionality
+- AI-assisted player and game analysis functionality
 
 ## Drawboards
 - Drawboard/play design support for football strategy visualization
@@ -221,13 +236,23 @@ Create a `.env` file inside the backend directory.
 Example:
 
 ```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/coachassist
+DATABASE_URL=your_postgresql_database_url
 
-SECRET_KEY=your_secret_key
+JWT_SECRET=your_jwt_secret
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_email_app_password
+EMAIL_FROM=your_email@gmail.com
 
 GEMINI_API_KEY=your_gemini_api_key
+```
 
-FIREBASE_KEY_PATH=backend/firebase_key.json
+Example file location:
+
+```plaintext
+backend/.env
 ```
 
 > Note:
@@ -248,7 +273,7 @@ CoachAssist uses Firebase Authentication and Firebase Storage.
 2. Enable Authentication
 3. Enable Cloud Storage
 4. Generate a Firebase Admin SDK key
-5. Download the JSON service account file
+5. Download the Firebase service account JSON file
 
 Place the Firebase service account file inside the backend directory.
 
@@ -257,6 +282,8 @@ Example:
 ```plaintext
 backend/firebase_key.json
 ```
+
+The backend references this file separately from the `.env` configuration.
 
 > Note:
 > - `firebase_key.json` is intentionally excluded from the repository for security reasons.
@@ -475,14 +502,12 @@ Implemented routers include:
 - Track player statistics and insights
 
 ## Game Analysis
-- Create and manage games
-- Input football statistics
-- Filter analytics and visualizations
-
-## Video Management
 - Upload videos
 - Review footage
 - Process videos with AI upscaling
+- Create and manage games
+- Input football statistics
+- Filter analytics and visualizations
 
 ## Visual Analytics
 Generate:
@@ -491,22 +516,34 @@ Generate:
 - Quarterly analysis charts
 - Comparative performance visualizations
 
----
-
-# Important Notes
-
-- Firebase credentials are not included in the repository.
-- The `.env` file is not included in the repository.
-- Contact the developers if you require the necessary configuration files.
-- FFmpeg is required for video processing functionality.
-- Real-ESRGAN is required for AI upscaling functionality.
-- Some screenshots or demo data used during development may contain placeholder or test data.
+## AI Analysis
+Use AI to generate:
+- Player data analysis and coaching suggestions
+- Game data analysis and coaching suggestions
+- Player and game data comparisons
 
 ---
 
 # Contributors
 
-CoachAssist Development Team
+CoachAssist Development Team:
+- Peter Van Vooren
+- Martin Vu
+- Jonathan Huang
+- Wences Jacob Lorenzo
+
+---
+
+# Documentation
+
+Additional project documentation sinclude:
+- [User Manual](https://docs.google.com/document/d/1IDtLCup9Jq9Y38kbZy0DPL3vBLqQgUucSmahqqwO_4A/edit?usp=sharing)
+- [Developer Guide](https://docs.google.com/document/d/1RGsEH9VHwX1k-LkpNbAK-6a0_ukgx-y8qjUWNJdMCwQ/edit?usp=sharing)
+- [Requirements Specification](https://docs.google.com/document/d/1re7wWnd4xR6sYgNfoOP_GGcPsiOS79bQ2sXhYNrzzLo/edit?usp=sharing)
+- [Design Specification](https://docs.google.com/document/d/1aCxxzzMlT7YNo01MrNByJYDU2-goPderv7a09FcrtdU/edit?usp=sharing)
+- [Test Documentation](https://docs.google.com/document/d/1ckfgRUYO-KRB_MI9sVYC6j0U7jmc90TORRYy9t0d3o4/edit?usp=sharing)
+
+Please refer to the project submission files or contact the developers for access to additional documentation.
 
 ---
 
