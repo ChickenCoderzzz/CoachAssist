@@ -543,7 +543,8 @@ Additional project documentation sinclude:
 - [Design Specification](https://docs.google.com/document/d/1aCxxzzMlT7YNo01MrNByJYDU2-goPderv7a09FcrtdU/edit?usp=sharing)
 - [Test Documentation](https://docs.google.com/document/d/1ckfgRUYO-KRB_MI9sVYC6j0U7jmc90TORRYy9t0d3o4/edit?usp=sharing)
 
-Please refer to the project submission files or contact the developers for access to additional documentation.
+> Note:
+> Some documentation formatting and visual indicators follow assignment submission guidelines. Please refer to the provided legends, labels, and formatting references within each document when applicable.
 
 ---
 
