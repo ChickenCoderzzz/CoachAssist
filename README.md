@@ -1,7 +1,7 @@
 # CoachAssist
 
 <p align="center">
-  <img src="CoachAssistLogo.png" width="900">
+  <img src="CoachAssistLogo.png" width="500">
 </p>
 
 CoachAssist is a football analytics and game analysis platform designed to help coaches and analysts manage teams, review game footage, track player performance, and generate data-driven insights through interactive visualizations and AI-assisted tools.
