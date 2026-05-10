@@ -2,6 +2,8 @@
 
 CoachAssist is a football analytics and game analysis platform designed to help coaches and analysts manage teams, review game footage, track player performance, and generate data-driven insights through interactive visualizations and AI-assisted tools.
 
+CoachAssist is intended to run locally in a development environment for academic demonstration purposes. The project is fully deployable and includes the required backend/frontend source code, configuration structure, dependency setup, and startup instructions necessary to run the application locally.
+
 The system combines:
 - Team and roster management
 - Game and player analytics
@@ -17,18 +19,20 @@ CoachAssist was developed as a capstone project focused on improving football an
 
 # Important Notes
 
-Before running CoachAssist, please read through the setup instructions provided in this README or in the linked Developer Guide at the end of this README
+Before running CoachAssist, please read through the setup instructions provided in this README or in the linked Developer Guide in the Documentation at the end of this README.
 
 This project requires additional configuration files and external dependencies that are intentionally excluded from the repository for security reasons.
 
 Required setup items include:
-- `.env` configuration file 
-- `firebase_key.json` Firebase credentials file 
+- `.env` configuration file
+- `firebase_key.json` Firebase credentials file
 - PostgreSQL database setup
 - FFmpeg installation
 - Real-ESRGAN setup for AI upscaling
 
-If you require access to the necessary configuration files or setup assistance, please contact the project developers.
+AI upscaling features may not function correctly unless Real-ESRGAN and FFmpeg are properly configured.
+
+If you require access to the necessary configuration files (.env and firebase_key.json) or setup assistance, please contact the project developers.
 
 ---
 
@@ -97,7 +101,7 @@ frontend/vite-project/
 ## Backend
 - FastAPI
 - Python
-- PostgreSQL
+- PostgreSQL (tested with NeonDB cloud-hosted PostgreSQL)
 
 Backend source:
 
@@ -173,7 +177,7 @@ Install the following before running the project:
 ## 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/ChickenCoderzzz/CoachAssist.git
 cd CoachAssist
 ```
 
@@ -317,17 +321,29 @@ GEMINI_API_KEY=your_api_key_here
 
 FFmpeg is required for video processing and AI upscaling.
 
----
-
 ## Windows
 
 ### Download FFmpeg
 
-Download FFmpeg from the official website.
+Download FFmpeg from the official website:
+
+https://www.gyan.dev/ffmpeg/builds/
+
+Recommended download:
+
+```plaintext
+ffmpeg-release-essentials.zip
+```
 
 ### Extract FFmpeg
 
-Extract the ZIP file.
+Extract the ZIP file to a permanent location.
+
+Example:
+
+```plaintext
+C:\ffmpeg
+```
 
 ### Add FFmpeg to PATH
 
@@ -345,15 +361,11 @@ C:\ffmpeg\bin
 ffmpeg -version
 ```
 
----
-
 ## Linux
 
 ```bash
 sudo apt install ffmpeg
 ```
-
----
 
 ## macOS
 
@@ -396,8 +408,6 @@ Open a new terminal and move into the frontend project directory:
 cd frontend/vite-project
 ```
 
----
-
 ## 12. Install Frontend Dependencies
 
 ```bash
@@ -421,8 +431,6 @@ Backend server:
 ```plaintext
 http://localhost:8000
 ```
-
----
 
 ## 14. Start the Frontend Development Server
 
@@ -510,6 +518,7 @@ Implemented routers include:
 - Filter analytics and visualizations
 
 ## Visual Analytics
+
 Generate:
 - Radar charts
 - Statistical trend graphs
@@ -517,6 +526,7 @@ Generate:
 - Comparative performance visualizations
 
 ## AI Analysis
+
 Use AI to generate:
 - Player data analysis and coaching suggestions
 - Game data analysis and coaching suggestions
@@ -536,7 +546,8 @@ CoachAssist Development Team:
 
 # Documentation
 
-Additional project documentation sinclude:
+Additional project documentation includes:
+
 - [User Manual](https://docs.google.com/document/d/1IDtLCup9Jq9Y38kbZy0DPL3vBLqQgUucSmahqqwO_4A/edit?usp=sharing)
 - [Developer Guide](https://docs.google.com/document/d/1RGsEH9VHwX1k-LkpNbAK-6a0_ukgx-y8qjUWNJdMCwQ/edit?usp=sharing)
 - [Requirements Specification](https://docs.google.com/document/d/1re7wWnd4xR6sYgNfoOP_GGcPsiOS79bQ2sXhYNrzzLo/edit?usp=sharing)
