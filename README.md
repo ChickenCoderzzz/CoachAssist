@@ -19,7 +19,7 @@ The system combines:
 
 CoachAssist was developed as a capstone project focused on improving football analysis workflows through centralized analytics and integrated tooling.
 
-# [Demo Video]()
+# [Demo Video](https://youtu.be/1hKbSrsDyaY)
 
 ---
 
