@@ -278,14 +278,14 @@ export default function useVideos(teamId, matchId) {
                     body: JSON.stringify({ start, end })
                 }
             );
-
+            
             const data = await res.json();
 
             if (!res.ok) {
                 alert("Clip failed: " + JSON.stringify(data));
                 return;
             }
-
+            startUploadPolling(data.job_id);
             return data; // { status, job_id }
 
         } catch (err) {
