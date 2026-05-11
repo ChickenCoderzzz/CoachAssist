@@ -313,6 +313,10 @@ The backend references this file separately from the `.env` configuration.
 
 CoachAssist integrates the Google Gemini API for AI-assisted functionality.
 
+> If a valid Gemini API key has already been provided through the `.env` configuration file included in the private configuration files, additional Gemini API setup may not be necessary.
+>
+> Otherwise, generate and configure a Gemini API key manually using the steps below.
+
 ### Steps
 
 1. Create a Google AI Studio account
