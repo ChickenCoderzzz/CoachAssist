@@ -229,7 +229,9 @@ pip install -r requirements.txt
 
 ## 5. Create PostgreSQL Database
 
-Create a PostgreSQL database for CoachAssist.
+If access to the existing configured database is unavailable, create a PostgreSQL database for CoachAssist manually.
+
+If the provided `.env` configuration already contains working database credentials, additional PostgreSQL setup may not be necessary.
 
 Example:
 
@@ -237,7 +239,7 @@ Example:
 CREATE DATABASE coachassist;
 ```
 
----
+The application was tested using NeonDB cloud-hosted PostgreSQL.
 
 ## 6. Configure Environment Variables
 
@@ -276,6 +278,10 @@ backend/.env
 ## 7. Configure Firebase
 
 CoachAssist uses Firebase Authentication and Firebase Storage.
+
+> If a valid `firebase_key.json` file has already been provided through the private configuration files, additional Firebase project setup may not be necessary.
+>
+> Otherwise, create and configure a Firebase project manually using the steps below.
 
 ### Steps
 
