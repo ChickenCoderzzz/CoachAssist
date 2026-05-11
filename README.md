@@ -12,10 +12,10 @@ The system combines:
 - Team and roster management
 - Game and player analytics
 - Video upload and playback
-- AI-powered video upscaling
+- AI-powered video upscaling and performance analysis
 - Drawboard/play design functionality
 - Firebase authentication and cloud storage
-- Statistical visualizations and filtering tools
+- Statistical visualizations with filtering options
 
 CoachAssist was developed as a capstone project focused on improving football analysis workflows through centralized analytics and integrated tooling.
 
