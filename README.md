@@ -243,8 +243,9 @@ The application was tested using NeonDB cloud-hosted PostgreSQL.
 
 ## 6. Configure Environment Variables
 
-Create a `.env` file inside the backend directory.
-
+> If a valid `.env` file has already been provided through the private configuration files, additional environment variable setup may not be necessary.
+>
+> Otherwise, create and configure the `.env` file manually using the example below.
 Example:
 
 ```env
